@@ -10,7 +10,7 @@ class WebVTTParser:
         with open(file, encoding='utf-8') as f:
             self._parse(f.readlines())
         if not self.is_valid():
-            raise MalformedFileError
+            raise MalformedFileError('The file does not have a valid format')
 
         return self
 
