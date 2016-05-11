@@ -21,3 +21,9 @@ class WebVTTParserTestCase(unittest.TestCase):
             MalformedFileError,
             self.parser.read,
             os.path.join(SUBTITLES_DIR, 'invalid.vtt'))
+
+    def test_parser_empty_file(self):
+        self.assertRaises(
+            MalformedFileError,
+            self.parser.read,
+            os.path.join(SUBTITLES_DIR, 'empty.vtt'))
