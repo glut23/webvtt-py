@@ -1,0 +1,22 @@
+WEBVTT
+
+00:00:00.500 --> 00:00:07.000
+In this video, we're going to talk about how to scale your web-based Azure services.
+
+00:00:07.000 --> 00:00:11.890
+So in order to basically do this, obviously you need to have an Azure account
+
+00:00:11.890 --> 00:00:16.320
+with some Azure mobile or web services deployed,
+
+00:00:16.320 --> 00:00:21.580
+and on the screen here, I'm logged into my test account.
+
+00:00:21.580 --> 00:00:23.880
+So if I was going to look at scaling,
+
+00:00:23.880 --> 00:00:27.280
+I would have to look at, again, one of the types of services I was just describing.
+
+00:00:27.280 --> 00:00:30.280
+But, you know, you can scale just about any of the services to be quite honest,
