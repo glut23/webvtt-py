@@ -1,5 +1,6 @@
 import os
 import unittest
+from datetime import time
 
 from webvtt import WebVTTParser
 from webvtt.exceptions import MalformedFileError, MalformedCaptionError
@@ -20,28 +21,32 @@ class WebVTTParserTestCase(unittest.TestCase):
         self.assertRaises(
             MalformedFileError,
             self.parser.read,
-            os.path.join(SUBTITLES_DIR, 'invalid.vtt'))
+            os.path.join(SUBTITLES_DIR, 'invalid.vtt')
+        )
 
     def test_parser_empty_file(self):
         self.assertRaises(
             MalformedFileError,
             self.parser.read,
-            os.path.join(SUBTITLES_DIR, 'empty.vtt'))
+            os.path.join(SUBTITLES_DIR, 'empty.vtt')
+        )
 
     def test_parser_get_captions(self):
         self.assertEqual(
-            len(self.parser.read(os.path.join(SUBTITLES_DIR, 'sample.vtt')).captions), 7)
+            len(self.parser.read(os.path.join(SUBTITLES_DIR, 'sample.vtt')).captions), 7
+        )
 
     def test_parser_invalid_timeframe_line(self):
         self.assertRaises(
             MalformedCaptionError,
             self.parser.read,
-            os.path.join(SUBTITLES_DIR, 'invalid_timeframe.vtt'))
+            os.path.join(SUBTITLES_DIR, 'invalid_timeframe.vtt')
+        )
 
     def test_parser_get_caption_data(self):
         self.parser.read(os.path.join(SUBTITLES_DIR, 'one_caption.vtt'))
-        self.assertEqual(self.parser.captions[0].start, '00:00:00.500')
-        self.assertEqual(self.parser.captions[0].end, '00:00:07.000')
+        self.assertEqual(self.parser.captions[0].start, time(0, 0, 0, 500))
+        self.assertEqual(self.parser.captions[0].end, time(0, 0, 7, 000))
         self.assertEqual(self.parser.captions[0].lines[0], 'Caption text #1')
         self.assertEqual(len(self.parser.captions[0].lines), 1)
 
@@ -49,4 +54,10 @@ class WebVTTParserTestCase(unittest.TestCase):
         self.assertRaises(
             MalformedCaptionError,
             self.parser.read,
-            os.path.join(SUBTITLES_DIR, 'missing_timeframe.vtt'))
+            os.path.join(SUBTITLES_DIR, 'missing_timeframe.vtt')
+        )
+
+    def test_timestamps_format(self):
+        self.parser.read(os.path.join(SUBTITLES_DIR, 'sample.vtt'))
+        self.assertEqual(self.parser.captions[2].start, time(0, 0, 11, 890))
+        self.assertEqual(self.parser.captions[2].end, time(0, 0, 16, 320))

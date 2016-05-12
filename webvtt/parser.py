@@ -1,12 +1,17 @@
 import re
+from datetime import time
 
 from .generic import Caption
 from .exceptions import MalformedFileError, MalformedCaptionError
 
 TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d+:\d{2}:\d{2}.\d{3})\s*-->\s*(\d+:\d{2}:\d{2}.\d{3})')
+TIMESTAMP_PATTERN = re.compile('(\d+):(\d{2}):(\d{2}).(\d{3})')
 
 
 class WebVTTParser:
+
+    def __init__(self):
+        self.captions = []
 
     def _parse_timeframe_line(self, line, line_number):
         """Parse timeframe line and return start and end timestamps"""
@@ -14,7 +19,20 @@ class WebVTTParser:
         if not res:
             raise MalformedCaptionError('Invalid time format in line {}'.format(line_number))
 
-        return res.group(1), res.group(2)
+        start = self._parse_timestamp(res.group(1))
+        end = self._parse_timestamp(res.group(2))
+
+        return start, end
+
+    def _parse_timestamp(self, timestamp):
+        res = re.match(TIMESTAMP_PATTERN, timestamp)
+
+        return time(
+            int(res.group(1)),  # hours
+            int(res.group(2)),  # minutes
+            int(res.group(3)),  # seconds
+            int(res.group(4))  # miliseconds
+        )
 
     def _parse(self, lines):
         c = None
