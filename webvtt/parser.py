@@ -43,7 +43,7 @@ class WebVTTParser:
         self.captions = []
 
         with open(file, encoding='utf-8') as f:
-            lines = [line.strip() for line in f.readlines()]
+            lines = [line.rstrip() for line in f.readlines()]
 
         if len(lines) == 0:
             raise MalformedFileError('The file is empty')
