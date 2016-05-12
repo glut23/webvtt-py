@@ -33,7 +33,7 @@ class WebVTTParserTestCase(unittest.TestCase):
 
     def test_parser_get_captions(self):
         self.assertEqual(
-            len(self.parser.read(os.path.join(SUBTITLES_DIR, 'sample.vtt')).captions), 7
+            len(self.parser.read(os.path.join(SUBTITLES_DIR, 'sample.vtt')).captions), 16
         )
 
     def test_parser_invalid_timeframe_line(self):
