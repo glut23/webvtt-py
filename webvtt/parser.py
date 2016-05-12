@@ -16,10 +16,9 @@ class WebVTTParser:
 
         return res.group(1), res.group(2)
 
-    def _parse(self):
+    def _parse(self, lines):
         c = None
-        for index, line in enumerate(self.lines[1:]):
-            line = line.strip()
+        for index, line in enumerate(lines):
             if '-->' in line:
                 start, end = self._parse_timeframe_line(line, index)
                 c = Caption(start, end)
@@ -44,13 +43,13 @@ class WebVTTParser:
         self.captions = []
 
         with open(file, encoding='utf-8') as f:
-            self.lines = f.readlines()
+            lines = [line.strip() for line in f.readlines()]
 
-        if len(self.lines) == 0:
+        if len(lines) == 0:
             raise MalformedFileError('The file is empty')
-        if 'WEBVTT' not in self.lines[0]:
+        if 'WEBVTT' not in lines[0]:
             raise MalformedFileError('The file does not have a valid format')
 
-        self._parse()
+        self._parse(lines[1:])
 
         return self
