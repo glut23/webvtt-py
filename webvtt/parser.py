@@ -71,3 +71,7 @@ class WebVTTParser:
         self._parse(lines[1:])
 
         return self
+
+    @property
+    def total_length(self):
+        return self.captions[-1].end_in_seconds - self.captions[0].start_in_seconds
