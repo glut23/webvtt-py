@@ -6,13 +6,17 @@ from .generic import Caption
 
 
 class WebVTTSegmenter(object):
-    MPEGTS = 900000
-    SECONDS = 10  # default number of seconds per segment
+    DEFAULT_MPEGTS = 900000
+    DEFAULT_SECONDS = 10  # default number of seconds per segment
 
     def __init__(self):
         self.total_segments = 0
         self._output_folder = ''
         self._seconds = 0
+
+    @property
+    def seconds(self):
+        return self._seconds
 
     def _validate_captions(self, captions):
         """validates that the captions is a list and all the captions are instances of Caption"""
@@ -37,7 +41,7 @@ class WebVTTSegmenter(object):
             f.write('#EXTM3U\n')
             f.write('#EXT-X-TARGETDURATION:\n')
 
-    def segment(self, captions, output='', seconds=SECONDS):
+    def segment(self, captions, output='', seconds=DEFAULT_SECONDS):
         if not self._validate_captions(captions):
             raise InvalidCaptionsError('The captions provided are invalid')
 
