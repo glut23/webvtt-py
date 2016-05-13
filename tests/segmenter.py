@@ -66,7 +66,24 @@ class WebVTTSegmenterTestCase(unittest.TestCase):
     def test_manifest_content(self):
         self._parse_captions('sample.vtt')
         self.segmenter.segment(self.parser.captions, OUTPUT_DIR, 10)
+
         with open(os.path.join(OUTPUT_DIR, 'prog_index.m3u8'), 'r', encoding='utf-8') as f:
             lines = [line.rstrip() for line in f.readlines()]
-            self.assertEqual(lines[0], '#EXTM3U')
-            self.assertEqual(lines[1], '#EXT-X-TARGETDURATION:')
+
+            expected_lines = [
+                '#EXTM3U',
+                '#EXT-X-TARGETDURATION:{}'.format(self.segmenter.seconds),
+                '#EXT-X-VERSION:3',
+                '#EXT-X-PLAYLIST-TYPE:VOD',
+            ]
+
+            for i in range(7):
+                expected_lines.extend([
+                    '#EXTINF:30.00000',
+                    'fileSequence{}.webvtt'.format(i)
+                ])
+
+            expected_lines.append('#EXT-X-ENDLIST')
+
+            for index, line in enumerate(expected_lines):
+                self.assertEqual(lines[index], line)
