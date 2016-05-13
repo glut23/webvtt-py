@@ -6,3 +6,7 @@ class MalformedFileError(Exception):
 
 class MalformedCaptionError(Exception):
     """Error raised when a caption is not well formatted"""
+
+
+class InvalidCaptionsError(Exception):
+    """Error raised when passing wrong captions to the segmenter"""
