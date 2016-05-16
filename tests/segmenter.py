@@ -103,6 +103,26 @@ class WebVTTSegmenterTestCase(unittest.TestCase):
         self.assertIn(self.parser.captions[14], self.segmenter.segments[6])
         self.assertIn(self.parser.captions[15], self.segmenter.segments[6])
 
+    def test_segment_content(self):
+        self._parse_captions('sample.vtt')
+        self.segmenter.segment(self.parser.captions, OUTPUT_DIR, 10)
+
+        with open(os.path.join(OUTPUT_DIR, 'fileSequence0.webvtt'), 'r', encoding='utf-8') as f:
+            lines = [line.rstrip() for line in f.readlines()]
+
+            expected_lines = [
+                'WEBVTT',
+                'X-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000',
+                '',
+                '00:00:00.500 --> 00:00:07.000',
+                'Caption text #1',
+                '',
+                '00:00:07.000 --> 00:00:11.890',
+                'Caption text #2'
+            ]
+
+            self.assertListEqual(lines, expected_lines)
+
     def test_manifest_content(self):
         self._parse_captions('sample.vtt')
         self.segmenter.segment(self.parser.captions, OUTPUT_DIR, 10)
