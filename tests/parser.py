@@ -1,10 +1,8 @@
 import os
 import unittest
-from datetime import time
 
-from webvtt import WebVTTParser
+from webvtt import WebVTT
 from webvtt.exceptions import MalformedFileError, MalformedCaptionError
-from webvtt.generic import Caption
 
 SUBTITLES_DIR = os.path.dirname(os.path.dirname(__file__))
 SUBTITLES_DIR = os.path.join(SUBTITLES_DIR, 'tests/subtitles')
@@ -13,7 +11,7 @@ SUBTITLES_DIR = os.path.join(SUBTITLES_DIR, 'tests/subtitles')
 class WebVTTParserTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.parser = WebVTTParser()
+        self.parser = WebVTT()
 
     def _get_file(self, filename):
         return os.path.join(SUBTITLES_DIR, filename)

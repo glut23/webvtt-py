@@ -4,7 +4,7 @@ from shutil import rmtree
 
 from webvtt import WebVTTSegmenter, Caption
 from webvtt.exceptions import InvalidCaptionsError
-from webvtt.parser import WebVTTParser
+from webvtt.parser import WebVTT
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 SUBTITLES_DIR = os.path.join(BASE_DIR, 'tests/subtitles')
@@ -21,7 +21,7 @@ class WebVTTSegmenterTestCase(unittest.TestCase):
             rmtree(OUTPUT_DIR)
 
     def _parse_captions(self, filename):
-        self.parser = WebVTTParser().read(os.path.join(SUBTITLES_DIR, filename))
+        self.parser = WebVTT().read(os.path.join(SUBTITLES_DIR, filename))
 
     def test_invalid_captions(self):
         self.assertRaises(

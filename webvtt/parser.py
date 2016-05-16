@@ -7,7 +7,7 @@ TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d+:\d{2}:\d{2}.\d{3})\s*-->\s*(\d+:\d{
 TIMESTAMP_PATTERN = re.compile('(\d+):(\d{2}):(\d{2}).(\d{3})')
 
 
-class WebVTTParser:
+class WebVTT:
 
     def __init__(self):
         self.captions = []
