@@ -63,6 +63,46 @@ class WebVTTSegmenterTestCase(unittest.TestCase):
             )
         self.assertTrue(os.path.exists(os.path.join(OUTPUT_DIR, 'prog_index.m3u8')))
 
+    def test_segmentation(self):
+        self._parse_captions('sample.vtt')
+        self.segmenter.segment(self.parser.captions, OUTPUT_DIR)
+
+        # segment 1 should have caption 1 and 2
+        self.assertEqual(len(self.segmenter.segments[0]), 2)
+        self.assertIn(self.parser.captions[0], self.segmenter.segments[0])
+        self.assertIn(self.parser.captions[1], self.segmenter.segments[0])
+        # segment 2 should have caption 2 again (overlap), 3 and 4
+        self.assertEqual(len(self.segmenter.segments[1]), 3)
+        self.assertIn(self.parser.captions[2], self.segmenter.segments[1])
+        self.assertIn(self.parser.captions[3], self.segmenter.segments[1])
+        # segment 3 should have caption 4 again (overlap), 5, 6 and 7
+        self.assertEqual(len(self.segmenter.segments[2]), 4)
+        self.assertIn(self.parser.captions[3], self.segmenter.segments[2])
+        self.assertIn(self.parser.captions[4], self.segmenter.segments[2])
+        self.assertIn(self.parser.captions[5], self.segmenter.segments[2])
+        self.assertIn(self.parser.captions[6], self.segmenter.segments[2])
+        # segment 4 should have caption 7 again (overlap), 8, 9 and 10
+        self.assertEqual(len(self.segmenter.segments[3]), 4)
+        self.assertIn(self.parser.captions[6], self.segmenter.segments[3])
+        self.assertIn(self.parser.captions[7], self.segmenter.segments[3])
+        self.assertIn(self.parser.captions[8], self.segmenter.segments[3])
+        self.assertIn(self.parser.captions[9], self.segmenter.segments[3])
+        # segment 5 should have caption 10 again (overlap), 11 and 12
+        self.assertEqual(len(self.segmenter.segments[4]), 3)
+        self.assertIn(self.parser.captions[9], self.segmenter.segments[4])
+        self.assertIn(self.parser.captions[10], self.segmenter.segments[4])
+        self.assertIn(self.parser.captions[11], self.segmenter.segments[4])
+        # segment 6 should have caption 12 again (overlap), 13, 14 and 15
+        self.assertEqual(len(self.segmenter.segments[5]), 4)
+        self.assertIn(self.parser.captions[11], self.segmenter.segments[5])
+        self.assertIn(self.parser.captions[12], self.segmenter.segments[5])
+        self.assertIn(self.parser.captions[13], self.segmenter.segments[5])
+        self.assertIn(self.parser.captions[14], self.segmenter.segments[5])
+        # segment 7 should have caption 15 again (overlap) and 16
+        self.assertEqual(len(self.segmenter.segments[6]), 2)
+        self.assertIn(self.parser.captions[14], self.segmenter.segments[6])
+        self.assertIn(self.parser.captions[15], self.segmenter.segments[6])
+
     def test_manifest_content(self):
         self._parse_captions('sample.vtt')
         self.segmenter.segment(self.parser.captions, OUTPUT_DIR, 10)
