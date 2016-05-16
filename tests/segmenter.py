@@ -147,3 +147,11 @@ class WebVTTSegmenterTestCase(unittest.TestCase):
 
             for index, line in enumerate(expected_lines):
                 self.assertEqual(lines[index], line)
+
+    def test_customize_mpegts(self):
+        self._parse_captions('sample.vtt')
+        self.segmenter.segment(self.parser.captions, OUTPUT_DIR, mpegts=800000)
+
+        with open(os.path.join(OUTPUT_DIR, 'fileSequence0.webvtt'), 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            self.assertIn('MPEGTS:800000', lines[1])
