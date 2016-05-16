@@ -56,8 +56,10 @@ class WebVTTParserTestCase(unittest.TestCase):
 
     def test_parser_get_caption_data(self):
         self.parser.read(self._get_file('one_caption.vtt'))
-        self.assertEqual(self.parser.captions[0].start, time(0, 0, 0, 500))
-        self.assertEqual(self.parser.captions[0].end, time(0, 0, 7, 000))
+        self.assertEqual(self.parser.captions[0].start, 0.5)
+        self.assertEqual(self.parser.captions[0].start_as_timestamp, '00:00:00.500')
+        self.assertEqual(self.parser.captions[0].end, 7)
+        self.assertEqual(self.parser.captions[0].end_as_timestamp, '00:00:07.000')
         self.assertEqual(self.parser.captions[0].lines[0], 'Caption text #1')
         self.assertEqual(len(self.parser.captions[0].lines), 1)
 
@@ -70,17 +72,17 @@ class WebVTTParserTestCase(unittest.TestCase):
 
     def test_timestamps_format(self):
         self.parser.read(self._get_file('sample.vtt'))
-        self.assertEqual(self.parser.captions[2].start, time(0, 0, 11, 890))
-        self.assertEqual(self.parser.captions[2].end, time(0, 0, 16, 320))
+        self.assertEqual(self.parser.captions[2].start_as_timestamp, '00:00:11.890')
+        self.assertEqual(self.parser.captions[2].end_as_timestamp, '00:00:16.320')
 
-    def test_caption_start_in_seconds(self):
+    def test_parse_timestamp(self):
         self.assertEqual(
-            Caption(start=time(2, 3, 11, 890)).start_in_seconds,
-            7391
+            self.parser._parse_timestamp('02:03:11.890'),
+            7391.89
         )
 
-    def test_caption_end_in_seconds(self):
+    def test_seconds_conversion(self):
         self.assertEqual(
-            Caption(end=time(2, 3, 11, 890)).end_in_seconds,
-            7391
+            self.parser._to_seconds(2, 3, 11, 890),
+            7391.89
         )

@@ -1,5 +1,4 @@
 import re
-from datetime import time
 
 from .generic import Caption
 from .exceptions import MalformedFileError, MalformedCaptionError
@@ -12,6 +11,9 @@ class WebVTTParser:
 
     def __init__(self):
         self.captions = []
+
+    def _to_seconds(self, hours, minutes, seconds, milliseconds):
+        return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000
 
     def _parse_timeframe_line(self, line, line_number):
         """Parse timeframe line and return start and end timestamps"""
@@ -26,8 +28,7 @@ class WebVTTParser:
 
     def _parse_timestamp(self, timestamp):
         res = re.match(TIMESTAMP_PATTERN, timestamp)
-
-        return time(
+        return self._to_seconds(
             int(res.group(1)),  # hours
             int(res.group(2)),  # minutes
             int(res.group(3)),  # seconds
@@ -74,4 +75,4 @@ class WebVTTParser:
 
     @property
     def total_length(self):
-        return self.captions[-1].end_in_seconds - self.captions[0].start_in_seconds
+        return int(self.captions[-1].end) - int(self.captions[0].start)
