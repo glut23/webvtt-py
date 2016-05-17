@@ -33,6 +33,12 @@ class WebVTTParserTestCase(unittest.TestCase):
             64
         )
 
+    def test_total_length_no_parser(self):
+        self.assertEqual(
+            self.webvtt.total_length,
+            0
+        )
+
     def test_parser_empty_file(self):
         self.assertRaises(
             MalformedFileError,

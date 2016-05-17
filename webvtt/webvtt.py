@@ -28,8 +28,8 @@ class WebVTT:
 
     def _set_reader(self, name, format_, parser_class):
         def f(self, file):
-            self.parser = parser_class()
-            return self.parser.read(file)
+            self.parser = parser_class().read(file)
+            return self
 
         f.__name__ = name
         if format_ == 'webvtt':
@@ -51,4 +51,6 @@ class WebVTT:
     @property
     def total_length(self):
         """Returns the total length of the captions."""
+        if not self.captions:
+            return 0
         return int(self.captions[-1].end) - int(self.captions[0].start)
