@@ -1,65 +1,55 @@
-import os
-import unittest
+from .generic import GenericParserTestCase
 
 from webvtt import WebVTT
 from webvtt.generic import GenericParser
 from webvtt.exceptions import MalformedFileError, MalformedCaptionError
 
-SUBTITLES_DIR = os.path.dirname(os.path.dirname(__file__))
-SUBTITLES_DIR = os.path.join(SUBTITLES_DIR, 'tests/subtitles')
 
+class WebVTTParserTestCase(GenericParserTestCase):
 
-class WebVTTParserTestCase(unittest.TestCase):
-
-    def setUp(self):
-        self.webvtt = WebVTT()
-
-    def _get_file(self, filename):
-        return os.path.join(SUBTITLES_DIR, filename)
-
-    def test_parser_valid_webvtt(self):
-        self.assertTrue(self.webvtt.read(self._get_file('sample.vtt')).captions)
-
-    def test_parser_invalid_webvtt(self):
+    def test_webvtt_parse_invalid_file(self):
         self.assertRaises(
             MalformedFileError,
             self.webvtt.read,
             self._get_file('invalid.vtt')
         )
 
-    def test_total_length(self):
+    def test_webvtt_total_length(self):
         self.assertEqual(
             self.webvtt.read(self._get_file('sample.vtt')).total_length,
             64
         )
 
-    def test_total_length_no_parser(self):
+    def test_webvtt_total_length_no_parser(self):
         self.assertEqual(
             self.webvtt.total_length,
             0
         )
 
-    def test_parser_empty_file(self):
+    def test_webvtt__parse_captions(self):
+        self.assertTrue(self.webvtt.read(self._get_file('sample.vtt')).captions)
+
+    def test_webvtt_parse_empty_file(self):
         self.assertRaises(
             MalformedFileError,
             self.webvtt.read,
             self._get_file('empty.vtt')
         )
 
-    def test_parser_get_captions(self):
+    def test_webvtt_parse_get_captions(self):
         self.assertEqual(
             len(self.webvtt.read(self._get_file('sample.vtt')).captions),
             16
         )
 
-    def test_parser_invalid_timeframe_line(self):
+    def test_webvtt_parse_invalid_timeframe_line(self):
         self.assertRaises(
             MalformedCaptionError,
             self.webvtt.read,
             self._get_file('invalid_timeframe.vtt')
         )
 
-    def test_parser_get_caption_data(self):
+    def test_webvtt_parse_get_caption_data(self):
         self.webvtt.read(self._get_file('one_caption.vtt'))
         self.assertEqual(self.webvtt.captions[0].start, 0.5)
         self.assertEqual(self.webvtt.captions[0].start_as_timestamp, '00:00:00.500')
@@ -68,14 +58,14 @@ class WebVTTParserTestCase(unittest.TestCase):
         self.assertEqual(self.webvtt.captions[0].lines[0], 'Caption text #1')
         self.assertEqual(len(self.webvtt.captions[0].lines), 1)
 
-    def test_caption_without_timeframe(self):
+    def test_webvtt_caption_without_timeframe(self):
         self.assertRaises(
             MalformedCaptionError,
             self.webvtt.read,
             self._get_file('missing_timeframe.vtt')
         )
 
-    def test_timestamps_format(self):
+    def test_webvtt_timestamps_format(self):
         self.webvtt.read(self._get_file('sample.vtt'))
         self.assertEqual(self.webvtt.captions[2].start_as_timestamp, '00:00:11.890')
         self.assertEqual(self.webvtt.captions[2].end_as_timestamp, '00:00:16.320')
