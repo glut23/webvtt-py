@@ -47,3 +47,8 @@ class WebVTT:
     def captions(self):
         """Returns the list of parsed captions."""
         return [] if self.parser is None else self.parser.captions
+
+    @property
+    def total_length(self):
+        """Returns the total length of the captions."""
+        return int(self.captions[-1].end) - int(self.captions[0].start)
