@@ -1,29 +1,18 @@
 import re
 
 from webvtt.exceptions import MalformedFileError, MalformedCaptionError
-from webvtt.generic import GenericParser, Caption
+from webvtt.generic import Caption
+from .srt import SRTParser
 
-TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d+:\d{2}:\d{2}.\d{3})\s*-->\s*(\d+:\d{2}:\d{2}.\d{3})')
 
+class WebVTTParser(SRTParser):
 
-class WebVTTParser(GenericParser):
-
-    def _parse_timeframe_line(self, line, line_number):
-        """Parse timeframe line and return start and end timestamps"""
-        res = re.match(TIMEFRAME_LINE_PATTERN, line)
-        if not res:
-            raise MalformedCaptionError('Invalid time format in line {}'.format(line_number))
-
-        start = self._parse_timestamp(res.group(1))
-        end = self._parse_timestamp(res.group(2))
-
-        return start, end
+    TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d+:\d{2}:\d{2}.\d{3})\s*-->\s*(\d+:\d{2}:\d{2}.\d{3})')
 
     def _parse(self, file):
         c = None
 
-        with open(file, encoding='utf-8') as f:
-            lines = [line.rstrip() for line in f.readlines()]
+        lines = self._read_lines(file)
 
         if len(lines) == 0:
             raise MalformedFileError('The file is empty')
@@ -50,7 +39,3 @@ class WebVTTParser(GenericParser):
 
         if c is not None and c.lines:
             self.captions.append(c)
-
-    @property
-    def total_length(self):
-        return int(self.captions[-1].end) - int(self.captions[0].start)
