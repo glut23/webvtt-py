@@ -9,7 +9,9 @@ SECONDS = 10  # default number of seconds per segment
 
 
 class WebVTTSegmenter(object):
-
+    """
+    Provides segmentation of WebVTT captions for HTTP Live Streaming (HLS).
+    """
     def __init__(self):
         self.total_segments = 0
         self._output_folder = ''
@@ -17,12 +19,8 @@ class WebVTTSegmenter(object):
         self._mpegts = 0
         self.segments = []
 
-    @property
-    def seconds(self):
-        return self._seconds
-
     def _validate_captions(self, captions):
-        """validates that the captions is a list and all the captions are instances of Caption"""
+        # Validates that the captions is a list and all the captions are instances of Caption.
         if not isinstance(captions, list):
             return False
         for c in captions:
@@ -37,7 +35,7 @@ class WebVTTSegmenter(object):
             segment_index_start = floor(c.start / self.seconds)
             self.segments[segment_index_start].append(c)
 
-            # we also include a caption in other segments based on the end time
+            # Also include a caption in other segments based on the end time.
             segment_index_end = floor(c.end / self.seconds)
             if segment_index_end > segment_index_start:
                 for i in range(segment_index_start + 1, segment_index_end + 1):
@@ -70,6 +68,7 @@ class WebVTTSegmenter(object):
             f.write('#EXT-X-ENDLIST\n')
 
     def segment(self, captions, output='', seconds=SECONDS, mpegts=MPEGTS):
+        """Segments the captions based on a number of seconds."""
         if not self._validate_captions(captions):
             raise InvalidCaptionsError('The captions provided are invalid')
 
@@ -86,3 +85,7 @@ class WebVTTSegmenter(object):
         self._write_segments()
         self._write_manifest()
 
+    @property
+    def seconds(self):
+        """Returns the number of seconds used for segmenting captions."""
+        return self._seconds

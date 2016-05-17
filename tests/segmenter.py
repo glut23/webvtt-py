@@ -4,7 +4,7 @@ from shutil import rmtree
 
 from webvtt import WebVTTSegmenter, Caption
 from webvtt.exceptions import InvalidCaptionsError
-from webvtt.parser import WebVTT
+from webvtt import WebVTT
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 SUBTITLES_DIR = os.path.join(BASE_DIR, 'tests/subtitles')
