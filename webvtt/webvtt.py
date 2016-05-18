@@ -41,11 +41,24 @@ class WebVTT(object):
             f.__doc__ = 'Reads captions from a file in {} format.'.format(format_.upper())
         return f
 
-    def save(self):
-        # saving an original vtt file will overwrite the file
-        # and for files read from other formats will save as vtt
-        # with the same name and location
-        self.file = os.path.splitext(self.file)[0] + '.vtt'
+    def save(self, output=''):
+        if not output:
+            # saving an original vtt file will overwrite the file
+            # and for files read from other formats will save as vtt
+            # with the same name and location
+            self.file = os.path.splitext(self.file)[0] + '.vtt'
+        else:
+            target = os.path.join(os.getcwd(), output)
+            if os.path.isdir(target):
+                # if an output is provided and it is a directory
+                # the file will be saved in that location with the same name
+                filename = os.path.splitext(os.path.basename(self.file))[0]
+                self.file = os.path.join(target, '{}.vtt'.format(filename))
+            else:
+                if target[-3:].lower() != 'vtt':
+                    target += '.vtt'
+                # otherwise the file will be written in the specified location
+                self.file = target
 
         with open(self.file, 'w', encoding='utf-8') as f:
             f.write('WEBVTT\n')

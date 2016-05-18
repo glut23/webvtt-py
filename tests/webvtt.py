@@ -75,3 +75,26 @@ class WebVTTTestCase(unittest.TestCase):
         ]
 
         self.assertListEqual(lines, expected_lines)
+
+    def test_save_to_other_location(self):
+        target_path = os.path.join(OUTPUT_DIR, 'test_folder')
+        os.makedirs(target_path)
+
+        self.webvtt.read(self._get_file('one_caption.vtt')).save(target_path)
+        self.assertTrue(os.path.exists(os.path.join(target_path, 'one_caption.vtt')))
+
+    def test_save_specific_filename(self):
+        target_path = os.path.join(OUTPUT_DIR, 'test_folder')
+        os.makedirs(target_path)
+        output_file = os.path.join(target_path, 'custom_name.vtt')
+
+        self.webvtt.read(self._get_file('one_caption.vtt')).save(output_file)
+        self.assertTrue(os.path.exists(output_file))
+
+    def test_save_specific_filename_no_extension(self):
+        target_path = os.path.join(OUTPUT_DIR, 'test_folder')
+        os.makedirs(target_path)
+        output_file = os.path.join(target_path, 'custom_name')
+
+        self.webvtt.read(self._get_file('one_caption.vtt')).save(output_file)
+        self.assertTrue(os.path.exists(os.path.join(target_path, 'custom_name.vtt')))
