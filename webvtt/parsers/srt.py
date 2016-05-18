@@ -14,10 +14,7 @@ class SRTParser(GenericParser):
         if not tf:
             raise MalformedCaptionError('Invalid time format in line {}'.format(line_number))
 
-        start = self._parse_timestamp(tf.group(1))
-        end = self._parse_timestamp(tf.group(2))
-
-        return start, end
+        return tf.group(1), tf.group(2)
 
     def _validate_timeframe_line(self, line):
         return re.match(self.TIMEFRAME_LINE_PATTERN, line)

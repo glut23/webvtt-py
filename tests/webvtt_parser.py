@@ -1,7 +1,7 @@
 from .generic import GenericParserTestCase
 
 from webvtt import WebVTT
-from webvtt.generic import GenericParser
+from webvtt.generic import GenericParser, Caption
 from webvtt.exceptions import MalformedFileError, MalformedCaptionError
 
 
@@ -71,14 +71,9 @@ class WebVTTParserTestCase(GenericParserTestCase):
         self.assertEqual(self.webvtt.captions[2].end_as_timestamp, '00:00:16.320')
 
     def test_parse_timestamp(self):
+        caption = Caption(start='02:03:11.890')
         self.assertEqual(
-            GenericParser()._parse_timestamp('02:03:11.890'),
-            7391.89
-        )
-
-    def test_seconds_conversion(self):
-        self.assertEqual(
-            GenericParser()._to_seconds(2, 3, 11, 890),
+            caption.start,
             7391.89
         )
 

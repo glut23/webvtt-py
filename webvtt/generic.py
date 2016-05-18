@@ -1,19 +1,31 @@
 import re
 
-TIMESTAMP_PATTERN = re.compile('(\d+):(\d{2}):(\d{2}).(\d{3})')
+TIMESTAMP_PATTERN = re.compile('(\d+):(\d{2}):(\d{2})[.,](\d{3})')
 
 
 class Caption(object):
     """
-    Represents a caption
+    Represents a caption.
     """
-    def __init__(self, start=0, end=0, lines=None):
-        self.start = start
-        self.end = end
+    def __init__(self, start='00:00:00.000', end='00:00:00.000', lines=None):
+        self.start = self._parse_timestamp(start)
+        self.end = self._parse_timestamp(end)
         self.lines = lines or []
 
     def add_line(self, line):
         self.lines.append(line)
+
+    def _to_seconds(self, hours, minutes, seconds, milliseconds):
+        return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000
+
+    def _parse_timestamp(self, timestamp):
+        res = re.match(TIMESTAMP_PATTERN, timestamp)
+        return self._to_seconds(
+            int(res.group(1)),  # hours
+            int(res.group(2)),  # minutes
+            int(res.group(3)),  # seconds
+            int(res.group(4))  # milliseconds
+        )
 
     def _to_timestamp(self, total_seconds):
         hours = int(total_seconds / 3600)
@@ -46,15 +58,3 @@ class GenericParser(object):
         self._parse(file)
 
         return self
-
-    def _to_seconds(self, hours, minutes, seconds, milliseconds):
-        return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000
-
-    def _parse_timestamp(self, timestamp):
-        res = re.match(TIMESTAMP_PATTERN, timestamp)
-        return self._to_seconds(
-            int(res.group(1)),  # hours
-            int(res.group(2)),  # minutes
-            int(res.group(3)),  # seconds
-            int(res.group(4))  # milliseconds
-        )
