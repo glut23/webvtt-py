@@ -1,3 +1,4 @@
+import os
 from .parsers import WebVTTParser, SRTParser
 
 SUPPORTED_FORMATS = (
@@ -6,7 +7,7 @@ SUPPORTED_FORMATS = (
 )
 
 
-class WebVTT:
+class WebVTT(object):
     """
     Parse captions in WebVTT format and also from other formats like SRT.
     To read WebVTT:
@@ -17,7 +18,8 @@ class WebVTT:
     A list of all supported formats is available calling supported_formats().
     """
     def __init__(self):
-        self.parser = None
+        self.captions = []
+        self.file = ''
 
         # create methods dynamically to read captions based on the supported types
         # read() is created for WebVTT and from_[FORMAT]() for the other formats.
@@ -28,7 +30,8 @@ class WebVTT:
 
     def _set_reader(self, name, format_, parser_class):
         def f(self, file):
-            self.parser = parser_class().read(file)
+            self.file = file
+            self.captions = parser_class().read(file).captions
             return self
 
         f.__name__ = name
@@ -38,15 +41,22 @@ class WebVTT:
             f.__doc__ = 'Reads captions from a file in {} format.'.format(format_.upper())
         return f
 
+    def save(self):
+        # saving an original vtt file will overwrite the file
+        # and for files read from other formats will save as vtt
+        # with the same name and location
+        self.file = os.path.splitext(self.file)[0] + '.vtt'
+
+        with open(self.file, 'w', encoding='utf-8') as f:
+            f.write('WEBVTT\n')
+            for c in self.captions:
+                f.write('\n{} --> {}\n'.format(c.start_as_timestamp, c.end_as_timestamp))
+                f.writelines(['{}\n'.format(l) for l in c.lines])
+
     @staticmethod
     def supported_formats():
         """Provides a list of supported formats that this class can read from."""
         return [f[0] for f in SUPPORTED_FORMATS]
-
-    @property
-    def captions(self):
-        """Returns the list of parsed captions."""
-        return [] if self.parser is None else self.parser.captions
 
     @property
     def total_length(self):
