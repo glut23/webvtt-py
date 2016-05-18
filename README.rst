@@ -13,28 +13,31 @@ Usage
 -----
 
 .. code-block:: python
-    from webvtt import WebVTT
 
-    webvtt = WebVTT().read('captions.vtt')
-    for c in webvtt.captions:
-        print(c.start_as_timestamp)
-        print(c.end_as_timestamp)
-        print('\n'.join(c.lines))
+  from webvtt import WebVTT
+
+  webvtt = WebVTT().read('captions.vtt')
+  for c in webvtt.captions:
+      print(c.start_as_timestamp)
+      print(c.end_as_timestamp)
+      print('\n'.join(c.lines))
 
 Segmenting for HLS
 ------------------
 
 .. code-block:: python
-    from webvtt import WebVTT, WebVTTSegmenter
 
-    webvtt = WebVTT().read('captions.vtt')
-    WebVTTSegmenter().segment(webvtt.captions, 'output/path')
+  from webvtt import WebVTT, WebVTTSegmenter
+
+  webvtt = WebVTT().read('captions.vtt')
+  WebVTTSegmenter().segment(webvtt.captions, 'output/path')
 
 Converting SRT captions
 -----------------------
 
 .. code-block:: python
-    from webvtt import WebVTT
 
-    webvtt = WebVTT().from_srt('captions.srt')
-    webvtt.save()
+  from webvtt import WebVTT
+
+  webvtt = WebVTT().from_srt('captions.srt')
+  webvtt.save()
