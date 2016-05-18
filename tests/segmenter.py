@@ -6,9 +6,9 @@ from webvtt import WebVTTSegmenter, Caption
 from webvtt.exceptions import InvalidCaptionsError
 from webvtt import WebVTT
 
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-SUBTITLES_DIR = os.path.join(BASE_DIR, 'tests/subtitles')
-OUTPUT_DIR = os.path.join(BASE_DIR, 'tests/output')
+BASE_DIR = os.path.dirname(__file__)
+SUBTITLES_DIR = os.path.join(BASE_DIR, 'subtitles')
+OUTPUT_DIR = os.path.join(BASE_DIR, 'output')
 
 
 class WebVTTSegmenterTestCase(unittest.TestCase):
@@ -110,18 +110,18 @@ class WebVTTSegmenterTestCase(unittest.TestCase):
         with open(os.path.join(OUTPUT_DIR, 'fileSequence0.webvtt'), 'r', encoding='utf-8') as f:
             lines = [line.rstrip() for line in f.readlines()]
 
-            expected_lines = [
-                'WEBVTT',
-                'X-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000',
-                '',
-                '00:00:00.500 --> 00:00:07.000',
-                'Caption text #1',
-                '',
-                '00:00:07.000 --> 00:00:11.890',
-                'Caption text #2'
-            ]
+        expected_lines = [
+            'WEBVTT',
+            'X-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000',
+            '',
+            '00:00:00.500 --> 00:00:07.000',
+            'Caption text #1',
+            '',
+            '00:00:07.000 --> 00:00:11.890',
+            'Caption text #2'
+        ]
 
-            self.assertListEqual(lines, expected_lines)
+        self.assertListEqual(lines, expected_lines)
 
     def test_manifest_content(self):
         self._parse_captions('sample.vtt')
