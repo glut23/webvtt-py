@@ -3,6 +3,7 @@ from math import ceil, floor
 
 from .exceptions import InvalidCaptionsError
 from .generic import Caption
+from webvtt.webvtt import WebVTT
 
 MPEGTS = 900000
 SECONDS = 10  # default number of seconds per segment
@@ -13,17 +14,18 @@ class WebVTTSegmenter(object):
     Provides segmentation of WebVTT captions for HTTP Live Streaming (HLS).
     """
     def __init__(self):
+        self.parser = None
         self.total_segments = 0
         self._output_folder = ''
         self._seconds = 0
         self._mpegts = 0
         self.segments = []
 
-    def _validate_captions(self, captions):
+    def _validate_webvtt(self, webvtt):
         # Validates that the captions is a list and all the captions are instances of Caption.
-        if not isinstance(captions, list):
+        if not isinstance(webvtt, WebVTT):
             return False
-        for c in captions:
+        for c in webvtt.captions:
             if not isinstance(c, Caption):
                 return False
         return True
@@ -67,12 +69,18 @@ class WebVTTSegmenter(object):
 
             f.write('#EXT-X-ENDLIST\n')
 
-    def segment(self, captions, output='', seconds=SECONDS, mpegts=MPEGTS):
+    def segment(self, webvtt, output='', seconds=SECONDS, mpegts=MPEGTS):
         """Segments the captions based on a number of seconds."""
-        if not self._validate_captions(captions):
+        if isinstance(webvtt, str):
+            # if a string is supplied we parse the file
+            captions = WebVTT().read(webvtt).captions
+        elif not self._validate_webvtt(webvtt):
             raise InvalidCaptionsError('The captions provided are invalid')
+        else:
+            # we expect to have a webvtt object
+            captions = webvtt.captions
 
-        self.total_segments = int(ceil(captions[-1].end_in_seconds / seconds))
+        self.total_segments = 0 if not captions else int(ceil(captions[-1].end_in_seconds / seconds))
         self._output_folder = output
         self._seconds = seconds
         self._mpegts = mpegts

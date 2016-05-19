@@ -27,10 +27,9 @@ Segmenting for HLS
 
 .. code-block:: python
 
-  from webvtt import WebVTT, WebVTTSegmenter
+  from webvtt import WebVTTSegmenter
 
-  webvtt = WebVTT().read('captions.vtt')
-  WebVTTSegmenter().segment(webvtt.captions, 'output/path')
+  WebVTTSegmenter().segment('captions.vtt', 'output/path')
 
 Converting SRT captions
 -----------------------
