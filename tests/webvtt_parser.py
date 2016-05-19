@@ -1,7 +1,7 @@
 from .generic import GenericParserTestCase
 
 from webvtt import WebVTT
-from webvtt.generic import GenericParser, Caption
+from webvtt.generic import Caption
 from webvtt.exceptions import MalformedFileError, MalformedCaptionError
 
 
@@ -12,6 +12,13 @@ class WebVTTParserTestCase(GenericParserTestCase):
             MalformedFileError,
             self.webvtt.read,
             self._get_file('invalid.vtt')
+        )
+
+    def test_webvtt_captions_not_found(self):
+        self.assertRaises(
+            FileNotFoundError,
+            self.webvtt.read,
+            'some_file'
         )
 
     def test_webvtt_total_length(self):
