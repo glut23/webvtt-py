@@ -24,10 +24,10 @@ class WebVTTTestCase(unittest.TestCase):
 
     def test_create_caption(self):
         caption = Caption('00:00:00.500', '00:00:07.000', ['Caption test line 1', 'Caption test line 2'])
-        self.assertEqual(caption.start_as_timestamp, '00:00:00.500')
-        self.assertEqual(caption.start, 0.5)
-        self.assertEqual(caption.end_as_timestamp, '00:00:07.000')
-        self.assertEqual(caption.end, 7)
+        self.assertEqual(caption.start, '00:00:00.500')
+        self.assertEqual(caption.start_in_seconds, 0.5)
+        self.assertEqual(caption.end, '00:00:07.000')
+        self.assertEqual(caption.end_in_seconds, 7)
         self.assertEqual(caption.lines, ['Caption test line 1', 'Caption test line 2'])
 
     def test_save_captions(self):
@@ -98,3 +98,30 @@ class WebVTTTestCase(unittest.TestCase):
 
         self.webvtt.read(self._get_file('one_caption.vtt')).save(output_file)
         self.assertTrue(os.path.exists(os.path.join(target_path, 'custom_name.vtt')))
+
+    def test_caption_timestamp_update(self):
+        c = Caption('00:00:00.500', '00:00:07.000')
+        c.start = '00:00:01.750'
+        c.end = '00:00:08.250'
+
+        self.assertEqual(c.start, '00:00:01.750')
+        self.assertEqual(c.end, '00:00:08.250')
+
+    def test_caption_text(self):
+        c = Caption('00:00:00.500', '00:00:07.000', ['Caption line #1', 'Caption line #2'])
+        self.assertEqual(
+            c.text,
+            'Caption line #1\nCaption line #2'
+        )
+
+    def test_caption_receive_text(self):
+        c = Caption('00:00:00.500', '00:00:07.000', 'Caption line #1\nCaption line #2')
+
+        self.assertEqual(
+            len(c.lines),
+            2
+        )
+        self.assertEqual(
+            c.text,
+            'Caption line #1\nCaption line #2'
+        )

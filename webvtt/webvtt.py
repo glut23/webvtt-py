@@ -63,7 +63,7 @@ class WebVTT(object):
         with open(self.file, 'w', encoding='utf-8') as f:
             f.write('WEBVTT\n')
             for c in self.captions:
-                f.write('\n{} --> {}\n'.format(c.start_as_timestamp, c.end_as_timestamp))
+                f.write('\n{} --> {}\n'.format(c.start, c.end))
                 f.writelines(['{}\n'.format(l) for l in c.lines])
 
     @staticmethod
@@ -76,4 +76,4 @@ class WebVTT(object):
         """Returns the total length of the captions."""
         if not self.captions:
             return 0
-        return int(self.captions[-1].end) - int(self.captions[0].start)
+        return int(self.captions[-1].end_in_seconds) - int(self.captions[0].start_in_seconds)

@@ -8,8 +8,13 @@ class Caption(object):
     Represents a caption.
     """
     def __init__(self, start='00:00:00.000', end='00:00:00.000', lines=None):
-        self.start = self._parse_timestamp(start)
-        self.end = self._parse_timestamp(end)
+        self._start = self._parse_timestamp(start)
+        self._end = self._parse_timestamp(end)
+
+        # If lines is a string convert to a list
+        if lines and isinstance(lines, str):
+            lines = lines.splitlines()
+
         self.lines = lines or []
 
     def add_line(self, line):
@@ -34,12 +39,33 @@ class Caption(object):
         return '{:02d}:{:02d}:{:06.3f}'.format(int(hours), int(minutes), seconds)
 
     @property
-    def start_as_timestamp(self):
-        return self._to_timestamp(self.start)
+    def start_in_seconds(self):
+        return self._start
 
     @property
-    def end_as_timestamp(self):
-        return self._to_timestamp(self.end)
+    def end_in_seconds(self):
+        return self._end
+
+    @property
+    def start(self):
+        return self._to_timestamp(self._start)
+
+    @start.setter
+    def start(self, value):
+        self._start = self._parse_timestamp(value)
+
+    @property
+    def end(self):
+        return self._to_timestamp(self._end)
+
+    @end.setter
+    def end(self, value):
+        self._end = self._parse_timestamp(value)
+
+    @property
+    def text(self):
+        """Returns the captions lines as a text"""
+        return '\n'.join(self.lines)
 
 
 class GenericParser(object):

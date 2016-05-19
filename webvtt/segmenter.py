@@ -32,11 +32,11 @@ class WebVTTSegmenter(object):
         self.segments = [[] for _ in range(self.total_segments)]
 
         for c in captions:
-            segment_index_start = floor(c.start / self.seconds)
+            segment_index_start = floor(c.start_in_seconds / self.seconds)
             self.segments[segment_index_start].append(c)
 
             # Also include a caption in other segments based on the end time.
-            segment_index_end = floor(c.end / self.seconds)
+            segment_index_end = floor(c.end_in_seconds / self.seconds)
             if segment_index_end > segment_index_start:
                 for i in range(segment_index_start + 1, segment_index_end + 1):
                     self.segments[i].append(c)
@@ -50,7 +50,7 @@ class WebVTTSegmenter(object):
                 f.write('X-TIMESTAMP-MAP=MPEGTS:{},LOCAL:00:00:00.000\n'.format(self._mpegts))
 
                 for caption in self.segments[index]:
-                    f.write('\n{} --> {}\n'.format(caption.start_as_timestamp, caption.end_as_timestamp))
+                    f.write('\n{} --> {}\n'.format(caption.start, caption.end))
                     f.writelines(['{}\n'.format(l) for l in caption.lines])
 
     def _write_manifest(self):
@@ -72,7 +72,7 @@ class WebVTTSegmenter(object):
         if not self._validate_captions(captions):
             raise InvalidCaptionsError('The captions provided are invalid')
 
-        self.total_segments = int(ceil(captions[-1].end / seconds))
+        self.total_segments = int(ceil(captions[-1].end_in_seconds / seconds))
         self._output_folder = output
         self._seconds = seconds
         self._mpegts = mpegts

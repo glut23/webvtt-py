@@ -18,9 +18,9 @@ Usage
 
   webvtt = WebVTT().read('captions.vtt')
   for c in webvtt.captions:
-      print(c.start_as_timestamp)
-      print(c.end_as_timestamp)
-      print('\n'.join(c.lines))
+      print(c.start)
+      print(c.end)
+      print(c.text)
 
 Segmenting for HLS
 ------------------
