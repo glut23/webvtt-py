@@ -3,3 +3,4 @@ include MANIFEST.in
 include *.rst
 global-exclude __pycache__
 global-exclude *.py[co]
+recursive-exclude tests *
