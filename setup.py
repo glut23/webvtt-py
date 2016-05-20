@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 
 def readme():
@@ -13,7 +13,9 @@ setup(
     author='Alejandro Mendez',
     author_email='amendez23@gmail.com',
     url='https://github.com/glut23/webvtt-py',
-    packages=find_packages(),
+    packages=[
+        'webvtt',
+    ],
     include_package_data=True,
     license='MIT',
     classifiers=[
