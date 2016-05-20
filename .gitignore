@@ -1,3 +1,11 @@
+# Compiled files
+__pycache__/
 *.pyc
+
+# Distribution
 *.egg-info
+build/
+dist/
+
+# PyCharm
 .idea
