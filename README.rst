@@ -9,6 +9,13 @@ webvtt-py
 .. _`WebVTT`: http://dev.w3.org/html5/webvtt/
 .. _`HLS videos`: https://tools.ietf.org/html/draft-pantos-http-live-streaming-19
 
+Installation
+------------
+
+::
+
+    $ pip install webvtt-py
+
 Usage
 -----
 
@@ -40,3 +47,8 @@ Converting SRT captions
 
   webvtt = WebVTT().from_srt('captions.srt')
   webvtt.save()
+
+License
+-------
+
+Licensed under the MIT License.
