@@ -1,6 +1,9 @@
 webvtt-py
 =========
 
+.. image:: https://img.shields.io/pypi/v/webvtt-py.svg
+        :target: https://pypi.python.org/pypi/webvtt-py
+
 .. image:: https://travis-ci.org/glut23/webvtt-py.svg?branch=master
     :target: https://travis-ci.org/glut23/webvtt-py
 
