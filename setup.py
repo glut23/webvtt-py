@@ -26,7 +26,7 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Operating System :: OS Independent',
-        'Topic :: Utilities',
+        'Topic :: Software Development :: Libraries :: Python Modules',
     ],
     test_suite='tests'
 )
