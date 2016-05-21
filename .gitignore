@@ -9,3 +9,6 @@ dist/
 
 # PyCharm
 .idea
+
+# Documentation
+docs/_build/
