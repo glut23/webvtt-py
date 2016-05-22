@@ -10,6 +10,9 @@ webvtt-py package reference
 .. automodule:: webvtt.generic
     :members:
 
+.. automodule:: webvtt.exceptions
+    :members:
+
 .. automodule:: webvtt.parsers.webvtt
     :members:
 
