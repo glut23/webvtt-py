@@ -3,7 +3,7 @@ from math import ceil, floor
 
 from .exceptions import InvalidCaptionsError
 from .generic import Caption
-from webvtt.webvtt import WebVTT
+from webvtt.main import WebVTT
 
 MPEGTS = 900000
 SECONDS = 10  # default number of seconds per segment

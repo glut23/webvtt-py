@@ -10,9 +10,13 @@ SUPPORTED_FORMATS = (
 class WebVTT(object):
     """
     Parse captions in WebVTT format and also from other formats like SRT.
+
     To read WebVTT:
+
         WebVTT().read('captions.vtt')
+
     For other formats like SRT, use from_[format in lower case]:
+
         WebVTT().from_srt('captions.srt')
 
     A list of all supported formats is available calling supported_formats().
