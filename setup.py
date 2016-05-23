@@ -30,5 +30,6 @@ setup(
         'Operating System :: OS Independent',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
+    keywords=['webvtt', 'captions'],
     test_suite='tests'
 )
