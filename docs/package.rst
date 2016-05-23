@@ -22,11 +22,7 @@ webvtt.generic
 webvtt.parsers
 --------------
 
-.. automodule:: webvtt.parsers.webvtt
-    :members:
-    :show-inheritance:
-
-.. automodule:: webvtt.parsers.srt
+.. automodule:: webvtt.parsers
     :members:
     :show-inheritance:
 
