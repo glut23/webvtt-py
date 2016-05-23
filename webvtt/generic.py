@@ -7,15 +7,15 @@ class Caption(object):
     """
     Represents a caption.
     """
-    def __init__(self, start='00:00:00.000', end='00:00:00.000', lines=None):
+    def __init__(self, start='00:00:00.000', end='00:00:00.000', text=None):
         self._start = self._parse_timestamp(start)
         self._end = self._parse_timestamp(end)
 
         # If lines is a string convert to a list
-        if lines and isinstance(lines, str):
-            lines = lines.splitlines()
+        if text and isinstance(text, str):
+            text = text.splitlines()
 
-        self.lines = lines or []
+        self._lines = text or []
 
     def add_line(self, line):
         self.lines.append(line)
@@ -63,9 +63,20 @@ class Caption(object):
         self._end = self._parse_timestamp(value)
 
     @property
+    def lines(self):
+        return self._lines
+
+    @property
     def text(self):
         """Returns the captions lines as a text"""
         return '\n'.join(self.lines)
+
+    @text.setter
+    def text(self, value):
+        if not isinstance(value, str):
+            raise AttributeError('String value expected but received {}.'.format(type(value)))
+
+        self._lines = value.splitlines()
 
 
 class GenericParser(object):
@@ -76,7 +87,7 @@ class GenericParser(object):
         self.captions = []
 
     def _parse(self, file):
-        # method to be overwritten  by child classes
+        # method to be overwritten by child classes
         pass
 
     def read(self, file):

@@ -109,14 +109,14 @@ class WebVTTTestCase(unittest.TestCase):
         self.assertEqual(c.end, '00:00:08.250')
 
     def test_caption_text(self):
-        c = Caption('00:00:00.500', '00:00:07.000', ['Caption line #1', 'Caption line #2'])
+        c = Caption(text=['Caption line #1', 'Caption line #2'])
         self.assertEqual(
             c.text,
             'Caption line #1\nCaption line #2'
         )
 
     def test_caption_receive_text(self):
-        c = Caption('00:00:00.500', '00:00:07.000', 'Caption line #1\nCaption line #2')
+        c = Caption(text='Caption line #1\nCaption line #2')
 
         self.assertEqual(
             len(c.lines),
@@ -131,4 +131,59 @@ class WebVTTTestCase(unittest.TestCase):
         self.assertListEqual(
             WebVTT().supported_formats(),
             [sf[0] for sf in SUPPORTED_FORMATS]
+        )
+
+    def test_update_text(self):
+        c = Caption(text='Caption line #1')
+        c.text = 'Caption line #1 updated'
+        self.assertEqual(
+            c.text,
+            'Caption line #1 updated'
+        )
+
+    def test_update_text_multiline(self):
+        c = Caption(text='Caption line #1')
+        c.text = 'Caption line #1\nCaption line #2'
+
+        self.assertEqual(
+            len(c.lines),
+            2
+        )
+
+        self.assertEqual(
+            c.text,
+            'Caption line #1\nCaption line #2'
+        )
+
+    def test_update_text_wrong_type(self):
+        c = Caption(text='Caption line #1')
+
+        self.assertRaises(
+            AttributeError,
+            setattr,
+            c,
+            'text',
+            123
+        )
+
+    def test_manipulate_lines(self):
+        c = Caption(text=['Caption line #1', 'Caption line #2'])
+        c.lines[0] = 'Caption line #1 updated'
+        self.assertEqual(
+            c.lines[0],
+            'Caption line #1 updated'
+        )
+
+    def test_captions(self):
+        self.webvtt.read(self._get_file('sample.vtt'))
+        self.assertIsInstance(self.webvtt.captions, list)
+
+    def test_captions_prevent_write(self):
+        self.webvtt.read(self._get_file('sample.vtt'))
+        self.assertRaises(
+            AttributeError,
+            setattr,
+            self.webvtt,
+            'captions',
+            []
         )
