@@ -5,6 +5,9 @@ from webvtt.generic import GenericParser, Caption
 
 
 class SRTParser(GenericParser):
+    """
+    SRT parser.
+    """
 
     TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d+:\d{2}:\d{2},\d{3})\s*-->\s*(\d+:\d{2}:\d{2},\d{3})')
 
