@@ -1,6 +1,12 @@
 History
 =======
 
+0.2.0 (23-05-2016) Module refactor
+----------------------------------
+
+* Refactor of the main module and parsers.
+
+
 0.1.0 (20-05-2016) First release
 --------------------------------
 
