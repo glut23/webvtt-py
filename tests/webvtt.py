@@ -130,5 +130,5 @@ class WebVTTTestCase(unittest.TestCase):
     def test_supported_formats(self):
         self.assertListEqual(
             WebVTT().supported_formats(),
-            [format[0] for format in SUPPORTED_FORMATS]
+            [sf[0] for sf in SUPPORTED_FORMATS]
         )
