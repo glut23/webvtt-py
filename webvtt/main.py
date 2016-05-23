@@ -48,7 +48,7 @@ class WebVTT(object):
         if parser_class is WebVTTParser:
             f.__doc__ = 'Reads a WebVTT captions file.'
         else:
-            f.__doc__ = 'Reads captions from a file in {} format.'.format(format_name.upper())
+            f.__doc__ = 'Reads captions from a file in {} format.'.format(format_name)
         return f
 
     def save(self, output=''):
