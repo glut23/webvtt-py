@@ -15,11 +15,10 @@ webvtt-py
 
 Requires Python 3.3+.
 
-Documentation is available at http://webvtt-py.readthedocs.io_.
+Documentation is available at http://webvtt-py.readthedocs.io.
 
 .. _`WebVTT`: http://dev.w3.org/html5/webvtt/
 .. _`HLS videos`: https://tools.ietf.org/html/draft-pantos-http-live-streaming-19
-.. _ `http://webvtt-py.readthedocs.io`: http://webvtt-py.readthedocs.io
 
 Installation
 ------------
