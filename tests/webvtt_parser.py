@@ -86,9 +86,3 @@ class WebVTTParserTestCase(GenericParserTestCase):
 
     def test_captions_attribute(self):
         self.assertListEqual([], WebVTT().captions)
-
-    def test_supported_formats(self):
-        self.assertListEqual(
-            WebVTT().supported_formats(),
-            ['webvtt', 'srt']
-        )

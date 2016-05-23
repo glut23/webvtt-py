@@ -3,6 +3,7 @@ import unittest
 from shutil import rmtree, copy
 
 from webvtt import WebVTT
+from webvtt.main import SUPPORTED_FORMATS
 from webvtt.generic import Caption
 
 BASE_DIR = os.path.dirname(__file__)
@@ -124,4 +125,10 @@ class WebVTTTestCase(unittest.TestCase):
         self.assertEqual(
             c.text,
             'Caption line #1\nCaption line #2'
+        )
+
+    def test_supported_formats(self):
+        self.assertListEqual(
+            WebVTT().supported_formats(),
+            [format[0] for format in SUPPORTED_FORMATS]
         )
