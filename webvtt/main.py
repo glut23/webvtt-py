@@ -27,7 +27,7 @@ class WebVTT(object):
     FORMAT_EXTENSION_PATTERN = re.compile('.+\.(.+)')
 
     def __init__(self):
-        self.captions = []
+        self._captions = []
         self.file = ''
 
         # create methods dynamically to read captions based on the supported types
@@ -41,7 +41,7 @@ class WebVTT(object):
     def _set_reader(self, name, format_name, parser_class):
         def f(self, file):
             self.file = file
-            self.captions = parser_class().read(file).captions
+            self._captions = parser_class().read(file).captions
             return self
 
         f.__name__ = name
@@ -72,7 +72,7 @@ class WebVTT(object):
 
         with open(self.file, 'w', encoding='utf-8') as f:
             f.write('WEBVTT\n')
-            for c in self.captions:
+            for c in self._captions:
                 f.write('\n{} --> {}\n'.format(c.start, c.end))
                 f.writelines(['{}\n'.format(l) for l in c.lines])
 
@@ -82,8 +82,13 @@ class WebVTT(object):
         return [f[0] for f in SUPPORTED_FORMATS]
 
     @property
+    def captions(self):
+        """Returns the list of captions."""
+        return self._captions
+
+    @property
     def total_length(self):
         """Returns the total length of the captions."""
-        if not self.captions:
+        if not self._captions:
             return 0
-        return int(self.captions[-1].end_in_seconds) - int(self.captions[0].start_in_seconds)
+        return int(self._captions[-1].end_in_seconds) - int(self._captions[0].start_in_seconds)
