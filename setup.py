@@ -7,7 +7,7 @@ def readme():
 
 setup(
     name='webvtt-py',
-    version='0.1',
+    version='0.2.0',
     description='WebVTT reader, writer and segmenter',
     long_description=readme(),
     author='Alejandro Mendez',
