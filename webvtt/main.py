@@ -1,9 +1,11 @@
 import os
+import re
+
 from .parsers import WebVTTParser, SRTParser
 
 SUPPORTED_FORMATS = (
-    ('webvtt', WebVTTParser),  # default parser for WebVTT format
-    ('srt',    SRTParser),     # parser for SRT format
+    ('WebVTT *.vtt', WebVTTParser),  # default parser for WebVTT format
+    ('SubRip *.srt',    SRTParser),  # parser for SRT format
 )
 
 
@@ -21,28 +23,32 @@ class WebVTT(object):
 
     A list of all supported formats is available calling supported_formats().
     """
+
+    FORMAT_EXTENSION_PATTERN = re.compile('.+\.(.+)')
+
     def __init__(self):
         self.captions = []
         self.file = ''
 
         # create methods dynamically to read captions based on the supported types
         # read() is created for WebVTT and from_[FORMAT]() for the other formats.
-        for format_, parser_class in SUPPORTED_FORMATS:
-            method_name = 'read' if format_ == 'webvtt' else 'from_{}'.format(format_)
+        for name, parser_class in SUPPORTED_FORMATS:
+            extension = re.match(self.FORMAT_EXTENSION_PATTERN, name).group(1)
+            method_name = 'read' if parser_class is WebVTTParser else 'from_{}'.format(extension)
 
-            setattr(self.__class__, method_name, self._set_reader(method_name, format_, parser_class))
+            setattr(self.__class__, method_name, self._set_reader(method_name, name, parser_class))
 
-    def _set_reader(self, name, format_, parser_class):
+    def _set_reader(self, name, format_name, parser_class):
         def f(self, file):
             self.file = file
             self.captions = parser_class().read(file).captions
             return self
 
         f.__name__ = name
-        if format_ == 'webvtt':
+        if parser_class is WebVTTParser:
             f.__doc__ = 'Reads a WebVTT captions file.'
         else:
-            f.__doc__ = 'Reads captions from a file in {} format.'.format(format_.upper())
+            f.__doc__ = 'Reads captions from a file in {} format.'.format(format_name.upper())
         return f
 
     def save(self, output=''):
