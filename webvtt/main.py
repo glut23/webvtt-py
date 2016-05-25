@@ -4,8 +4,8 @@ import re
 from .parsers import WebVTTParser, SRTParser
 
 SUPPORTED_FORMATS = (
-    ('WebVTT *.vtt', WebVTTParser),  # default parser for WebVTT format
-    ('SubRip *.srt',    SRTParser),  # parser for SRT format
+    ('WebVTT (.vtt)', WebVTTParser),  # default parser for WebVTT format
+    ('SubRip (.srt)',    SRTParser),  # parser for SRT format
 )
 
 
@@ -24,7 +24,7 @@ class WebVTT(object):
     A list of all supported formats is available calling supported_formats().
     """
 
-    FORMAT_EXTENSION_PATTERN = re.compile('.+\.(.+)')
+    FORMAT_EXTENSION_PATTERN = re.compile('.+\(\.(.+)\)')
 
     def __init__(self):
         self._captions = []
