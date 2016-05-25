@@ -22,22 +22,22 @@ class SRTParser(GenericParser):
     def _validate_timeframe_line(self, line):
         return re.match(self.TIMEFRAME_LINE_PATTERN, line)
 
-    def _read_lines(self, file):
+    def _read_content(self, file):
         with open(file, encoding='utf-8') as f:
             lines = [line.rstrip() for line in f.readlines()]
 
         return lines
 
-    def _parse(self, file):
-        c = None
-
-        lines = self._read_lines(file)
+    def _validate(self, lines):
         num_lines = len(lines)
 
         if num_lines == 0:
             raise MalformedFileError('The file is empty.')
         if num_lines < 2 or lines[0] != '1' or not self._validate_timeframe_line(lines[1]):
             raise MalformedFileError('The file does not have a valid format.')
+
+    def _parse(self, lines):
+        c = None
 
         for index, line in enumerate(lines[1:]):
             if line.isdigit():  # Skip the caption numbers
@@ -71,15 +71,14 @@ class WebVTTParser(SRTParser):
 
     TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d+:\d{2}:\d{2}.\d{3})\s*-->\s*(\d+:\d{2}:\d{2}.\d{3})')
 
-    def _parse(self, file):
-        c = None
-
-        lines = self._read_lines(file)
-
+    def _validate(self, lines):
         if len(lines) == 0:
             raise MalformedFileError('The file is empty')
         if 'WEBVTT' not in lines[0]:
             raise MalformedFileError('The file does not have a valid format')
+
+    def _parse(self, lines):
+        c = None
 
         for index, line in enumerate(lines[1:]):
             if '-->' in line:

@@ -86,12 +86,24 @@ class GenericParser(object):
     def __init__(self):
         self.captions = []
 
-    def _parse(self, file):
+    def _parse(self, content):
+        # method to be overwritten by child classes
+        pass
+
+    def _read_content(self, file):
+        # method to be overwritten by child classes
+        return
+
+    def _validate(self, content):
         # method to be overwritten by child classes
         pass
 
     def read(self, file):
+        """Reads the captions file."""
         self.captions = []
-        self._parse(file)
+
+        content = self._read_content(file)
+        self._validate(content)
+        self._parse(content)
 
         return self
