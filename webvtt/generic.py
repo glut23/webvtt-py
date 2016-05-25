@@ -84,7 +84,7 @@ class GenericParser(object):
     A generic parent class for all parsers.
     """
     def __init__(self):
-        self.captions = []
+        self._captions = []
 
     def _parse(self, content):
         # method to be overwritten by child classes
@@ -100,10 +100,14 @@ class GenericParser(object):
 
     def read(self, file):
         """Reads the captions file."""
-        self.captions = []
+        self._captions = []
 
         content = self._read_content(file)
         self._validate(content)
         self._parse(content)
 
         return self
+
+    @property
+    def captions(self):
+        return self._captions
