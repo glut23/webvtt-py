@@ -4,7 +4,18 @@ from webvtt.exceptions import MalformedFileError, MalformedCaptionError
 from webvtt.generic import GenericParser, Caption
 
 
-class SRTParser(GenericParser):
+class TextBasedParser(GenericParser):
+    """
+    Parser based on plain text caption files.
+    """
+    def _read_content(self, file):
+        with open(file, encoding='utf-8') as f:
+            lines = [line.rstrip() for line in f.readlines()]
+
+        return lines
+
+
+class SRTParser(TextBasedParser):
     """
     SRT parser.
     """
@@ -21,12 +32,6 @@ class SRTParser(GenericParser):
 
     def _validate_timeframe_line(self, line):
         return re.match(self.TIMEFRAME_LINE_PATTERN, line)
-
-    def _read_content(self, file):
-        with open(file, encoding='utf-8') as f:
-            lines = [line.rstrip() for line in f.readlines()]
-
-        return lines
 
     def _validate(self, lines):
         num_lines = len(lines)
@@ -82,6 +87,44 @@ class WebVTTParser(SRTParser):
 
         for index, line in enumerate(lines[1:]):
             if '-->' in line:
+                start, end = self._parse_timeframe_line(line, index)
+                c = Caption(start, end)
+            elif len(line) > 0:
+                if c is None:
+                    raise MalformedCaptionError('Caption missing timeframe in line {}'.format(index + 1))
+                else:
+                    c.add_line(line)
+            else:
+                if c is None:
+                    continue
+                if not c.lines:
+                    raise MalformedCaptionError('Caption missing text in line {}'.format(index + 1))
+
+                self.captions.append(c)
+                c = None
+
+        if c is not None and c.lines:
+            self.captions.append(c)
+
+
+class SBVParser(SRTParser):
+    """
+    YouTube SBV parser.
+    """
+
+    TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d+:\d{2}:\d{2}.\d{3}),(\d+:\d{2}:\d{2}.\d{3})')
+
+    def _validate(self, lines):
+        if len(lines) == 0:
+            raise MalformedFileError('The file is empty')
+        if not self._validate_timeframe_line(lines[0]):
+            raise MalformedFileError('The file does not have a valid format')
+
+    def _parse(self, lines):
+        c = None
+
+        for index, line in enumerate(lines):
+            if self._validate_timeframe_line(line):
                 start, end = self._parse_timeframe_line(line, index)
                 c = Caption(start, end)
             elif len(line) > 0:

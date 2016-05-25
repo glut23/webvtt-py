@@ -77,6 +77,31 @@ class WebVTTTestCase(unittest.TestCase):
 
         self.assertListEqual(lines, expected_lines)
 
+    def test_sbv_conversion(self):
+        os.makedirs(OUTPUT_DIR)
+        copy(self._get_file('two_captions.sbv'), OUTPUT_DIR)
+
+        self.webvtt.from_sbv(os.path.join(OUTPUT_DIR, 'two_captions.sbv'))
+        self.webvtt.save()
+
+        self.assertTrue(os.path.exists(os.path.join(OUTPUT_DIR, 'two_captions.vtt')))
+
+        with open(os.path.join(OUTPUT_DIR, 'two_captions.vtt'), 'r', encoding='utf-8') as f:
+            lines = [line.rstrip() for line in f.readlines()]
+
+        expected_lines = [
+            'WEBVTT',
+            '',
+            '00:00:00.378 --> 00:00:11.378',
+            'Caption text #1',
+            '',
+            '00:00:11.378 --> 00:00:12.305',
+            'Caption text #2 (line 1)',
+            'Caption text #2 (line 2)',
+        ]
+
+        self.assertListEqual(lines, expected_lines)
+
     def test_save_to_other_location(self):
         target_path = os.path.join(OUTPUT_DIR, 'test_folder')
         os.makedirs(target_path)

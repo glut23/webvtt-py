@@ -1,11 +1,12 @@
 import os
 import re
 
-from .parsers import WebVTTParser, SRTParser
+from .parsers import WebVTTParser, SRTParser, SBVParser
 
 SUPPORTED_FORMATS = (
-    ('WebVTT (.vtt)', WebVTTParser),  # default parser for WebVTT format
-    ('SubRip (.srt)',    SRTParser),  # parser for SRT format
+    ('WebVTT (.vtt)',   WebVTTParser),  # default parser for WebVTT format
+    ('SubRip (.srt)',      SRTParser),  # parser for SRT format
+    ('YouTube SBV (.sbv)', SBVParser),  # parser for YouTube SBV format
 )
 
 
