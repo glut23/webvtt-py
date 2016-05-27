@@ -1,11 +1,14 @@
 language: python
+python: 3.5
+env:
+    - TOX_ENV=py33
+    - TOX_ENV=py34
+    - TOX_ENV=py35
 
-python:
-    - 3.3
-    - 3.4
-    - 3.5
+script: tox -e $TOX_ENV
 
-script: python setup.py test
+install:
+    - pip install tox
 
 notifications:
   email: false

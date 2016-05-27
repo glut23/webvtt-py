@@ -4,8 +4,12 @@ __pycache__/
 
 # Distribution
 *.egg-info
+.eggs/
 build/
 dist/
+
+# Testing
+.tox/
 
 # PyCharm
 .idea
