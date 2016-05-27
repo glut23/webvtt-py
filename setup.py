@@ -1,5 +1,7 @@
 from setuptools import setup
 
+from webvtt import __version__
+
 
 def readme():
     with open('README.rst', 'r', encoding='utf-8') as f:
@@ -7,7 +9,7 @@ def readme():
 
 setup(
     name='webvtt-py',
-    version='0.2.0',
+    version=__version__,
     description='WebVTT reader, writer and segmenter',
     long_description=readme(),
     author='Alejandro Mendez',
@@ -17,6 +19,12 @@ setup(
         'webvtt',
     ],
     include_package_data=True,
+    install_requires=['docopt'],
+    entry_points={
+        'console_scripts': [
+            'webvtt=webvtt.cli:main'
+        ]
+    },
     license='MIT',
     classifiers=[
         'Development Status :: 3 - Alpha',
@@ -30,6 +38,6 @@ setup(
         'Operating System :: OS Independent',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
-    keywords=['webvtt', 'captions'],
+    keywords='webvtt captions',
     test_suite='tests'
 )

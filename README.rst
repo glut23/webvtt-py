@@ -59,6 +59,14 @@ Converting SRT captions
   webvtt = WebVTT().from_srt('captions.srt')
   webvtt.save()
 
+
+CLI
+---
+Caption segmentation is also available from the command line:
+::
+
+    $ webvtt segment captions.vtt --output destination/directoy
+
 License
 -------
 
