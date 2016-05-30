@@ -10,3 +10,7 @@ class MalformedCaptionError(Exception):
 
 class InvalidCaptionsError(Exception):
     """Error raised when passing wrong captions to the segmenter"""
+
+
+class MissingFilenameError(Exception):
+    """Error raised when saving a file without filename."""

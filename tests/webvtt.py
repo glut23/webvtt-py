@@ -3,6 +3,7 @@ import unittest
 from shutil import rmtree, copy
 
 from webvtt import WebVTT
+from webvtt.exceptions import MissingFilenameError
 from webvtt.main import SUPPORTED_FORMATS
 from webvtt.generic import Caption
 
@@ -217,3 +218,10 @@ class WebVTTTestCase(unittest.TestCase):
         self.webvtt.read(self._get_file('sample.vtt'))
         self.assertIsInstance(self.webvtt[0], Caption)
         self.assertEqual(len(self.webvtt), len(self.webvtt.captions))
+
+    def test_save_no_filename(self):
+        webvtt = WebVTT()
+        self.assertRaises(
+            MissingFilenameError,
+            webvtt.save
+        )

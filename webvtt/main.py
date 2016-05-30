@@ -2,6 +2,7 @@ import os
 import re
 
 from .parsers import WebVTTParser, SRTParser, SBVParser
+from webvtt.exceptions import MissingFilenameError
 
 SUPPORTED_FORMATS = (
     ('WebVTT (.vtt)',   WebVTTParser),  # default parser for WebVTT format
@@ -59,7 +60,13 @@ class WebVTT(object):
         return f
 
     def save(self, output=''):
+        """Save the document.
+        If no output is provided the file will be saved in the same location. Otherwise output
+        can determine a target directory or file.
+        """
         if not output:
+            if not self.file:
+                raise MissingFilenameError
             # saving an original vtt file will overwrite the file
             # and for files read from other formats will save as vtt
             # with the same name and location
