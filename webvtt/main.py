@@ -39,6 +39,12 @@ class WebVTT(object):
 
             setattr(self.__class__, method_name, self._set_reader(method_name, name, parser_class))
 
+    def __len__(self):
+        return len(self._captions)
+
+    def __getitem__(self, index):
+        return self._captions[index]
+
     def _set_reader(self, name, format_name, parser_class):
         def f(self, file):
             self.file = file

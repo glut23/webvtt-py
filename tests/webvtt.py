@@ -212,3 +212,8 @@ class WebVTTTestCase(unittest.TestCase):
             'captions',
             []
         )
+
+    def test_sequence_iteration(self):
+        self.webvtt.read(self._get_file('sample.vtt'))
+        self.assertIsInstance(self.webvtt[0], Caption)
+        self.assertEqual(len(self.webvtt), len(self.webvtt.captions))

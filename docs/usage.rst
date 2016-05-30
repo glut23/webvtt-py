@@ -11,13 +11,13 @@ Reading WebVTT caption files
     webvtt = WebVTT().read('captions.vtt')
 
     # we can iterate over the captions
-    for caption in webvtt.captions:
+    for caption in webvtt:
         print(caption.start)  # start timestamp in text format
         print(caption.end)  # end timestamp in text format
         print(caption.text)  # caption text
 
-    # you can also iterate over the caption lines
-    for line in webvtt.captions[0].lines:
+    # you can also iterate over the lines of a particular caption
+    for line in webvtt[0].lines:
         print(line)
 
 
@@ -37,6 +37,7 @@ Creating captions
         ['Caption line 1', 'Caption line 2']
     )
 
+    # adding a caption
     webvtt.captions.append(caption)
 
     # creating another caption but with a text
@@ -62,11 +63,14 @@ Manipulating captions
     webvtt = WebVTT().read('captions.vtt')
 
     # update start timestamp
-    webvtt.captions[0].start = '00:00:01.250'
+    webvtt[0].start = '00:00:01.250'
 
     # update end timestamp
-    webvtt.captions[1].end = '00:00:12.890'
+    webvtt[0].end = '00:00:03.890'
 
     # update caption text
-    webvtt.captions[2].text = 'Single line caption text'
+    webvtt[0].text = 'My caption text'
+
+    # delete a caption
+    del webvtt.captions[2]
 

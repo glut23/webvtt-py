@@ -34,11 +34,10 @@ Usage
 
   from webvtt import WebVTT
 
-  webvtt = WebVTT().read('captions.vtt')
-  for c in webvtt.captions:
-      print(c.start)
-      print(c.end)
-      print(c.text)
+  for caption in WebVTT().read('captions.vtt'):
+      print(caption.start)
+      print(caption.end)
+      print(caption.text)
 
 Segmenting for HLS
 ------------------
