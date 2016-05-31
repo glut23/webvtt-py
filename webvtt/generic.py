@@ -10,8 +10,8 @@ class Caption(object):
     Represents a caption.
     """
     def __init__(self, start='00:00:00.000', end='00:00:00.000', text=None):
-        self._start = self._parse_timestamp(start)
-        self._end = self._parse_timestamp(end)
+        self.start = start
+        self.end = end
 
         # If lines is a string convert to a list
         if text and isinstance(text, str):
