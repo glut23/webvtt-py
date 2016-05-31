@@ -74,3 +74,20 @@ Manipulating captions
     # delete a caption
     del webvtt.captions[2]
 
+
+Converting caption
+------------------
+
+You can read captions from the following formats:
+
+* SubRip (.srt)
+* YouTube SBV (.sbv)
+
+.. code-block:: python
+
+    from webvtt import WebVTT
+
+    # to read from a different format use the method from_ followed by
+    # the extension.
+    webvtt = WebVTT().from_sbv('captions.sbv')
+    webvtt.save()
