@@ -166,6 +166,15 @@ class WebVTTSegmenterTestCase(unittest.TestCase):
         self.segmenter.segment(os.path.join(SUBTITLES_DIR, 'sample.vtt'), OUTPUT_DIR),
         self.assertEqual(self.segmenter.total_segments, 7)
 
-    def test_segment_with_no_cpations(self):
+    def test_segment_with_no_captions(self):
         self.segmenter.segment(os.path.join(SUBTITLES_DIR, 'no_captions.vtt'), OUTPUT_DIR),
         self.assertEqual(self.segmenter.total_segments, 0)
+
+    def test_total_segments_readonly(self):
+        self.assertRaises(
+            AttributeError,
+            setattr,
+            WebVTTSegmenter(),
+            'total_segments',
+            5
+        )

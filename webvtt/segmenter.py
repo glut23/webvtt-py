@@ -14,12 +14,11 @@ class WebVTTSegmenter(object):
     Provides segmentation of WebVTT captions for HTTP Live Streaming (HLS).
     """
     def __init__(self):
-        self.parser = None
-        self.total_segments = 0
+        self._total_segments = 0
         self._output_folder = ''
         self._seconds = 0
         self._mpegts = 0
-        self.segments = []
+        self._segments = []
 
     def _validate_webvtt(self, webvtt):
         # Validates that the captions is a list and all the captions are instances of Caption.
@@ -31,7 +30,7 @@ class WebVTTSegmenter(object):
         return True
 
     def _slice_segments(self, captions):
-        self.segments = [[] for _ in range(self.total_segments)]
+        self._segments = [[] for _ in range(self.total_segments)]
 
         for c in captions:
             segment_index_start = floor(c.start_in_seconds / self.seconds)
@@ -80,7 +79,7 @@ class WebVTTSegmenter(object):
             # we expect to have a webvtt object
             captions = webvtt.captions
 
-        self.total_segments = 0 if not captions else int(ceil(captions[-1].end_in_seconds / seconds))
+        self._total_segments = 0 if not captions else int(ceil(captions[-1].end_in_seconds / seconds))
         self._output_folder = output
         self._seconds = seconds
         self._mpegts = mpegts
@@ -97,3 +96,13 @@ class WebVTTSegmenter(object):
     def seconds(self):
         """Returns the number of seconds used for segmenting captions."""
         return self._seconds
+
+    @property
+    def total_segments(self):
+        """Returns the total of segments."""
+        return self._total_segments
+
+    @property
+    def segments(self):
+        """Return the list of segments."""
+        return self._segments
