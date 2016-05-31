@@ -1,5 +1,7 @@
 import re
 
+from webvtt.exceptions import MalformedCaptionError
+
 TIMESTAMP_PATTERN = re.compile('(\d+):(\d{2}):(\d{2})[.,](\d{3})')
 
 
@@ -25,6 +27,8 @@ class Caption(object):
 
     def _parse_timestamp(self, timestamp):
         res = re.match(TIMESTAMP_PATTERN, timestamp)
+        if not res:
+            raise MalformedCaptionError('Invalid timestamp: {}'.format(timestamp))
         return self._to_seconds(
             int(res.group(1)),  # hours
             int(res.group(2)),  # minutes

@@ -3,7 +3,7 @@ import unittest
 from shutil import rmtree, copy
 
 from webvtt import WebVTT
-from webvtt.exceptions import MissingFilenameError
+from webvtt.exceptions import MissingFilenameError, MalformedCaptionError
 from webvtt.main import SUPPORTED_FORMATS
 from webvtt.generic import Caption
 
@@ -224,4 +224,11 @@ class WebVTTTestCase(unittest.TestCase):
         self.assertRaises(
             MissingFilenameError,
             webvtt.save
+        )
+
+    def test_malformed_start_timestamp(self):
+        self.assertRaises(
+            MalformedCaptionError,
+            Caption,
+            '01:00'
         )
