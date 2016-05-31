@@ -16,7 +16,7 @@ class TextBasedParser(GenericParser):
         with open(file, encoding='utf-8') as f:
             lines = [line.rstrip() for line in f.readlines()]
 
-        if len(lines) == 0:
+        if not lines:
             raise MalformedFileError('The file is empty.')
 
         return lines
@@ -59,7 +59,7 @@ class TextBasedParser(GenericParser):
                 except MalformedCaptionError as e:
                     raise MalformedCaptionError('{} in line! {}'.format(e, index + 1))
                 c = Caption(start, end)
-            elif len(line) > 0:
+            elif line:
                 if c is None:
                     raise MalformedCaptionError('Caption missing timeframe in line {}.'.format(index + 1))
                 else:
