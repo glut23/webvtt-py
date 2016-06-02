@@ -1,6 +1,21 @@
 History
 =======
 
+0.3.0 (02-06-2016) YouTube SBV
+------------------------------
+
+New features:
+
+* Added support for YouTube SBV captions.
+* Added easy iteration to WebVTT class.
+* New CLI command for segmenting captions for HLS.
+
+Other:
+
+* Improved parsers to reuse functionality.
+* Added an exception for invalid timestamps in captions.
+* Added an exception when saving without a filename.
+
 0.2.0 (23-05-2016) Module refactor
 ----------------------------------
 
