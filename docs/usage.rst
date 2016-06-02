@@ -40,7 +40,7 @@ Creating captions
     # adding a caption
     webvtt.captions.append(caption)
 
-    # creating another caption but with a text
+    # creating another caption with a text
     caption = Caption(
         '00:00:07.000',
         '00:00:11.890',
@@ -75,8 +75,8 @@ Manipulating captions
     del webvtt.captions[2]
 
 
-Converting caption
-------------------
+Converting captions
+-------------------
 
 You can read captions from the following formats:
 
@@ -91,3 +91,6 @@ You can read captions from the following formats:
     # the extension.
     webvtt = WebVTT().from_sbv('captions.sbv')
     webvtt.save()
+
+    # if we just want to convert the file we can do this in one line
+    WebVTT().from_sbv('captions.sbv').save()
