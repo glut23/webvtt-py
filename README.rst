@@ -48,8 +48,13 @@ Segmenting for HLS
 
   WebVTTSegmenter().segment('captions.vtt', 'output/path')
 
-Converting SRT captions
------------------------
+Converting captions from other formats
+--------------------------------------
+
+Supported formats:
+
+* SubRip (.srt)
+* YouTube SBV (.sbv)
 
 .. code-block:: python
 
@@ -58,6 +63,8 @@ Converting SRT captions
   webvtt = WebVTT().from_srt('captions.srt')
   webvtt.save()
 
+  # we can convert captions in one line
+  WebVTT().from_sbv('captions.sbv').save()
 
 CLI
 ---
