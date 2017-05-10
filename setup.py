@@ -4,7 +4,7 @@ from webvtt import __version__
 
 
 def readme():
-    with open('README.rst', 'r', encoding='utf-8') as f:
+    with open('README.rst', 'r') as f:
         return f.read()
 
 setup(
