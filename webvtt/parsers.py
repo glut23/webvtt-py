@@ -13,7 +13,7 @@ class TextBasedParser(GenericParser):
     TIMEFRAME_LINE_PATTERN = ''
 
     def _read_content(self, file):
-        with open(file, encoding='utf-8') as f:
+        with open(file) as f:
             lines = [line.rstrip() for line in f.readlines()]
 
         if not lines:
