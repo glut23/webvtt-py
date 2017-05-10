@@ -46,7 +46,7 @@ class WebVTTSegmenter(object):
         for index in range(self.total_segments):
             segment_file = os.path.join(self._output_folder, 'fileSequence{}.webvtt'.format(index))
 
-            with open(segment_file, 'w', encoding='utf-8') as f:
+            with open(segment_file, 'w') as f:
                 f.write('WEBVTT\n')
                 f.write('X-TIMESTAMP-MAP=MPEGTS:{},LOCAL:00:00:00.000\n'.format(self._mpegts))
 
@@ -56,7 +56,7 @@ class WebVTTSegmenter(object):
 
     def _write_manifest(self):
         manifest_file = os.path.join(self._output_folder, 'prog_index.m3u8')
-        with open(manifest_file, 'w', encoding='utf-8') as f:
+        with open(manifest_file, 'w') as f:
             f.write('#EXTM3U\n')
             f.write('#EXT-X-TARGETDURATION:{}\n'.format(self.seconds))
             f.write('#EXT-X-VERSION:3\n')
