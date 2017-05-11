@@ -84,7 +84,7 @@ class WebVTT(object):
                 # otherwise the file will be written in the specified location
                 self.file = target
 
-        with open(self.file, 'w', encoding='utf-8') as f:
+        with open(self.file, 'w') as f:
             f.write('WEBVTT\n')
             for c in self._captions:
                 f.write('\n{} --> {}\n'.format(c.start, c.end))
