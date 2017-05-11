@@ -80,7 +80,7 @@ class WebVTTSegmenter(object):
             captions = webvtt.captions
 
         #self._total_segments = 0 if not captions else int(ceil(captions[-1].end_in_seconds / seconds))
-        self._total_segments = 0 if not captions else int(floor(captions[-1].end_in_seconds / seconds))
+        self._total_segments = 0 if not captions else int(ceil(captions[-1].end_in_seconds / seconds))
         self._output_folder = output
         self._seconds = seconds
         self._mpegts = mpegts
