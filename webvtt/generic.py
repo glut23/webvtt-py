@@ -23,33 +23,29 @@ class Caption(object):
     def add_line(self, line):
         self.lines.append(line)
 
-    def _to_seconds(self, hours, minutes, seconds, milliseconds):
-        return hours*60*60 + minutes * 60 + seconds + float(milliseconds) / float(1000)
-
     def _parse_timestamp(self, timestamp):
         res = re.match(TIMESTAMP_PATTERN, timestamp)
-        if not res:
+        if res:
+            hours, minutes, seconds, milliseconds = res.group(1), res.group(2), res.group(3), res.group(4)
+        else:
             res = re.match(TIMESTAMP_PATTERN_SHORT, timestamp)
             if not res:
                 raise MalformedCaptionError('Invalid timestamp: {}'.format(timestamp))
-            return self._to_seconds(
-                0,
-                int(res.group(1)),  # minutes
-                int(res.group(2)),  # seconds
-                int(res.group(3))  # milliseconds
-            )
-        return self._to_seconds(
-            int(res.group(1)),  # hours
-            int(res.group(2)),  # minutes
-            int(res.group(3)),  # seconds
-            int(res.group(4))  # milliseconds
-        )
 
-    def _to_timestamp(self, total_seconds):
+            hours, minutes, seconds, milliseconds = 0, res.group(1), res.group(2), res.group(3)
+        hours, minutes, seconds, milliseconds = int(hours), int(minutes), int(seconds), float(milliseconds)
+        return self._to_seconds(hours, minutes, seconds, milliseconds)
+
+    @staticmethod
+    def _to_seconds(hours, minutes, seconds, milliseconds):
+        return hours*60*60 + minutes * 60 + seconds + milliseconds / float(1000)
+
+    @staticmethod
+    def _to_timestamp(total_seconds):
         hours = int(total_seconds / 3600)
         minutes = int(total_seconds / 60) - hours * 60
         seconds = total_seconds - hours*3600 - minutes * 60
-        return '{:02d}:{:02d}:{:06.3f}'.format(int(hours), int(minutes), seconds)
+        return '{:02d}:{:02d}:{:06.3f}'.format(hours, minutes, seconds)
 
     @property
     def start_in_seconds(self):
