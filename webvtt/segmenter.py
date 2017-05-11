@@ -54,7 +54,7 @@ class WebVTTSegmenter(object):
                     f.write('\n{} --> {}\n'.format(caption.start, caption.end))
                     f.writelines(['{}\n'.format(l) for l in caption.lines])
 
-    def _write_manifest(self, target_seconds=30):
+    def _write_manifest(self, captions, target_seconds=30):
         manifest_file = os.path.join(self._output_folder, 'prog_index.m3u8')
         with open(manifest_file, 'w') as f:
             f.write('#EXTM3U\n')
@@ -62,7 +62,7 @@ class WebVTTSegmenter(object):
             f.write('#EXT-X-VERSION:3\n')
             f.write('#EXT-X-PLAYLIST-TYPE:VOD\n')
             
-            remaining_seconds = self.segments[-1].end_in_seconds
+            remaining_seconds = self.captions[-1].end_in_seconds
             print(remaining_seconds)
             
             for i in range(self.total_segments):
@@ -94,7 +94,7 @@ class WebVTTSegmenter(object):
 
         self._slice_segments(captions)
         self._write_segments()
-        self._write_manifest(seconds)
+        self._write_manifest(captions, seconds)
 
     @property
     def seconds(self):
