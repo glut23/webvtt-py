@@ -62,7 +62,8 @@ class WebVTTSegmenter(object):
             f.write('#EXT-X-VERSION:3\n')
             f.write('#EXT-X-PLAYLIST-TYPE:VOD\n')
             
-            remaining_seconds = self._seconds
+            remaining_seconds = self.seconds()
+            print(remaining_seconds)
             
             for i in range(self.total_segments):
                 f.write('#EXTINF:{0}.00000\n'.format(min(target_seconds,remaining_seconds)))
