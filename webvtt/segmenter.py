@@ -33,11 +33,11 @@ class WebVTTSegmenter(object):
         self._segments = [[] for _ in range(self.total_segments)]
 
         for c in captions:
-            segment_index_start = floor(c.start_in_seconds / self.seconds)
+            segment_index_start = int(floor(c.start_in_seconds / self.seconds))
             self.segments[segment_index_start].append(c)
 
             # Also include a caption in other segments based on the end time.
-            segment_index_end = floor(c.end_in_seconds / self.seconds)
+            segment_index_end = int(floor(c.end_in_seconds / self.seconds))
             if segment_index_end > segment_index_start:
                 for i in range(segment_index_start + 1, segment_index_end + 1):
                     self.segments[i].append(c)
