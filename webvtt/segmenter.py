@@ -66,7 +66,8 @@ class WebVTTSegmenter(object):
             print(remaining_seconds)
             
             for i in range(self.total_segments):
-                f.write('#EXTINF:{0}.00000\n'.format(min(target_seconds,remaining_seconds)))
+                segment_length = "{0:.3f}".format(min(target_seconds,remaining_seconds))
+                f.write('#EXTINF:{0}\n'.format(segment_length))
                 f.write('fileSequence{}.webvtt\n'.format(i))
                 remaining_seconds-=target_seconds
 
