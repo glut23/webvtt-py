@@ -13,7 +13,7 @@ webvtt-py
 
 ``webvtt-py`` is a Python module for reading/writing WebVTT_ caption files. It also features caption segmentation useful when captioning `HLS videos`_.
 
-Requires Python 3.3+.
+Requires Python 2.7+.
 
 Documentation is available at http://webvtt-py.readthedocs.io.
 
