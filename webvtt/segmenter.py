@@ -5,7 +5,7 @@ from .exceptions import InvalidCaptionsError
 from .generic import Caption
 from webvtt.main import WebVTT
 
-MPEGTS = 900000
+MPEGTS = 0
 SECONDS = 10  # default number of seconds per segment
 
 
