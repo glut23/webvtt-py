@@ -23,7 +23,7 @@ class Caption(object):
         self.lines.append(line)
 
     def _to_seconds(self, minutes, seconds, milliseconds):
-        return minutes * 60 + seconds + milliseconds / 1000
+        return minutes * 60 + seconds + float(milliseconds) / float(1000)
 
     def _parse_timestamp(self, timestamp):
         res = re.match(TIMESTAMP_PATTERN, timestamp)
