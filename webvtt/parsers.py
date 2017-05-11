@@ -82,7 +82,7 @@ class SRTParser(TextBasedParser):
     SRT parser.
     """
 
-    TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d+:\d{2}:\d{2},\d{3})\s*-->\s*(\d+:\d{2}:\d{2},\d{3})')
+    TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d+:\d{2},\d{3})\s*-->\s*(\d+:\d{2},\d{3})')
 
     def _validate(self, lines):
         if len(lines) < 2 or lines[0] != '1' or not self._validate_timeframe_line(lines[1]):
@@ -100,7 +100,7 @@ class WebVTTParser(SRTParser):
     WebVTT parser.
     """
 
-    TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d+:\d{2}:\d{2}.\d{3})\s*-->\s*(\d+:\d{2}:\d{2}.\d{3})')
+    TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d{2}:\d{2}.\d{3})\s*-->\s*(\d+:\d{2}.\d{3})')
 
     def _validate(self, lines):
         if 'WEBVTT' not in lines[0]:
@@ -115,7 +115,7 @@ class SBVParser(TextBasedParser):
     YouTube SBV parser.
     """
 
-    TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d+:\d{2}:\d{2}.\d{3}),(\d+:\d{2}:\d{2}.\d{3})')
+    TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d+:\d{2}.\d{3}),(\d+:\d{2}.\d{3})')
 
     def _validate(self, lines):
         if not self._validate_timeframe_line(lines[0]):
