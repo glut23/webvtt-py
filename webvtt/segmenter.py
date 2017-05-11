@@ -33,11 +33,11 @@ class WebVTTSegmenter(object):
         self._segments = [[] for _ in range(self.total_segments)]
 
         for c in captions:
-            segment_index_start = int(floor(c.start_in_seconds / self.seconds))
+            segment_index_start = int(floor(float(c.start_in_seconds) / float(self.seconds)))
             self.segments[segment_index_start].append(c)
 
             # Also include a caption in other segments based on the end time.
-            segment_index_end = int(floor(c.end_in_seconds / self.seconds))
+            segment_index_end = int(floor(float(c.end_in_seconds) / float(self.seconds)))
             if segment_index_end > segment_index_start:
                 for i in range(segment_index_start + 1, segment_index_end + 1):
                     self.segments[i].append(c)
@@ -78,9 +78,8 @@ class WebVTTSegmenter(object):
         else:
             # we expect to have a webvtt object
             captions = webvtt.captions
-
-        #self._total_segments = 0 if not captions else int(ceil(captions[-1].end_in_seconds / seconds))
-        self._total_segments = 0 if not captions else int(ceil(captions[-1].end_in_seconds / seconds))
+            
+        self._total_segments = 0 if not captions else int(ceil(float(captions[-1].end_in_seconds) / float(seconds)))
         self._output_folder = output
         self._seconds = seconds
         self._mpegts = mpegts
