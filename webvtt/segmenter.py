@@ -48,7 +48,7 @@ class WebVTTSegmenter(object):
 
             with open(segment_file, 'w') as f:
                 f.write('WEBVTT\n')
-                f.write('X-TIMESTAMP-MAP=MPEGTS:{},LOCAL:00:00:00.000\n'.format(self._mpegts))
+                f.write('X-TIMESTAMP-MAP=MPEGTS:{},LOCAL:00:00.000\n'.format(self._mpegts))
 
                 for caption in self.segments[index]:
                     f.write('\n{} --> {}\n'.format(caption.start, caption.end))
