@@ -100,7 +100,7 @@ class WebVTTParser(SRTParser):
     WebVTT parser.
     """
 
-    TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d{2}:\d{2}.\d{3})\s*-->\s*(\d+:\d{2}.\d{3})')
+    TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d+:\d{2}.\d{3})\s*-->\s*(\d+:\d{2}.\d{3})')
 
     def _validate(self, lines):
         if 'WEBVTT' not in lines[0]:
