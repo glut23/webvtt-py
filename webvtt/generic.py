@@ -2,14 +2,14 @@ import re
 
 from webvtt.exceptions import MalformedCaptionError
 
-TIMESTAMP_PATTERN = re.compile('(\d+):(\d{2}):(\d{2})[.,](\d{3})')
+TIMESTAMP_PATTERN = re.compile('(\d+):(\d{2})[.,](\d{3})')
 
 
 class Caption(object):
     """
     Represents a caption.
     """
-    def __init__(self, start='00:00:00.000', end='00:00:00.000', text=None):
+    def __init__(self, start='00:00.000', end='00:00.000', text=None):
         self.start = start
         self.end = end
 
@@ -22,25 +22,23 @@ class Caption(object):
     def add_line(self, line):
         self.lines.append(line)
 
-    def _to_seconds(self, hours, minutes, seconds, milliseconds):
-        return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000
+    def _to_seconds(self, minutes, seconds, milliseconds):
+        return minutes * 60 + seconds + milliseconds / 1000
 
     def _parse_timestamp(self, timestamp):
         res = re.match(TIMESTAMP_PATTERN, timestamp)
         if not res:
             raise MalformedCaptionError('Invalid timestamp: {}'.format(timestamp))
         return self._to_seconds(
-            int(res.group(1)),  # hours
-            int(res.group(2)),  # minutes
-            int(res.group(3)),  # seconds
-            int(res.group(4))  # milliseconds
+            int(res.group(1)),  # minutes
+            int(res.group(2)),  # seconds
+            int(res.group(3))  # milliseconds
         )
 
     def _to_timestamp(self, total_seconds):
-        hours = int(total_seconds / 3600)
         minutes = int(total_seconds / 60 - hours * 60)
         seconds = total_seconds - hours * 3600 - minutes * 60
-        return '{:02d}:{:02d}:{:06.3f}'.format(int(hours), int(minutes), seconds)
+        return '{:02d}:{:06.3f}'.format(int(minutes), seconds)
 
     @property
     def start_in_seconds(self):
