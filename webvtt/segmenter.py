@@ -6,7 +6,7 @@ from .generic import Caption
 from webvtt.main import WebVTT
 
 MPEGTS = 0
-SECONDS = 10  # default number of seconds per segment
+SECONDS = 200  # default number of seconds per segment
 
 
 class WebVTTSegmenter(object):
