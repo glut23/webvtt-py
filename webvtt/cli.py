@@ -7,8 +7,8 @@ Usage:
 Options:
   -h --help                  Show this screen.
   --version                  Show version.
-  --target-duration=SECONDS  Target duration of each segment in seconds [default: 10].
-  --mpegts=OFFSET            Presentation timestamp value [default: 900000].
+  --target-duration=SECONDS  Target duration of each segment in seconds [default: 200].
+  --mpegts=OFFSET            Presentation timestamp value [default: 0].
   --output=<dir>             Output to directory [default: ./].
 
 Examples:
