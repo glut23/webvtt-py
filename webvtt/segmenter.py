@@ -59,7 +59,7 @@ class WebVTTSegmenter(object):
         with open(manifest_file, 'w') as f:
             f.write('#EXTM3U\n')
             f.write('#EXT-X-TARGETDURATION:{}\n'.format(self.seconds))
-            f.write('#EXT-X-VERSION:3\n')
+            f.write('#EXT-X-VERSION:5\n')
             f.write('#EXT-X-PLAYLIST-TYPE:VOD\n')
             
             remaining_seconds = captions[-1].end_in_seconds
