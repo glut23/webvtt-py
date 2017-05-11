@@ -36,8 +36,8 @@ class Caption(object):
         )
 
     def _to_timestamp(self, total_seconds):
-        minutes = int(total_seconds / 60 - hours * 60)
-        seconds = total_seconds - hours * 3600 - minutes * 60
+        minutes = int(total_seconds / 60)
+        seconds = total_seconds - minutes * 60
         return '{:02d}:{:06.3f}'.format(int(minutes), seconds)
 
     @property
