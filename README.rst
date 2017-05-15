@@ -34,7 +34,7 @@ Usage
 
   from webvtt import WebVTT
 
-  for caption in WebVTT().read('captions.vtt'):
+  for caption in WebVTT().read(FileReader('captions.vtt')):
       print(caption.start)
       print(caption.end)
       print(caption.text)
@@ -46,7 +46,7 @@ Segmenting for HLS
 
   from webvtt import WebVTTSegmenter
 
-  WebVTTSegmenter().segment('captions.vtt', 'output/path')
+  WebVTTSegmenter().segment(FileReader('captions.vtt'), FileWriter('output/path'))
 
 Converting captions from other formats
 --------------------------------------
@@ -60,11 +60,11 @@ Supported formats:
 
   from webvtt import WebVTT
 
-  webvtt = WebVTT().from_srt('captions.srt')
+  webvtt = WebVTT().from_srt(FileReader('captions.srt'))
   webvtt.save()
 
   # we can convert captions in one line
-  WebVTT().from_sbv('captions.sbv').save()
+  WebVTT().from_sbv(FileReader('captions.sbv')).save()
 
 CLI
 ---
