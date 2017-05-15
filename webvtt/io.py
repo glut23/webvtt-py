@@ -26,9 +26,12 @@ class FileWriter(GenericWriter):
         return open(file_path, 'w')
 
 
-class StringReader(StringIO):
-    def __init__(self, content):
-        super(StringReader, self).__init__(content)
+class StringReader(GenericReader):
+    def __init__(self, filename):
+        self.content = filename
+
+    def readlines(self):
+        return [line.rstrip() for line in StringIO(self.content).readlines()]
 
 
 class S3FileLike(object):
