@@ -1,7 +1,4 @@
-import os
 from math import ceil, floor
-
-from .exceptions import InvalidCaptionsError
 from .generic import Caption
 from webvtt.main import WebVTT
 
@@ -15,7 +12,7 @@ class WebVTTSegmenter(object):
     """
     def __init__(self):
         self._total_segments = 0
-        self._output_folder = ''
+        self._output_writer = ''
         self._seconds = 0
         self._mpegts = 0
         self._segments = []
@@ -44,9 +41,7 @@ class WebVTTSegmenter(object):
 
     def _write_segments(self):
         for index in range(self.total_segments):
-            segment_file = os.path.join(self._output_folder, 'fileSequence{}.webvtt'.format(index))
-
-            with open(segment_file, 'w') as f:
+            with self._output_writer.open('fileSequence{}.webvtt'.format(index)) as f:
                 f.write('WEBVTT\n')
                 f.write('X-TIMESTAMP-MAP=MPEGTS:{},LOCAL:00:00.000\n'.format(self._mpegts))
 
@@ -55,8 +50,7 @@ class WebVTTSegmenter(object):
                     f.writelines(['{}\n'.format(l) for l in caption.lines])
 
     def _write_manifest(self, captions, target_seconds=SECONDS):
-        manifest_file = os.path.join(self._output_folder, 'prog_index.m3u8')
-        with open(manifest_file, 'w') as f:
+        with self._output_writer.open('prog_index.m3u8') as f:
             f.write('#EXTM3U\n')
             f.write('#EXT-X-TARGETDURATION:{}\n'.format(self.seconds))
             f.write('#EXT-X-VERSION:5\n')
@@ -75,23 +69,12 @@ class WebVTTSegmenter(object):
 
     def segment(self, webvtt, output='', seconds=SECONDS, mpegts=MPEGTS):
         """Segments the captions based on a number of seconds."""
-        if isinstance(webvtt, str):
-            # if a string is supplied we parse the file
-            captions = WebVTT().read(webvtt).captions
-        elif not self._validate_webvtt(webvtt):
-            raise InvalidCaptionsError('The captions provided are invalid')
-        else:
-            # we expect to have a webvtt object
-            captions = webvtt.captions
-            
+        captions = WebVTT().read(webvtt).captions
+
         self._total_segments = 0 if not captions else int(ceil(float(captions[-1].end_in_seconds) / float(seconds)))
-        self._output_folder = output
+        self._output_writer = output
         self._seconds = seconds
         self._mpegts = mpegts
-
-        output_folder = os.path.join(os.getcwd(), output)
-        if not os.path.exists(output_folder):
-            os.makedirs(output_folder)
 
         self._slice_segments(captions)
         self._write_segments()

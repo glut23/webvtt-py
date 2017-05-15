@@ -88,6 +88,19 @@ class Caption(object):
         self._lines = value.splitlines()
 
 
+class GenericWriter(object):
+    def open(self, name):
+        pass
+
+
+class GenericReader(object):
+    def read(self):
+        pass
+
+    def readlines(self):
+        pass
+
+
 class GenericParser(object):
     """
     A generic parent class for all parsers.

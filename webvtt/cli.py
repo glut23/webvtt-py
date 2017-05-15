@@ -18,7 +18,7 @@ Examples:
 from docopt import docopt
 
 from . import WebVTTSegmenter, __version__
-
+from io import FileReader, FileWriter, S3ObjectWriter
 
 def main():
     """Main entry point for CLI commands."""
@@ -44,4 +44,7 @@ def segment(f, output, target_duration, mpegts):
     except ValueError:
         exit('Error: Invalid MPEGTS value.')
 
-    WebVTTSegmenter().segment(f, output, target_duration, mpegts)
+    source = FileReader(f)
+    output = FileWriter(f)
+    #output = S3ObjectWriter('bucket', 'keyprefix')
+    WebVTTSegmenter().segment(source, output, target_duration, mpegts)
