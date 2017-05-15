@@ -89,8 +89,23 @@ class Caption(object):
 
 
 class GenericWriter(object):
-    def open(self, name):
-        pass
+    def __init__(self, type_map=None):
+        if type_map is None:
+            type_map = {
+                'vtt': {
+                    'ContentType': 'text/vtt; charset=UTF-8',
+                    'CacheControl': 'public, max-age=172800'
+                },
+                'webvtt': {
+                    'ContentType': 'text/vtt; charset=UTF-8',
+                    'CacheControl': 'public, max-age=172800'
+                },
+                'm3u8': {
+                    'ContentType': 'application/vnd.apple.mpegurl; charset=UTF-8',
+                    'CacheControl': 'public, max-age=172800'
+                }
+            }
+        self.type_map = type_map
 
 
 class GenericReader(object):
