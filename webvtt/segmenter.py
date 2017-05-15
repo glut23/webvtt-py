@@ -47,7 +47,7 @@ class WebVTTSegmenter(object):
 
                 for caption in self.segments[index]:
                     f.write('\n{} --> {}\n'.format(caption.start, caption.end))
-                    f.writelines(['{}\n'.format(l) for l in caption.lines])
+                    f.writelines(caption.lines)#['{}\n'.format(l) for l in caption.lines])
 
     def _write_manifest(self, captions, target_seconds=SECONDS):
         with self._output_writer.open('prog_index.m3u8') as f:
