@@ -36,10 +36,11 @@ class StringReader(GenericReader):
 
 class S3FileLike(object):
 
-    def __init__(self, bucket, key, client, headers):
+    def __init__(self, bucket, key, client, headers, ACL='private'):
         self.bucket, self.key, self.client = bucket, key, client
         self.content = []
         self.headers = headers
+        self.ACL = ACL
 
     def __enter__(self):
         return self
@@ -47,6 +48,7 @@ class S3FileLike(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.client.Object(self.bucket, self.key).put(
             Body=''.join(self.content),
+            ACL=self.ACL,
             **self.headers
         )
 
@@ -60,13 +62,16 @@ class S3FileLike(object):
 
 class S3ObjectWriter(GenericWriter):
 
-    def __init__(self, bucket, key_prefix):
+    def __init__(self, bucket, key_prefix, ACL='private'):
         super(S3ObjectWriter, self).__init__()
         self.bucket = bucket
         self.key_prefix = key_prefix
         self.client = boto3.resource('s3')
+        self.ACL = ACL
 
-    def open(self, key):
+    def open(self, key, ACL=None):
         file_type = key.split(".")[-1]
         headers = {} if file_type not in self.type_map else self.type_map[file_type]
-        return S3FileLike(self.bucket, '{}/{}'.format(self.key_prefix, key), self.client, headers)
+        if ACL is None:
+            ACL = self.ACL
+        return S3FileLike(self.bucket, '{}/{}'.format(self.key_prefix, key), self.client, headers, ACL)
