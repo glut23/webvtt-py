@@ -2,7 +2,7 @@ import boto3
 
 from webvtt.generic import GenericReader, GenericWriter
 import os
-from StringIO import StringIO
+from io import StringIO
 
 
 class FileReader(GenericReader):
