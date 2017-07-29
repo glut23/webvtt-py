@@ -134,6 +134,15 @@ class WebVTTTestCase(unittest.TestCase):
         self.assertEqual(c.start, '00:00:01.750')
         self.assertEqual(c.end, '00:00:08.250')
 
+    def test_caption_timestamp_format(self):
+        c = Caption('01:02:03.400', '02:03:04.500')
+        self.assertEqual(c.start, '01:02:03.400')
+        self.assertEqual(c.end, '02:03:04.500')
+
+        c = Caption('02:03.400', '03:04.500')
+        self.assertEqual(c.start, '00:02:03.400')
+        self.assertEqual(c.end, '00:03:04.500')
+
     def test_caption_text(self):
         c = Caption(text=['Caption line #1', 'Caption line #2'])
         self.assertEqual(
