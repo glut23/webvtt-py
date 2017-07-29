@@ -1,10 +1,11 @@
+import io
 from setuptools import setup
 
 from webvtt import __version__
 
 
 def readme():
-    with open('README.rst', 'r', encoding='utf-8') as f:
+    with io.open('README.rst', 'r', encoding='utf-8') as f:
         return f.read()
 
 setup(
