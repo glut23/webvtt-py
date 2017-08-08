@@ -91,3 +91,8 @@ class WebVTTParserTestCase(GenericParserTestCase):
     def test_webvtt_timestamp_format(self):
         self.assertTrue(WebVTTParser()._validate_timeframe_line('00:00:00.000 --> 00:00:00.000'))
         self.assertTrue(WebVTTParser()._validate_timeframe_line('00:00.000 --> 00:00.000'))
+
+    def test_metadata_headers(self):
+        self.webvtt.read(self._get_file('metadata_headers.vtt'))
+        self.assertEqual(len(self.webvtt.captions), 2)
+

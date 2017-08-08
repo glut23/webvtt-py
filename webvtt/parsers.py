@@ -50,15 +50,14 @@ class TextBasedParser(GenericParser):
         c = None
 
         for index, line in enumerate(lines):
-            if self._should_skip_line(line, index, c):  # allow child classes to skip lines based on the content
-                continue
-
             if self._is_timeframe_line(line):
                 try:
                     start, end = self._parse_timeframe_line(line)
                 except MalformedCaptionError as e:
                     raise MalformedCaptionError('{} in line! {}'.format(e, index + 1))
                 c = Caption(start, end)
+            elif self._should_skip_line(line, index, c):  # allow child classes to skip lines based on the content
+                continue
             elif line:
                 if c is None:
                     raise MalformedCaptionError('Caption missing timeframe in line {}.'.format(index + 1))
@@ -101,13 +100,16 @@ class WebVTTParser(SRTParser):
     """
 
     TIMEFRAME_LINE_PATTERN = re.compile('\s*((?:\d+:)?\d{2}:\d{2}.\d{3})\s*-->\s*((?:\d+:)?\d{2}:\d{2}.\d{3})')
+    METADATA_HEADER = re.compile('\w+:\s*\w+')
 
     def _validate(self, lines):
         if 'WEBVTT' not in lines[0]:
             raise MalformedFileError('The file does not have a valid format')
 
     def _should_skip_line(self, line, index, caption):
-        return index == 0 and line == 'WEBVTT'
+        is_header_title = index == 0 and line == 'WEBVTT'
+        is_metadata_header = len(self.captions) == 0 and re.match(self.METADATA_HEADER, line)
+        return is_header_title or is_metadata_header
 
 
 class SBVParser(TextBasedParser):
