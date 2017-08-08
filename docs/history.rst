@@ -1,6 +1,12 @@
 History
 =======
 
+0.3.1 (08-08-2017) Compatibility updates
+----------------------------------------
+
+* Made hours in WebVTT parser optional as per specs.
+* Added support to parse WebVTT files that contain metadata headers.
+
 0.3.0 (02-06-2016) YouTube SBV
 ------------------------------
 
