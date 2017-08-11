@@ -100,7 +100,6 @@ class WebVTTParser(SRTParser):
     """
 
     TIMEFRAME_LINE_PATTERN = re.compile('\s*((?:\d+:)?\d{2}:\d{2}.\d{3})\s*-->\s*((?:\d+:)?\d{2}:\d{2}.\d{3})')
-    METADATA_HEADER = re.compile('\w+:\s*\w+')
 
     def _validate(self, lines):
         if 'WEBVTT' not in lines[0]:
@@ -108,8 +107,9 @@ class WebVTTParser(SRTParser):
 
     def _should_skip_line(self, line, index, caption):
         is_header_title = index == 0 and line == 'WEBVTT'
-        is_metadata_header = len(self.captions) == 0 and re.match(self.METADATA_HEADER, line)
-        return is_header_title or is_metadata_header
+        is_header_data = len(self.captions) == 0 and caption is None
+
+        return is_header_title or is_header_data
 
 
 class SBVParser(TextBasedParser):

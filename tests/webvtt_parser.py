@@ -96,3 +96,6 @@ class WebVTTParserTestCase(GenericParserTestCase):
         self.webvtt.read(self._get_file('metadata_headers.vtt'))
         self.assertEqual(len(self.webvtt.captions), 2)
 
+    def test_metadata_headers_multiline(self):
+        self.webvtt.read(self._get_file('metadata_headers_multiline.vtt'))
+        self.assertEqual(len(self.webvtt.captions), 2)
