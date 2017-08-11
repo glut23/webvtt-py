@@ -18,7 +18,8 @@ Examples:
 from docopt import docopt
 
 from . import WebVTTSegmenter, __version__
-from io import FileReader, FileWriter, S3ObjectWriter
+from sub_io import FileReader, FileWriter
+
 
 def main():
     """Main entry point for CLI commands."""
