@@ -1,6 +1,12 @@
 History
 =======
 
+0.3.2 (11-08-2017) Hot fix for compatibility
+--------------------------------------------
+
+The goal of this release if to allow the WebVTT parser to be able to read caption files that contain metadata headers
+that extend to more than one line.
+
 0.3.1 (08-08-2017) Compatibility updates
 ----------------------------------------
 
