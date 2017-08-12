@@ -54,7 +54,7 @@ class TextBasedParser(GenericParser):
                 try:
                     start, end = self._parse_timeframe_line(line)
                 except MalformedCaptionError as e:
-                    raise MalformedCaptionError('{} in line! {}'.format(e, index + 1))
+                    raise MalformedCaptionError('{} in line {}'.format(e, index + 1))
                 c = Caption(start, end)
             elif self._should_skip_line(line, index, c):  # allow child classes to skip lines based on the content
                 continue
@@ -94,22 +94,61 @@ class SRTParser(TextBasedParser):
         return caption is None and line.isdigit()
 
 
-class WebVTTParser(SRTParser):
+class Block(object):
+    def __init__(self, line_number):
+        self.line_number = line_number
+        self.lines = []
+
+
+class WebVTTParser(TextBasedParser):
     """
     WebVTT parser.
     """
 
     TIMEFRAME_LINE_PATTERN = re.compile('\s*((?:\d+:)?\d{2}:\d{2}.\d{3})\s*-->\s*((?:\d+:)?\d{2}:\d{2}.\d{3})')
 
+    def _compute_blocks(self, lines):
+        blocks = []
+
+        for index, line in enumerate(lines, start=1):
+            if line:
+                if not blocks:
+                    blocks.append(Block(index))
+                if not blocks[-1].lines:
+                    blocks[-1].line_number = index
+                blocks[-1].lines.append(line)
+            else:
+                blocks.append(Block(index))
+
+        # filter out empty blocks and skip signature
+        self.blocks = list(filter(lambda x: x.lines, blocks))[1:]
+
+    def _parse(self, lines):
+        self._compute_blocks(lines)
+
+        for block in self.blocks:
+            if self._is_timeframe_line(block.lines[0]):
+                try:
+                    start, end = self._parse_timeframe_line(block.lines[0])
+                except MalformedCaptionError as e:
+                    raise MalformedCaptionError('{} in line {}'.format(e, block.line_number))
+
+                caption = Caption(start, end)
+                for line in block.lines[1:]:
+                    caption.add_line(line)
+                self.captions.append(caption)
+
+                if not caption.lines:
+                    raise MalformedCaptionError('Caption missing text in line {}.'.format(block.line_number))
+            else:
+                raise MalformedCaptionError('Caption missing timeframe in line {}.'.format(block.line_number))
+
     def _validate(self, lines):
         if 'WEBVTT' not in lines[0]:
             raise MalformedFileError('The file does not have a valid format')
 
-    def _should_skip_line(self, line, index, caption):
-        is_header_title = index == 0 and line == 'WEBVTT'
-        is_header_data = len(self.captions) == 0 and caption is None
-
-        return is_header_title or is_header_data
+    def _is_timeframe_line(self, line):
+        return '-->' in line
 
 
 class SBVParser(TextBasedParser):

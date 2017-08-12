@@ -73,6 +73,13 @@ class WebVTTParserTestCase(GenericParserTestCase):
             self._get_file('missing_timeframe.vtt')
         )
 
+    def test_webvtt_missing_caption_text(self):
+        self.assertRaises(
+            MalformedCaptionError,
+            self.webvtt.read,
+            self._get_file('missing_caption_text.vtt')
+        )
+
     def test_webvtt_timestamps_format(self):
         self.webvtt.read(self._get_file('sample.vtt'))
         self.assertEqual(self.webvtt.captions[2].start, '00:00:11.890')
