@@ -57,6 +57,13 @@ class WebVTTParserTestCase(GenericParserTestCase):
             self._get_file('invalid_timeframe.vtt')
         )
 
+    def test_webvtt_parse_invalid_timeframe_in_cue_text(self):
+        self.assertRaises(
+            MalformedCaptionError,
+            self.webvtt.read,
+            self._get_file('invalid_timeframe_in_cue_text.vtt')
+        )
+
     def test_webvtt_parse_get_caption_data(self):
         self.webvtt.read(self._get_file('one_caption.vtt'))
         self.assertEqual(self.webvtt.captions[0].start_in_seconds, 0.5)
@@ -73,12 +80,9 @@ class WebVTTParserTestCase(GenericParserTestCase):
             self._get_file('missing_timeframe.vtt')
         )
 
-    def test_webvtt_missing_caption_text(self):
-        self.assertRaises(
-            MalformedCaptionError,
-            self.webvtt.read,
-            self._get_file('missing_caption_text.vtt')
-        )
+    def test_webvtt_caption_without_cue_text(self):
+        self.webvtt.read(self._get_file('missing_caption_text.vtt'))
+        self.assertEqual(len(self.webvtt.captions), 5)
 
     def test_webvtt_timestamps_format(self):
         self.webvtt.read(self._get_file('sample.vtt'))
@@ -106,3 +110,11 @@ class WebVTTParserTestCase(GenericParserTestCase):
     def test_metadata_headers_multiline(self):
         self.webvtt.read(self._get_file('metadata_headers_multiline.vtt'))
         self.assertEqual(len(self.webvtt.captions), 2)
+
+    def test_parse_identifiers(self):
+        self.webvtt.read(self._get_file('using_identifiers.vtt'))
+        self.assertEqual(len(self.webvtt.captions), 6)
+
+        self.assertEqual(self.webvtt.captions[1].identifier, 'second caption')
+        self.assertEqual(self.webvtt.captions[2].identifier, None)
+        self.assertEqual(self.webvtt.captions[3].identifier, '4')

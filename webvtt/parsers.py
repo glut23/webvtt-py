@@ -60,14 +60,16 @@ class TextBasedParser(GenericParser):
                 continue
             elif line:
                 if c is None:
-                    raise MalformedCaptionError('Caption missing timeframe in line {}.'.format(index + 1))
+                    raise MalformedCaptionError(
+                        'Caption missing timeframe in line {}.'.format(index + 1))
                 else:
                     c.add_line(line)
             else:
                 if c is None:
                     continue
                 if not c.lines:
-                    raise MalformedCaptionError('Caption missing text in line {}.'.format(index + 1))
+                    raise MalformedCaptionError(
+                        'Caption missing text in line {}.'.format(index + 1))
 
                 self.captions.append(c)
                 c = None
@@ -123,31 +125,53 @@ class WebVTTParser(TextBasedParser):
         # filter out empty blocks and skip signature
         self.blocks = list(filter(lambda x: x.lines, blocks))[1:]
 
+    def _parse_cue_block(self, block):
+        caption = Caption()
+        cue_timings = None
+
+        for line_number, line in enumerate(block.lines):
+            if self._is_cue_timings_line(line):
+                if cue_timings is None:
+                    try:
+                        cue_timings = self._parse_timeframe_line(line)
+                    except MalformedCaptionError as e:
+                        raise MalformedCaptionError(
+                            '{} in line {}'.format(e, block.line_number + line_number))
+                else:
+                    raise MalformedCaptionError(
+                        '--> found in line {}'.format(block.line_number + line_number))
+            elif line_number == 0:
+                caption.identifier = line
+            else:
+                caption.add_line(line)
+
+        caption.start = cue_timings[0]
+        caption.end = cue_timings[1]
+        return caption
+
     def _parse(self, lines):
         self._compute_blocks(lines)
 
         for block in self.blocks:
-            if self._is_timeframe_line(block.lines[0]):
-                try:
-                    start, end = self._parse_timeframe_line(block.lines[0])
-                except MalformedCaptionError as e:
-                    raise MalformedCaptionError('{} in line {}'.format(e, block.line_number))
+            # it is a cue block when one of the two first lines is a cue timings line
+            is_cue_timing = any(map(self._is_cue_timings_line, block.lines[:2]))
 
-                caption = Caption(start, end)
-                for line in block.lines[1:]:
-                    caption.add_line(line)
+            if is_cue_timing:
+                caption = self._parse_cue_block(block)
                 self.captions.append(caption)
-
-                if not caption.lines:
-                    raise MalformedCaptionError('Caption missing text in line {}.'.format(block.line_number))
             else:
-                raise MalformedCaptionError('Caption missing timeframe in line {}.'.format(block.line_number))
+                if len(block.lines) == 1:
+                    raise MalformedCaptionError(
+                        'Standalone cue identifier in line {}.'.format(block.line_number))
+                else:
+                    raise MalformedCaptionError(
+                        'Missing timing cue in line {}.'.format(block.line_number+1))
 
     def _validate(self, lines):
         if 'WEBVTT' not in lines[0]:
             raise MalformedFileError('The file does not have a valid format')
 
-    def _is_timeframe_line(self, line):
+    def _is_cue_timings_line(self, line):
         return '-->' in line
 
 

@@ -12,6 +12,7 @@ class Caption(object):
     def __init__(self, start='00:00:00.000', end='00:00:00.000', text=None):
         self.start = start
         self.end = end
+        self.identifier = None
 
         # If lines is a string convert to a list
         if text and isinstance(text, str):
