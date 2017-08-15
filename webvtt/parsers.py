@@ -108,6 +108,7 @@ class WebVTTParser(TextBasedParser):
     """
 
     TIMEFRAME_LINE_PATTERN = re.compile('\s*((?:\d+:)?\d{2}:\d{2}.\d{3})\s*-->\s*((?:\d+:)?\d{2}:\d{2}.\d{3})')
+    COMMENT_PATTERN = re.compile('NOTE(?:\s.+|$)')
 
     def _compute_blocks(self, lines):
         blocks = []
@@ -153,12 +154,11 @@ class WebVTTParser(TextBasedParser):
         self._compute_blocks(lines)
 
         for block in self.blocks:
-            # it is a cue block when one of the two first lines is a cue timings line
-            is_cue_timing = any(map(self._is_cue_timings_line, block.lines[:2]))
-
-            if is_cue_timing:
+            if self._is_cue_timings_block(block):
                 caption = self._parse_cue_block(block)
                 self.captions.append(caption)
+            elif self._is_comment_block(block):
+                continue
             else:
                 if len(block.lines) == 1:
                     raise MalformedCaptionError(
@@ -168,11 +168,20 @@ class WebVTTParser(TextBasedParser):
                         'Missing timing cue in line {}.'.format(block.line_number+1))
 
     def _validate(self, lines):
-        if 'WEBVTT' not in lines[0]:
+        if not re.match('WEBVTT', lines[0]):
             raise MalformedFileError('The file does not have a valid format')
 
     def _is_cue_timings_line(self, line):
         return '-->' in line
+
+    def _is_cue_timings_block(self, block):
+        """Returns True if it is a cue timings block
+        (one of the two first lines being a cue timing line)"""
+        return any(map(self._is_cue_timings_line, block.lines[:2]))
+
+    def _is_comment_block(self, block):
+        """Returns True if it is a comment block"""
+        return re.match(self.COMMENT_PATTERN, block.lines[0])
 
 
 class SBVParser(TextBasedParser):

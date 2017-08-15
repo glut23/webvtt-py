@@ -118,3 +118,16 @@ class WebVTTParserTestCase(GenericParserTestCase):
         self.assertEqual(self.webvtt.captions[1].identifier, 'second caption')
         self.assertEqual(self.webvtt.captions[2].identifier, None)
         self.assertEqual(self.webvtt.captions[3].identifier, '4')
+
+    def test_parse_with_comments(self):
+        self.webvtt.read(self._get_file('comments.vtt'))
+        self.assertEqual(len(self.webvtt.captions), 3)
+        self.assertListEqual(
+            self.webvtt.captions[0].lines,
+            ['- Ta en kopp varmt te.',
+             '- Det är inte varmt.']
+        )
+        self.assertEqual(
+            self.webvtt.captions[2].text,
+            '- Ta en kopp'
+        )
