@@ -154,7 +154,7 @@ class WebVTTParser(TextBasedParser):
         self._compute_blocks(lines)
 
         for block in self.blocks:
-            if self._is_cue_timings_block(block):
+            if self._is_cue_block(block):
                 caption = self._parse_cue_block(block)
                 self.captions.append(caption)
             elif self._is_comment_block(block):
@@ -174,7 +174,7 @@ class WebVTTParser(TextBasedParser):
     def _is_cue_timings_line(self, line):
         return '-->' in line
 
-    def _is_cue_timings_block(self, block):
+    def _is_cue_block(self, block):
         """Returns True if it is a cue timings block
         (one of the two first lines being a cue timing line)"""
         return any(map(self._is_cue_timings_line, block.lines[:2]))
