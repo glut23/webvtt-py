@@ -1,14 +1,7 @@
 import os
-import re
 
 from .parsers import WebVTTParser, SRTParser, SBVParser
 from webvtt.exceptions import MissingFilenameError
-
-SUPPORTED_FORMATS = (
-    ('WebVTT (.vtt)',   WebVTTParser),  # default parser for WebVTT format
-    ('SubRip (.srt)',      SRTParser),  # parser for SRT format
-    ('YouTube SBV (.sbv)', SBVParser),  # parser for YouTube SBV format
-)
 
 
 class WebVTT(object):
@@ -26,19 +19,10 @@ class WebVTT(object):
     A list of all supported formats is available calling supported_formats().
     """
 
-    FORMAT_EXTENSION_PATTERN = re.compile('.+\(\.(.+)\)')
-
     def __init__(self):
         self._captions = []
+        self._styles = []
         self.file = ''
-
-        # create methods dynamically to read captions based on the supported types
-        # read() is created for WebVTT and from_[FORMAT]() for the other formats.
-        for name, parser_class in SUPPORTED_FORMATS:
-            extension = re.match(self.FORMAT_EXTENSION_PATTERN, name).group(1)
-            method_name = 'read' if parser_class is WebVTTParser else 'from_{}'.format(extension)
-
-            setattr(self.__class__, method_name, self._set_reader(method_name, name, parser_class))
 
     def __len__(self):
         return len(self._captions)
@@ -46,18 +30,24 @@ class WebVTT(object):
     def __getitem__(self, index):
         return self._captions[index]
 
-    def _set_reader(self, name, format_name, parser_class):
-        def f(self, file):
-            self.file = file
-            self._captions = parser_class().read(file).captions
-            return self
+    def from_srt(self, file):
+        """Reads captions from a file in SubRip format."""
+        self.file = file
+        self._captions = SRTParser().read(file).captions
+        return self
 
-        f.__name__ = name
-        if parser_class is WebVTTParser:
-            f.__doc__ = 'Reads a WebVTT captions file.'
-        else:
-            f.__doc__ = 'Reads captions from a file in {} format.'.format(format_name)
-        return f
+    def from_sbv(self, file):
+        """Reads captions from a file in YouTube SBV format."""
+        self.file = file
+        self._captions = SBVParser().read(file).captions
+        return self
+
+    def read(self, file):
+        """Reads a WebVTT captions file."""
+        parser = WebVTTParser().read(file)
+        self.file = file
+        self._captions = parser.captions
+        return self
 
     def save(self, output=''):
         """Save the document.
@@ -93,7 +83,7 @@ class WebVTT(object):
     @staticmethod
     def supported_formats():
         """Provides a list of supported formats that this class can read from."""
-        return [f[0] for f in SUPPORTED_FORMATS]
+        return ['WebVTT (.vtt)', 'SubRip (.srt)', 'YouTube SBV (.sbv)']
 
     @property
     def captions(self):
@@ -106,3 +96,7 @@ class WebVTT(object):
         if not self._captions:
             return 0
         return int(self._captions[-1].end_in_seconds) - int(self._captions[0].start_in_seconds)
+
+    @property
+    def styles(self):
+        return self._styles
