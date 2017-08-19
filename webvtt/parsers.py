@@ -102,6 +102,16 @@ class Block(object):
         self.lines = []
 
 
+class Style(object):
+    def __init__(self, lines):
+        self.lines = lines
+
+    @property
+    def text(self):
+        """Returns the style lines as a text"""
+        return '\n'.join(self.lines)
+
+
 class WebVTTParser(TextBasedParser):
     """
     WebVTT parser.
@@ -109,6 +119,11 @@ class WebVTTParser(TextBasedParser):
 
     TIMEFRAME_LINE_PATTERN = re.compile('\s*((?:\d+:)?\d{2}:\d{2}.\d{3})\s*-->\s*((?:\d+:)?\d{2}:\d{2}.\d{3})')
     COMMENT_PATTERN = re.compile('NOTE(?:\s.+|$)')
+    STYLE_PATTERN = re.compile('STYLE[ \t]*$')
+
+    def __init__(self):
+        super().__init__()
+        self.styles = []
 
     def _compute_blocks(self, lines):
         blocks = []
@@ -159,6 +174,13 @@ class WebVTTParser(TextBasedParser):
                 self.captions.append(caption)
             elif self._is_comment_block(block):
                 continue
+            elif self._is_style_block(block):
+                if self.captions:
+                    raise MalformedFileError(
+                        'Style block defined after the first cue in line {}.'
+                        .format(block.line_number))
+                style = Style(block.lines[1:])
+                self.styles.append(style)
             else:
                 if len(block.lines) == 1:
                     raise MalformedCaptionError(
@@ -175,13 +197,17 @@ class WebVTTParser(TextBasedParser):
         return '-->' in line
 
     def _is_cue_block(self, block):
-        """Returns True if it is a cue timings block
+        """Returns True if it is a cue block
         (one of the two first lines being a cue timing line)"""
         return any(map(self._is_cue_timings_line, block.lines[:2]))
 
     def _is_comment_block(self, block):
         """Returns True if it is a comment block"""
         return re.match(self.COMMENT_PATTERN, block.lines[0])
+
+    def _is_style_block(self, block):
+        """Returns True if it is a style block"""
+        return re.match(self.STYLE_PATTERN, block.lines[0])
 
 
 class SBVParser(TextBasedParser):

@@ -131,3 +131,11 @@ class WebVTTParserTestCase(GenericParserTestCase):
             self.webvtt.captions[2].text,
             '- Ta en kopp'
         )
+
+    def test_parse_styles(self):
+        self.webvtt.read(self._get_file('styles.vtt'))
+        self.assertEqual(len(self.webvtt.captions), 1)
+        self.assertListEqual(
+            self.webvtt.styles,
+            ['::cue {background-image: linear-gradient(to bottom, dimgray, lightgray);color: papayawhip;}']
+        )
