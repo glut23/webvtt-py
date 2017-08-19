@@ -1,0 +1,15 @@
+WEBVTT
+
+STYLE
+::cue {
+  background-image: linear-gradient(to bottom, dimgray, lightgray);
+  color: papayawhip;
+}
+
+STYLE
+::cue(b) {
+  color: peachpuff;
+}
+
+00:00:00.000 --> 00:00:10.000
+- Hello <b>world</b>.
