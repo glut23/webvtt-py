@@ -99,3 +99,14 @@ class WebVTTParserTestCase(GenericParserTestCase):
     def test_metadata_headers_multiline(self):
         self.webvtt.read(self._get_file('metadata_headers_multiline.vtt'))
         self.assertEqual(len(self.webvtt.captions), 2)
+
+    def test_clean_cue_tags(self):
+        self.webvtt.read(self._get_file('cue_tags.vtt'))
+        self.assertEqual(
+            self.webvtt.captions[1].text,
+            'Like a big-a pizza pie'
+        )
+        self.assertEqual(
+            self.webvtt.captions[2].text,
+            'That\'s amore'
+        )
