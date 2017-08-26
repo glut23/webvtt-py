@@ -6,6 +6,9 @@ TIMESTAMP_PATTERN = re.compile('(\d+)?:?(\d{2}):(\d{2})[.,](\d{3})')
 
 
 class Caption(object):
+
+    CUE_TEXT_TAGS = re.compile('<.*?>')
+
     """
     Represents a caption.
     """
@@ -40,6 +43,9 @@ class Caption(object):
         seconds = total_seconds - hours * 3600 - minutes * 60
         return '{:02d}:{:02d}:{:06.3f}'.format(hours, minutes, seconds)
 
+    def _clean_cue_tags(self, text):
+        return re.sub(self.CUE_TEXT_TAGS, '', text)
+
     @property
     def start_in_seconds(self):
         return self._start
@@ -70,7 +76,12 @@ class Caption(object):
 
     @property
     def text(self):
-        """Returns the captions lines as a text"""
+        """Returns the captions lines as a text (without cue tags)"""
+        return self._clean_cue_tags(self.raw_text)
+
+    @property
+    def raw_text(self):
+        """Returns the captions lines as a text (may include cue tags)"""
         return '\n'.join(self.lines)
 
     @text.setter

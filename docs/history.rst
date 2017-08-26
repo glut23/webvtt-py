@@ -1,6 +1,17 @@
 History
 =======
 
+0.3.3 (23-08-2017) Hot fix on cue tags
+--------------------------------------
+
+The text for the caption is now returned clean (tags removed). The cue text could contain tags like:
+* timestamp tags: *<00:19.000>*
+* class tags: *<c.classname>text</c>*
+* and others...
+**Important**: It currently removes any tag present in the cue text. For example <b> would be removed.
+
+Also a new attribute is available on captions to retrieve the text without cleaning tags: **raw_text**
+
 0.3.2 (11-08-2017) Hot fix for compatibility
 --------------------------------------------
 

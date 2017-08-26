@@ -139,3 +139,14 @@ class WebVTTParserTestCase(GenericParserTestCase):
             self.webvtt.styles,
             ['::cue {background-image: linear-gradient(to bottom, dimgray, lightgray);color: papayawhip;}']
         )
+
+    def test_clean_cue_tags(self):
+        self.webvtt.read(self._get_file('cue_tags.vtt'))
+        self.assertEqual(
+            self.webvtt.captions[1].text,
+            'Like a big-a pizza pie'
+        )
+        self.assertEqual(
+            self.webvtt.captions[2].text,
+            'That\'s amore'
+        )
