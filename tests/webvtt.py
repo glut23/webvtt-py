@@ -4,7 +4,7 @@ from shutil import rmtree, copy
 
 from webvtt import WebVTT
 from webvtt.exceptions import MissingFilenameError, MalformedCaptionError
-from webvtt.generic import Caption
+from webvtt.generic import Caption, Style
 
 BASE_DIR = os.path.dirname(__file__)
 SUBTITLES_DIR = os.path.join(BASE_DIR, 'subtitles')
@@ -233,4 +233,20 @@ class WebVTTTestCase(unittest.TestCase):
             MalformedCaptionError,
             Caption,
             '01:00'
+        )
+
+    def test_set_styles_from_text(self):
+        style = Style()
+        style.text = '::cue(b) {\n  color: peachpuff;\n}'
+        self.assertListEqual(
+            style.lines,
+            ['::cue(b) {', '  color: peachpuff;', '}']
+        )
+
+    def test_get_styles_as_text(self):
+        style = Style()
+        style.lines = ['::cue(b) {', '  color: peachpuff;', '}']
+        self.assertEqual(
+            style.text,
+            '::cue(b) {color: peachpuff;}'
         )

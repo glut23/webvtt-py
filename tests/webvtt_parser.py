@@ -137,7 +137,7 @@ class WebVTTParserTestCase(GenericParserTestCase):
         self.assertEqual(len(self.webvtt.captions), 1)
         self.assertEqual(
             self.webvtt.styles[0].text,
-            '::cue {  background-image: linear-gradient(to bottom, dimgray, lightgray);  color: papayawhip;}'
+            '::cue {background-image: linear-gradient(to bottom, dimgray, lightgray);color: papayawhip;}'
         )
 
     def test_clean_cue_tags(self):

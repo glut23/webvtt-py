@@ -1,7 +1,7 @@
 import re
 
 from webvtt.exceptions import MalformedFileError, MalformedCaptionError
-from webvtt.generic import GenericParser, Caption
+from webvtt.generic import GenericParser, Caption, Block, Style
 
 
 class TextBasedParser(GenericParser):
@@ -96,22 +96,6 @@ class SRTParser(TextBasedParser):
         return caption is None and line.isdigit()
 
 
-class Block(object):
-    def __init__(self, line_number):
-        self.line_number = line_number
-        self.lines = []
-
-
-class Style(object):
-    def __init__(self, lines):
-        self.lines = lines
-
-    @property
-    def text(self):
-        """Returns the style lines as a text"""
-        return ''.join(self.lines)
-
-
 class WebVTTParser(TextBasedParser):
     """
     WebVTT parser.
@@ -179,7 +163,8 @@ class WebVTTParser(TextBasedParser):
                     raise MalformedFileError(
                         'Style block defined after the first cue in line {}.'
                         .format(block.line_number))
-                style = Style(block.lines[1:])
+                style = Style()
+                style.lines = block.lines[1:]
                 self.styles.append(style)
             else:
                 if len(block.lines) == 1:

@@ -124,3 +124,29 @@ class GenericParser(object):
     @property
     def captions(self):
         return self._captions
+
+
+class GenericBlock(object):
+    """Generic class that defines a data structure holding an array of lines"""
+    def __init__(self):
+        self.lines = []
+
+
+class Block(GenericBlock):
+    def __init__(self, line_number):
+        super().__init__()
+        self.line_number = line_number
+
+
+class Style(GenericBlock):
+
+    @property
+    def text(self):
+        """Returns the style lines as a text"""
+        return ''.join(map(lambda x: x.strip(), self.lines))
+
+    @text.setter
+    def text(self, value):
+        if type(value) != str:
+            raise TypeError('The text value must be a string.')
+        self.lines = value.split('\n')
