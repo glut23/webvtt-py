@@ -47,6 +47,7 @@ class WebVTT(object):
         parser = WebVTTParser().read(file)
         self.file = file
         self._captions = parser.captions
+        self._styles = parser.styles
         return self
 
     def save(self, output=''):

@@ -109,7 +109,7 @@ class Style(object):
     @property
     def text(self):
         """Returns the style lines as a text"""
-        return '\n'.join(self.lines)
+        return ''.join(self.lines)
 
 
 class WebVTTParser(TextBasedParser):
