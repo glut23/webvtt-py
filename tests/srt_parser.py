@@ -42,6 +42,9 @@ class SRTParserTestCase(GenericParserTestCase):
             self._get_file('missing_caption_text.srt')
         )
 
+    def test_srt_empty_caption_text(self):
+        self.assertTrue(self.webvtt.from_srt(self._get_file('empty_caption_text.srt')).captions)
+
     def test_srt_invalid_timestamp(self):
         self.assertRaises(
             MalformedCaptionError,

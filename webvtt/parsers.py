@@ -64,6 +64,9 @@ class TextBasedParser(GenericParser):
                 else:
                     c.add_line(line)
             else:
+                if index + 1 < len(lines) and not lines[index + 1]:
+                    c.add_line(line)
+                    continue
                 if c is None:
                     continue
                 if not c.lines:
