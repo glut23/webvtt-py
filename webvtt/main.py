@@ -23,7 +23,11 @@ class Captions(object):
         # read() is created for WebVTT and from_[FORMAT]() for the other formats.
         for name, parser_class in SUPPORTED_FORMATS:
             extension = re.match(self.FORMAT_EXTENSION_PATTERN, name).group(1)
-            method_name = 'read' if parser_class is self.OUR_PARSER else 'from_{}'.format(extension)
+            if parser_class is self.OUR_PARSER:
+                method_name = 'read'
+                self.extension = extension
+            else:
+                method_name = 'from_{}'.format(extension)
 
             setattr(self.__class__, method_name, self._set_reader(method_name, name, parser_class))
 
@@ -42,6 +46,36 @@ class Captions(object):
         f.__name__ = name
         f.__doc__ = 'Reads captions from a file in {} format.'.format(format_name)
         return f
+
+    def save(self, output=''):
+        """Save the document.
+        If no output is provided the file will be saved in the same location. Otherwise output
+        can determine a target directory or file.
+        """
+        if not output:
+            if not self.file:
+                raise MissingFilenameError
+            # saving an original vtt file will overwrite the file
+            # and for files read from other formats will save as vtt
+            # with the same name and location
+            self.file = os.path.splitext(self.file)[0] + '.' + self.extension
+        else:
+            target = os.path.join(os.getcwd(), output)
+            if os.path.isdir(target):
+                # if an output is provided and it is a directory
+                # the file will be saved in that location with the same name
+                filename = os.path.splitext(os.path.basename(self.file))[0]
+                self.file = os.path.join(target, '{}.{}'.format(filename, self.extension))
+            else:
+                if target[-3:].lower() != self.extension:
+                    target += '.' + self.extension
+                # otherwise the file will be written in the specified location
+                self.file = target
+
+        self.save_format()
+
+    def save_format(self):
+        raise NotImplementedError
 
     @staticmethod
     def supported_formats():
@@ -78,31 +112,7 @@ class WebVTT(Captions):
 
     OUR_PARSER = WebVTTParser
 
-    def save(self, output=''):
-        """Save the document.
-        If no output is provided the file will be saved in the same location. Otherwise output
-        can determine a target directory or file.
-        """
-        if not output:
-            if not self.file:
-                raise MissingFilenameError
-            # saving an original vtt file will overwrite the file
-            # and for files read from other formats will save as vtt
-            # with the same name and location
-            self.file = os.path.splitext(self.file)[0] + '.vtt'
-        else:
-            target = os.path.join(os.getcwd(), output)
-            if os.path.isdir(target):
-                # if an output is provided and it is a directory
-                # the file will be saved in that location with the same name
-                filename = os.path.splitext(os.path.basename(self.file))[0]
-                self.file = os.path.join(target, '{}.vtt'.format(filename))
-            else:
-                if target[-3:].lower() != 'vtt':
-                    target += '.vtt'
-                # otherwise the file will be written in the specified location
-                self.file = target
-
+    def save_format(self):
         with open(self.file, 'w', encoding='utf-8') as f:
             f.write('WEBVTT\n')
             for c in self._captions:
