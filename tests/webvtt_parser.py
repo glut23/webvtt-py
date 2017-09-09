@@ -28,6 +28,11 @@ class WebVTTParserTestCase(GenericParserTestCase):
             64
         )
 
+    def test_webvtt_allows_identifiers(self):
+        # Allowed by standard https://www.w3.org/TR/webvtt1/#introduction-other-features
+
+        self.assertTrue(self.webvtt.read(self._get_file('optional_identifiers.vtt')).captions)
+
     def test_webvtt_total_length_no_parser(self):
         self.assertEqual(
             self.webvtt.total_length,

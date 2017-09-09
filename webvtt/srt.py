@@ -24,6 +24,4 @@ class SRTCaptions(Captions):
         minutes = int(total_seconds / 60 - hours * 60)
         seconds = int(total_seconds - hours * 3600 - minutes * 60)
         milliseconds = round((total_seconds - seconds - hours * 3600 - minutes * 60)*1000)
-        print(total_seconds)
-        print('{:02d}:{:02d}:{:02d},{:03d}'.format(hours, minutes, seconds, milliseconds))
         return '{:02d}:{:02d}:{:02d},{:03d}'.format(hours, minutes, seconds, milliseconds)
