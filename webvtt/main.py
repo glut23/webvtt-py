@@ -10,23 +10,10 @@ SUPPORTED_FORMATS = (
     ('YouTube SBV (.sbv)', SBVParser),  # parser for YouTube SBV format
 )
 
-
-class WebVTT(object):
-    """
-    Parse captions in WebVTT format and also from other formats like SRT.
-
-    To read WebVTT:
-
-        WebVTT().read('captions.vtt')
-
-    For other formats like SRT, use from_[format in lower case]:
-
-        WebVTT().from_srt('captions.srt')
-
-    A list of all supported formats is available calling supported_formats().
-    """
+class Captions(object):
 
     FORMAT_EXTENSION_PATTERN = re.compile('.+\(\.(.+)\)')
+    OUR_PARSER = None
 
     def __init__(self):
         self._captions = []
@@ -36,7 +23,11 @@ class WebVTT(object):
         # read() is created for WebVTT and from_[FORMAT]() for the other formats.
         for name, parser_class in SUPPORTED_FORMATS:
             extension = re.match(self.FORMAT_EXTENSION_PATTERN, name).group(1)
-            method_name = 'read' if parser_class is WebVTTParser else 'from_{}'.format(extension)
+            if parser_class is self.OUR_PARSER:
+                method_name = 'read'
+                self.extension = extension
+            else:
+                method_name = 'from_{}'.format(extension)
 
             setattr(self.__class__, method_name, self._set_reader(method_name, name, parser_class))
 
@@ -53,10 +44,7 @@ class WebVTT(object):
             return self
 
         f.__name__ = name
-        if parser_class is WebVTTParser:
-            f.__doc__ = 'Reads a WebVTT captions file.'
-        else:
-            f.__doc__ = 'Reads captions from a file in {} format.'.format(format_name)
+        f.__doc__ = 'Reads captions from a file in {} format.'.format(format_name)
         return f
 
     def save(self, output=''):
@@ -70,25 +58,24 @@ class WebVTT(object):
             # saving an original vtt file will overwrite the file
             # and for files read from other formats will save as vtt
             # with the same name and location
-            self.file = os.path.splitext(self.file)[0] + '.vtt'
+            self.file = os.path.splitext(self.file)[0] + '.' + self.extension
         else:
             target = os.path.join(os.getcwd(), output)
             if os.path.isdir(target):
                 # if an output is provided and it is a directory
                 # the file will be saved in that location with the same name
                 filename = os.path.splitext(os.path.basename(self.file))[0]
-                self.file = os.path.join(target, '{}.vtt'.format(filename))
+                self.file = os.path.join(target, '{}.{}'.format(filename, self.extension))
             else:
-                if target[-3:].lower() != 'vtt':
-                    target += '.vtt'
+                if target[-3:].lower() != self.extension:
+                    target += '.' + self.extension
                 # otherwise the file will be written in the specified location
                 self.file = target
 
-        with open(self.file, 'w', encoding='utf-8') as f:
-            f.write('WEBVTT\n')
-            for c in self._captions:
-                f.write('\n{} --> {}\n'.format(c.start, c.end))
-                f.writelines(['{}\n'.format(l) for l in c.lines])
+        self.save_format()
+
+    def save_format(self):
+        raise NotImplementedError
 
     @staticmethod
     def supported_formats():
@@ -106,3 +93,28 @@ class WebVTT(object):
         if not self._captions:
             return 0
         return int(self._captions[-1].end_in_seconds) - int(self._captions[0].start_in_seconds)
+
+
+class WebVTT(Captions):
+    """
+    Parse captions in WebVTT format and also from other formats like SRT.
+
+    To read WebVTT:
+
+        WebVTT().read('captions.vtt')
+
+    For other formats like SRT, use from_[format in lower case]:
+
+        WebVTT().from_srt('captions.srt')
+
+    A list of all supported formats is available calling supported_formats().
+    """
+
+    OUR_PARSER = WebVTTParser
+
+    def save_format(self):
+        with open(self.file, 'w', encoding='utf-8') as f:
+            f.write('WEBVTT\n')
+            for c in self._captions:
+                f.write('\n{} --> {}\n'.format(c.start, c.end))
+                f.writelines(['{}\n'.format(l) for l in c.lines])
