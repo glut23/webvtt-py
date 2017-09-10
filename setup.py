@@ -20,7 +20,7 @@ setup(
         'webvtt',
     ],
     include_package_data=True,
-    install_requires=['docopt'],
+    install_requires=['docopt', 'chardet'],
     entry_points={
         'console_scripts': [
             'webvtt=webvtt.cli:main'
