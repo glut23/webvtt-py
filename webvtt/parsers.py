@@ -107,15 +107,34 @@ class WebVTTParser(SRTParser):
 
     TIMEFRAME_LINE_PATTERN = re.compile('\s*((?:\d+:)?\d{2}:\d{2}.\d{3})\s*-->\s*((?:\d+:)?\d{2}:\d{2}.\d{3})')
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.expect_timeframe = False
+
     def _validate(self, lines):
         if 'WEBVTT' not in lines[0]:
             raise MalformedFileError('The file does not have a valid format')
+
+    def _is_timeframe_line(self, line):
+        is_timeframe_line = super()._is_timeframe_line(line)
+
+        if is_timeframe_line:
+            self.expect_timeframe = False
+        return is_timeframe_line
 
     def _should_skip_line(self, line, index, caption):
         is_header_title = index == 0 and line == 'WEBVTT'
         is_header_data = len(self.captions) == 0 and caption is None
 
-        return is_header_title or is_header_data
+        if self.expect_timeframe:
+            raise MalformedCaptionError('Caption missing timeframe in line {}.'.format(index + 1))
+
+        is_cue_identifier = caption is None and not is_header_title and not is_header_data
+        if is_cue_identifier:
+            self.expect_timeframe = True
+
+        return is_header_title or is_header_data or is_cue_identifier
 
 
 class SBVParser(TextBasedParser):
