@@ -12,6 +12,7 @@ matrix:
 script: tox -e $TOX_ENV
 
 install:
+    - pip install -r requirements.txt
     - pip install tox
 
 notifications:
