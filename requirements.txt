@@ -1,0 +1,2 @@
+chardet==3.0.4
+docopt==0.6.2
