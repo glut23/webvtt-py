@@ -112,9 +112,12 @@ class WebVTT(Captions):
 
     OUR_PARSER = WebVTTParser
 
+    def write(self, f):
+        f.write('WEBVTT\n')
+        for c in self._captions:
+            f.write('\n{} --> {}\n'.format(c.start, c.end))
+            f.writelines(['{}\n'.format(l) for l in c.lines])
+
     def save_format(self):
         with open(self.file, 'w', encoding='utf-8') as f:
-            f.write('WEBVTT\n')
-            for c in self._captions:
-                f.write('\n{} --> {}\n'.format(c.start, c.end))
-                f.writelines(['{}\n'.format(l) for l in c.lines])
+            self.write(f)
