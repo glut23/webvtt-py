@@ -95,9 +95,9 @@ class GenericParser(object):
     """
     A generic parent class for all parsers.
     """
-    def __init__(self, parse_options={}):
+    def __init__(self, parse_options=None):
         self._captions = []
-        self.parse_options = parse_options
+        self.parse_options = parse_options or {}
 
     def _parse(self, content):
         # method to be overwritten by child classes
