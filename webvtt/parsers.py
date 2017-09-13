@@ -73,6 +73,8 @@ class TextBasedParser(GenericParser):
                 if c is None:
                     continue
                 if not c.lines:
+                    if self.parse_options.get('ignore_empty_captions', False):
+                        continue
                     raise MalformedCaptionError('Caption missing text in line {}.'.format(index + 1))
 
                 self.captions.append(c)

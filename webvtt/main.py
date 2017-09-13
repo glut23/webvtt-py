@@ -15,9 +15,10 @@ class Captions(object):
     FORMAT_EXTENSION_PATTERN = re.compile('.+\(\.(.+)\)')
     OUR_PARSER = None
 
-    def __init__(self):
+    def __init__(self, parse_options={}):
         self._captions = []
         self.file = ''
+        self.parse_options = parse_options
 
         # create methods dynamically to read captions based on the supported types
         # read() is created for WebVTT and from_[FORMAT]() for the other formats.
@@ -40,7 +41,7 @@ class Captions(object):
     def _set_reader(self, name, format_name, parser_class):
         def f(self, file):
             self.file = file
-            self._captions = parser_class().read(file).captions
+            self._captions = parser_class(self.parse_options).read(file).captions
             return self
 
         f.__name__ = name
