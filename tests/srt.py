@@ -3,17 +3,16 @@ import unittest
 from shutil import rmtree, copy
 
 from webvtt import WebVTT
-from webvtt.srt import SRTCaptions
 
 BASE_DIR = os.path.dirname(__file__)
 SUBTITLES_DIR = os.path.join(BASE_DIR, 'subtitles')
 OUTPUT_DIR = os.path.join(BASE_DIR, 'output')
 
+
 class SRTCaptionsTestCase(unittest.TestCase):
 
     def setUp(self):
         self.webvtt = WebVTT()
-        self.srtcaptions = SRTCaptions()
 
         os.makedirs(OUTPUT_DIR)
 
@@ -28,10 +27,7 @@ class SRTCaptionsTestCase(unittest.TestCase):
         copy(self._get_file('sample.srt'), OUTPUT_DIR)
 
         self.webvtt.from_srt(os.path.join(OUTPUT_DIR, 'sample.srt'))
-        self.webvtt.save()
-
-        self.srtcaptions.from_vtt(os.path.join(OUTPUT_DIR, 'sample.vtt'))
-        self.srtcaptions.save(os.path.join(OUTPUT_DIR, 'sample_converted.srt'))
+        self.webvtt.save_as_srt(os.path.join(OUTPUT_DIR, 'sample_converted.srt'))
 
         with open(os.path.join(OUTPUT_DIR, 'sample.srt'), 'r', encoding='utf-8') as f:
             original = f.read()
@@ -40,5 +36,3 @@ class SRTCaptionsTestCase(unittest.TestCase):
             converted = f.read()
 
         self.assertEqual(original.strip(), converted.strip())
-
-

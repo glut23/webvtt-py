@@ -3,7 +3,7 @@ import re
 from enum import IntEnum
 
 from .parsers import WebVTTParser, SRTParser, SBVParser
-from .writers import WebVTTWriter, SRTWriter, SBVWriter
+from .writers import WebVTTWriter, SRTWriter
 from webvtt.exceptions import MissingFilenameError
 
 
@@ -150,16 +150,6 @@ class WebVTT(object):
             SRTWriter().write(self._captions, f)
 #        elif output_format == OutputFormat.SBV:
 #            SBVWriter().write(self._captions, f)
-
-    # def write(self, f):
-    #     f.write('WEBVTT\n')
-    #     for c in self._captions:
-    #         f.write('\n{} --> {}\n'.format(c.start, c.end))
-    #         f.writelines(['{}\n'.format(l) for l in c.lines])
-    #
-    # def save_format(self):
-    #     with open(self.file, 'w', encoding='utf-8') as f:
-    #         self.write(f)
 
     @staticmethod
     def supported_formats():

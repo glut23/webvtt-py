@@ -1,6 +1,6 @@
 import re
-
-import chardet
+import os
+import codecs
 
 from webvtt.exceptions import MalformedFileError, MalformedCaptionError
 from webvtt.generic import GenericParser, Caption, Block, Style
@@ -13,11 +13,18 @@ class TextBasedParser(GenericParser):
     """
 
     TIMEFRAME_LINE_PATTERN = ''
+    PARSER_OPTIONS = {}
 
     def _read_content(self, file):
+
+        first_bytes = min(32, os.path.getsize(file))
         with open(file, 'rb') as f:
-            raw = f.read(32)
-            encoding = chardet.detect(raw)['encoding']
+            raw = f.read(first_bytes)
+
+        if raw.startswith(codecs.BOM_UTF8):
+            encoding = 'utf-8-sig'
+        else:
+            encoding = 'utf-8'
 
         with open(file, encoding=encoding) as f:
             lines = [line.rstrip() for line in f.readlines()]
@@ -74,7 +81,8 @@ class TextBasedParser(GenericParser):
                 if c is None:
                     continue
                 if not c.lines:
-                    if self.parse_options.get('ignore_empty_captions', False):
+                    if self.PARSER_OPTIONS.get('ignore_empty_captions', False):
+                        c = None
                         continue
                     raise MalformedCaptionError('Caption missing text in line {}.'.format(index + 1))
 
@@ -91,6 +99,10 @@ class SRTParser(TextBasedParser):
     """
 
     TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d+:\d{2}:\d{2},\d{3})\s*-->\s*(\d+:\d{2}:\d{2},\d{3})')
+
+    PARSER_OPTIONS = {
+        'ignore_empty_captions': True
+    }
 
     def _validate(self, lines):
         if len(lines) < 2 or lines[0] != '1' or not self._validate_timeframe_line(lines[1]):

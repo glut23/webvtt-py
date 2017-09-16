@@ -150,3 +150,7 @@ class WebVTTParserTestCase(GenericParserTestCase):
             self.webvtt.captions[2].text,
             'That\'s amore'
         )
+
+    def test_parse_captions_with_bom(self):
+        self.webvtt.read(self._get_file('captions_with_bom.vtt'))
+        self.assertEqual(len(self.webvtt.captions), 4)

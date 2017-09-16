@@ -2,6 +2,7 @@ from .generic import GenericParserTestCase
 from webvtt.exceptions import MalformedFileError, MalformedCaptionError
 from webvtt import WebVTT
 
+
 class SRTParserTestCase(GenericParserTestCase):
 
     def test_srt_parse_empty_file(self):
@@ -35,25 +36,14 @@ class SRTParserTestCase(GenericParserTestCase):
             self._get_file('missing_timeframe.srt')
         )
 
-    def test_srt_missing_caption_text(self):
-        self.assertRaises(
-            MalformedCaptionError,
-            self.webvtt.from_srt,
-            self._get_file('missing_caption_text.srt')
-        )
-
     def test_srt_empty_caption_text(self):
-        webvtt = WebVTT(parse_options={'ignore_empty_captions': True})
-        self.assertTrue(webvtt.from_srt(self._get_file('empty_caption_text.srt')).captions)
+        webvtt = WebVTT()
+        self.assertTrue(webvtt.from_srt(self._get_file('missing_caption_text.srt')).captions)
 
     def test_srt_empty_gets_removed(self):
-        webvtt = WebVTT(parse_options={'ignore_empty_captions': True})
-        captions = webvtt.from_srt(self._get_file('empty_caption_text.srt')).captions
-        for caption in captions:
-            self.assertNotEqual(len(caption.lines), 0)
-            for line in caption.lines:
-                self.assertNotEqual(line, "")
-                self.assertIsNotNone(line)
+        webvtt = WebVTT()
+        captions = webvtt.from_srt(self._get_file('missing_caption_text.srt')).captions
+        self.assertEqual(len(captions), 4)
 
     def test_srt_invalid_timestamp(self):
         self.assertRaises(
