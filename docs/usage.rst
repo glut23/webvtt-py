@@ -49,13 +49,6 @@ Creating captions
 
     webvtt.captions.append(caption)
 
-    # save the document
-    webvtt.save('my_captions.vtt')
-
-    # write to opened file
-    with open('my_captions.vtt', 'w') as fd:
-        webvtt.write(fd)
-
 
 Manipulating captions
 ---------------------
@@ -79,6 +72,26 @@ Manipulating captions
     del webvtt.captions[2]
 
 
+Saving captions
+---------------
+
+.. code-block:: python
+
+    from webvtt import WebVTT
+
+    webvtt = WebVTT().read('captions.vtt')
+
+    # save to original file
+    webvtt.save()
+
+    # save to a different file
+    webvtt.save('my_captions.vtt')
+
+    # write to opened file
+    with open('my_captions.vtt', 'w') as fd:
+        webvtt.write(fd)
+
+
 Converting captions
 -------------------
 
@@ -98,3 +111,17 @@ You can read captions from the following formats:
 
     # if we just want to convert the file we can do this in one line
     WebVTT().from_sbv('captions.sbv').save()
+
+Also we can write using other formats:
+
+.. code-block:: python
+
+    from webvtt import WebVTT
+
+    # save in SRT format
+    webvtt = WebVTT().read('captions.vtt')
+    webvtt.save_as_srt()
+
+    # write to opened file in SRT format
+    with open('my_captions.srt', 'w') as fd:
+        webvtt.write(fd, convert='srt)
