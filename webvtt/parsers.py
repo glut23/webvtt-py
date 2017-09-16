@@ -1,5 +1,7 @@
 import re
 
+import chardet
+
 from webvtt.exceptions import MalformedFileError, MalformedCaptionError
 from webvtt.generic import GenericParser, Caption, Block, Style
 
@@ -13,7 +15,11 @@ class TextBasedParser(GenericParser):
     TIMEFRAME_LINE_PATTERN = ''
 
     def _read_content(self, file):
-        with open(file, encoding='utf-8') as f:
+        with open(file, 'rb') as f:
+            raw = f.read(32)
+            encoding = chardet.detect(raw)['encoding']
+
+        with open(file, encoding=encoding) as f:
             lines = [line.rstrip() for line in f.readlines()]
 
         if not lines:
@@ -68,8 +74,9 @@ class TextBasedParser(GenericParser):
                 if c is None:
                     continue
                 if not c.lines:
-                    raise MalformedCaptionError(
-                        'Caption missing text in line {}.'.format(index + 1))
+                    if self.parse_options.get('ignore_empty_captions', False):
+                        continue
+                    raise MalformedCaptionError('Caption missing text in line {}.'.format(index + 1))
 
                 self.captions.append(c)
                 c = None

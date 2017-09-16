@@ -52,6 +52,10 @@ Creating captions
     # save the document
     webvtt.save('my_captions.vtt')
 
+    # write to opened file
+    with open('my_captions.vtt', 'w') as fd:
+        webvtt.write(fd)
+
 
 Manipulating captions
 ---------------------

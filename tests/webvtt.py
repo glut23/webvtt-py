@@ -1,5 +1,6 @@
 import os
 import unittest
+import io
 from shutil import rmtree, copy
 
 from webvtt import WebVTT
@@ -30,6 +31,32 @@ class WebVTTTestCase(unittest.TestCase):
         self.assertEqual(caption.end, '00:00:07.000')
         self.assertEqual(caption.end_in_seconds, 7)
         self.assertEqual(caption.lines, ['Caption test line 1', 'Caption test line 2'])
+
+    def test_write_captions(self):
+        os.makedirs(OUTPUT_DIR)
+        copy(self._get_file('one_caption.vtt'), OUTPUT_DIR)
+
+        out = io.StringIO()
+        self.webvtt.read(os.path.join(OUTPUT_DIR, 'one_caption.vtt'))
+        new_caption = Caption('00:00:07.000', '00:00:11.890', ['New caption text line1', 'New caption text line2'])
+        self.webvtt.captions.append(new_caption)
+        self.webvtt.write(out)
+
+        out.seek(0)
+        lines = [line.rstrip() for line in out.readlines()]
+
+        expected_lines = [
+            'WEBVTT',
+            '',
+            '00:00:00.500 --> 00:00:07.000',
+            'Caption text #1',
+            '',
+            '00:00:07.000 --> 00:00:11.890',
+            'New caption text line1',
+            'New caption text line2'
+        ]
+
+        self.assertListEqual(lines, expected_lines)
 
     def test_save_captions(self):
         os.makedirs(OUTPUT_DIR)
