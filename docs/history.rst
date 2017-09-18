@@ -1,6 +1,26 @@
 History
 =======
 
+0.4.0 (18-09-2017) Refactor and parse compatibility
+---------------------------------------------------
+
+The main goal of this release is a refactor of the WebVTT parser to be able to parse easier and give support to
+new features of the format.
+
+New features:
+
+* Support for cue identifiers
+* Support for parsing WebVTT captions with comments
+* Support for parsing WebVTT captions with Style blocks
+* Support for BOM in caption files
+* Added method to write the captions to an opened file
+* Convert WebVTT to SRT format
+* Ignore empty captions in SRT format
+
+Other:
+
+* Refactored WebVTT parser
+
 0.3.3 (23-08-2017) Hot fix on cue tags
 --------------------------------------
 
