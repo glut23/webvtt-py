@@ -20,6 +20,17 @@ Reading WebVTT caption files
     for line in webvtt[0].lines:
         print(line)
 
+    # caption text is returned clean without class tags
+    # we can access the raw text of a caption with raw_text
+    >>> webvtt[0].text
+    'This is a caption text'
+    >>> webvtt[0].raw_text
+    'This is a <c.colorE5E5E5>caption</c> text'
+
+    # caption identifiers
+    >>> webvtt[0].identifier
+    'crédit de transcription'
+
 
 Creating captions
 -----------------
