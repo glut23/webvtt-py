@@ -27,7 +27,7 @@ class TextBasedParser(GenericParser):
             encoding = 'utf-8'
 
         with open(file, encoding=encoding) as f:
-            lines = [line.rstrip() for line in f.readlines()]
+            lines = [line.rstrip('\n') for line in f.readlines()]
 
         if not lines:
             raise MalformedFileError('The file is empty.')
