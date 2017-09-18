@@ -84,12 +84,12 @@ class WebVTT(object):
     def save_as_srt(self, output=''):
         self.file = self._get_output_file(output, extension='srt')
         with open(self.file, 'w', encoding='utf-8') as f:
-            self.write(f, convert='srt')
+            self.write(f, format='srt')
 
-    def write(self, f, convert=None):
-        if convert is None:
+    def write(self, f, format='vtt'):
+        if format == 'vtt':
             WebVTTWriter().write(self._captions, f)
-        elif convert == 'srt':
+        elif format == 'srt':
             SRTWriter().write(self._captions, f)
 #        elif output_format == OutputFormat.SBV:
 #            SBVWriter().write(self._captions, f)

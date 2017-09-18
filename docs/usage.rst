@@ -123,7 +123,9 @@ You can read captions from the following formats:
     # if we just want to convert the file we can do this in one line
     WebVTT().from_sbv('captions.sbv').save()
 
-Also we can write using other formats:
+Also we can convert to other formats:
+
+* SubRip (.srt)
 
 .. code-block:: python
 
@@ -135,4 +137,4 @@ Also we can write using other formats:
 
     # write to opened file in SRT format
     with open('my_captions.srt', 'w') as fd:
-        webvtt.write(fd, convert='srt)
+        webvtt.write(fd, format='srt)
