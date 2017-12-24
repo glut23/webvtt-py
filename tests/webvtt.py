@@ -277,3 +277,86 @@ class WebVTTTestCase(unittest.TestCase):
             style.text,
             '::cue(b) {color: peachpuff;}'
         )
+
+    def test_save_identifiers(self):
+        os.makedirs(OUTPUT_DIR)
+        copy(self._get_file('using_identifiers.vtt'), OUTPUT_DIR)
+
+        self.webvtt.read(os.path.join(OUTPUT_DIR, 'using_identifiers.vtt'))
+        self.webvtt.save(os.path.join(OUTPUT_DIR, 'new_using_identifiers.vtt'))
+
+        with open(os.path.join(OUTPUT_DIR, 'new_using_identifiers.vtt'), 'r', encoding='utf-8') as f:
+            lines = [line.rstrip() for line in f.readlines()]
+
+        expected_lines = [
+            'WEBVTT',
+            '',
+            '00:00:00.500 --> 00:00:07.000',
+            'Caption text #1',
+            '',
+            'second caption',
+            '00:00:07.000 --> 00:00:11.890',
+            'Caption text #2',
+            '',
+            '00:00:11.890 --> 00:00:16.320',
+            'Caption text #3',
+            '',
+            '4',
+            '00:00:16.320 --> 00:00:21.580',
+            'Caption text #4',
+            '',
+            '00:00:21.580 --> 00:00:23.880',
+            'Caption text #5',
+            '',
+            '00:00:23.880 --> 00:00:27.280',
+            'Caption text #6'
+        ]
+
+        self.assertListEqual(lines, expected_lines)
+
+
+    def test_save_updated_identifiers(self):
+        os.makedirs(OUTPUT_DIR)
+        copy(self._get_file('using_identifiers.vtt'), OUTPUT_DIR)
+
+        self.webvtt.read(os.path.join(OUTPUT_DIR, 'using_identifiers.vtt'))
+        self.webvtt.captions[0].identifier = 'first caption'
+        self.webvtt.captions[1].identifier = None
+        self.webvtt.captions[3].identifier = '44'
+        last_caption = Caption('00:00:27.280', '00:00:29.200', 'Caption text #7')
+        last_caption.identifier = 'last caption'
+        self.webvtt.captions.append(last_caption)
+        self.webvtt.save(os.path.join(OUTPUT_DIR, 'new_using_identifiers.vtt'))
+
+        with open(os.path.join(OUTPUT_DIR, 'new_using_identifiers.vtt'), 'r', encoding='utf-8') as f:
+            lines = [line.rstrip() for line in f.readlines()]
+
+        expected_lines = [
+            'WEBVTT',
+            '',
+            'first caption',
+            '00:00:00.500 --> 00:00:07.000',
+            'Caption text #1',
+            '',
+            '00:00:07.000 --> 00:00:11.890',
+            'Caption text #2',
+            '',
+            '00:00:11.890 --> 00:00:16.320',
+            'Caption text #3',
+            '',
+            '44',
+            '00:00:16.320 --> 00:00:21.580',
+            'Caption text #4',
+            '',
+            '00:00:21.580 --> 00:00:23.880',
+            'Caption text #5',
+            '',
+            '00:00:23.880 --> 00:00:27.280',
+            'Caption text #6',
+            '',
+            'last caption',
+            '00:00:27.280 --> 00:00:29.200',
+            'Caption text #7'
+        ]
+
+        self.assertListEqual(lines, expected_lines)

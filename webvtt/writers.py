@@ -4,6 +4,8 @@ class WebVTTWriter(object):
     def write(self, captions, f):
         f.write('WEBVTT\n')
         for c in captions:
+            if c.identifier:
+                f.write('\n' + c.identifier)
             f.write('\n{} --> {}\n'.format(c.start, c.end))
             f.writelines(['{}\n'.format(l) for l in c.lines])
 
