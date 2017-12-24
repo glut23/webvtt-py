@@ -1,6 +1,11 @@
 History
 =======
 
+0.4.1 (24-12-2017) Hot fix on cue identifiers
+---------------------------------------------
+
+* Support for saving cue identifiers
+
 0.4.0 (18-09-2017) Refactor and parse compatibility
 ---------------------------------------------------
 
