@@ -1,7 +1,7 @@
 from math import ceil, floor
 from .generic import Caption
 from webvtt.main import WebVTT
-
+from concurrent import futures
 MPEGTS = 0
 SECONDS = 200  # default number of seconds per segment
 
@@ -39,15 +39,27 @@ class WebVTTSegmenter(object):
                 for i in range(segment_index_start + 1, segment_index_end + 1):
                     self.segments[i].append(c)
 
-    def _write_segments(self):
-        for index in range(self.total_segments):
-            with self._output_writer.open('fileSequence{}.webvtt'.format(index)) as f:
-                f.write('WEBVTT\n')
-                f.write('X-TIMESTAMP-MAP=MPEGTS:{},LOCAL:00:00.000\n'.format(self._mpegts))
+    @staticmethod
+    def _write_segment(args):
+        writer, index, mpegts, captions = args
+        with writer.open('fileSequence{}.webvtt'.format(index)) as f:
+            f.write('WEBVTT\n')
+            f.write('X-TIMESTAMP-MAP=MPEGTS:{},LOCAL:00:00.000\n'.format(mpegts))
+            for caption in captions:
+                f.write('\n{} --> {}\n'.format(caption.start, caption.end))
+                f.writelines(caption.lines)#['{}\n'.format(l) for l in caption.lines])
 
-                for caption in self.segments[index]:
-                    f.write('\n{} --> {}\n'.format(caption.start, caption.end))
-                    f.writelines(caption.lines)#['{}\n'.format(l) for l in caption.lines])
+    def _write_segments(self):
+        work_list = []
+        for index in range(self.total_segments):
+            work = (self._output_writer, index, self._mpegts, [])
+            for caption in self.segments[index]:
+                work[3].append(caption)
+            work_list.append(work)
+
+        with futures.ThreadPoolExecutor(max_workers=100) as executor:
+            segmenter_result = executor.map(self._write_segment, work_list)
+            executor.shutdown(wait=True)
 
     def _write_manifest(self, captions, target_seconds=SECONDS):
         with self._output_writer.open('prog_index.m3u8') as f:
@@ -55,9 +67,9 @@ class WebVTTSegmenter(object):
             f.write('#EXT-X-TARGETDURATION:{}\n'.format(self.seconds))
             f.write('#EXT-X-VERSION:5\n')
             f.write('#EXT-X-PLAYLIST-TYPE:VOD\n')
-            
+
             remaining_seconds = captions[-1].end_in_seconds
-            
+
             for i in range(self.total_segments):
                 segment_length = "{0:.3f}".format(min(target_seconds,remaining_seconds))
                 f.write('#EXTINF:{0}\n'.format(segment_length))
