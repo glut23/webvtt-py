@@ -62,11 +62,11 @@ class S3FileLike(object):
 
 class S3ObjectWriter(GenericWriter):
 
-    def __init__(self, bucket, key_prefix, ACL='private'):
+    def __init__(self, bucket, key_prefix, s3_resource=None, ACL='private'):
         super(S3ObjectWriter, self).__init__()
         self.bucket = bucket
         self.key_prefix = key_prefix
-        self.client = boto3.resource('s3')
+        self.s3_resource = boto3.resource('s3') if s3_resource is None else s3_resource
         self.ACL = ACL
 
     def open(self, key, ACL=None):
@@ -74,4 +74,4 @@ class S3ObjectWriter(GenericWriter):
         headers = {} if file_type not in self.type_map else self.type_map[file_type]
         if ACL is None:
             ACL = self.ACL
-        return S3FileLike(self.bucket, '{}/{}'.format(self.key_prefix, key), self.client, headers, ACL)
+        return S3FileLike(self.bucket, '{}/{}'.format(self.key_prefix, key), self.s3_resource, headers, ACL)
