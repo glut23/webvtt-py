@@ -2,7 +2,7 @@ from .generic import GenericParserTestCase
 
 import webvtt
 from webvtt.parsers import WebVTTParser
-from webvtt.generic import Caption
+from webvtt.structures import Caption
 from webvtt.exceptions import MalformedFileError, MalformedCaptionError
 
 

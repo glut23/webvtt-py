@@ -2,11 +2,11 @@ import re
 import os
 import codecs
 
-from webvtt.exceptions import MalformedFileError, MalformedCaptionError
-from webvtt.generic import GenericParser, Caption, Block, Style
+from .exceptions import MalformedFileError, MalformedCaptionError
+from .structures import Block, Style, Caption
 
 
-class TextBasedParser(GenericParser):
+class TextBasedParser(object):
     """
     Parser for plain text caption files.
     This is a generic class, do not use directly.
@@ -14,6 +14,18 @@ class TextBasedParser(GenericParser):
 
     TIMEFRAME_LINE_PATTERN = ''
     PARSER_OPTIONS = {}
+
+    def __init__(self, parse_options=None):
+        self.captions = []
+        self.parse_options = parse_options or {}
+
+    def read(self, file):
+        """Reads the captions file."""
+        content = self._read_content(file)
+        self._validate(content)
+        self._parse(content)
+
+        return self
 
     def _read_content(self, file):
 
@@ -50,16 +62,24 @@ class TextBasedParser(GenericParser):
         This method returns True if the line contains the timeframes.
         To be implemented by child classes.
         """
-        return False
+        raise NotImplementedError
+
+    def _validate(self, lines):
+        """
+        Validates the format of the parsed file.
+        To be implemented by child classes.
+        """
+        raise NotImplementedError
 
     def _should_skip_line(self, line, index, caption):
         """
         This method returns True for a line that should be skipped.
-        To be implemented by child classes.
+        Implement in child classes if needed.
         """
         return False
 
     def _parse(self, lines):
+        self.captions = []
         c = None
 
         for index, line in enumerate(lines):
@@ -169,6 +189,7 @@ class WebVTTParser(TextBasedParser):
         return caption
 
     def _parse(self, lines):
+        self.captions = []
         self._compute_blocks(lines)
 
         for block in self.blocks:

@@ -4,7 +4,7 @@ import io
 from shutil import rmtree, copy
 
 import webvtt
-from webvtt.generic import Caption, Style
+from webvtt.structures import Caption, Style
 from .generic import GenericParserTestCase
 
 

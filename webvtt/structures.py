@@ -1,6 +1,6 @@
 import re
 
-from webvtt.exceptions import MalformedCaptionError
+from .exceptions import MalformedCaptionError
 
 TIMESTAMP_PATTERN = re.compile('(\d+)?:?(\d{2}):(\d{2})[.,](\d{3})')
 
@@ -105,41 +105,6 @@ class Caption(object):
             raise AttributeError('String value expected but received {}.'.format(type(value)))
 
         self._lines = value.splitlines()
-
-
-class GenericParser(object):
-    """
-    A generic parent class for all parsers.
-    """
-    def __init__(self, parse_options=None):
-        self._captions = []
-        self.parse_options = parse_options or {}
-
-    def _parse(self, content):
-        # method to be overwritten by child classes
-        pass
-
-    def _read_content(self, file):
-        # method to be overwritten by child classes
-        return
-
-    def _validate(self, content):
-        # method to be overwritten by child classes
-        pass
-
-    def read(self, file):
-        """Reads the captions file."""
-        self._captions = []
-
-        content = self._read_content(file)
-        self._validate(content)
-        self._parse(content)
-
-        return self
-
-    @property
-    def captions(self):
-        return self._captions
 
 
 class GenericBlock(object):

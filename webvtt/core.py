@@ -2,7 +2,7 @@ import os
 
 from .parsers import WebVTTParser, SRTParser, SBVParser
 from .writers import WebVTTWriter, SRTWriter
-from webvtt.exceptions import MissingFilenameError
+from .exceptions import MissingFilenameError
 
 
 class WebVTT(object):
