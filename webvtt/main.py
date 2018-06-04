@@ -20,10 +20,10 @@ class WebVTT(object):
     A list of all supported formats is available calling supported_formats().
     """
 
-    def __init__(self):
-        self.file = None
-        self._captions = []
-        self._styles = None
+    def __init__(self, file='', captions=None, styles=None):
+        self.file = file
+        self._captions = captions or []
+        self._styles = styles
 
     def __len__(self):
         return len(self._captions)
@@ -31,25 +31,32 @@ class WebVTT(object):
     def __getitem__(self, index):
         return self._captions[index]
 
-    def from_srt(self, file):
+    def __repr__(self):
+        return '<%(cls)s file=%(file)s>' % {
+            'cls': self.__class__.__name__,
+            'file': self.file
+        }
+
+    def __str__(self):
+        return '\n'.join([str(c) for c in self._captions])
+
+    @classmethod
+    def from_srt(cls, file):
         """Reads captions from a file in SubRip format."""
-        self.file = file
-        self._captions = SRTParser().read(file).captions
-        return self
+        parser = SRTParser().read(file)
+        return cls(file=file, captions=parser.captions)
 
-    def from_sbv(self, file):
+    @classmethod
+    def from_sbv(cls, file):
         """Reads captions from a file in YouTube SBV format."""
-        self.file = file
-        self._captions = SBVParser().read(file).captions
-        return self
+        parser = SBVParser().read(file)
+        return cls(file=file, captions=parser.captions)
 
-    def read(self, file):
+    @classmethod
+    def read(cls, file):
         """Reads a WebVTT captions file."""
         parser = WebVTTParser().read(file)
-        self.file = file
-        self._captions = parser.captions
-        self._styles = parser.styles
-        return self
+        return cls(file=file, captions=parser.captions, styles=parser.styles)
 
     def _get_output_file(self, output, extension='vtt'):
         if not output:

@@ -3,22 +3,16 @@ import unittest
 import io
 from shutil import rmtree, copy
 
-from webvtt import WebVTT
-from webvtt.exceptions import MissingFilenameError, MalformedCaptionError
+import webvtt
 from webvtt.generic import Caption, Style
+from .generic import GenericParserTestCase
+
 
 BASE_DIR = os.path.dirname(__file__)
-SUBTITLES_DIR = os.path.join(BASE_DIR, 'subtitles')
 OUTPUT_DIR = os.path.join(BASE_DIR, 'output')
 
 
-class WebVTTTestCase(unittest.TestCase):
-
-    def setUp(self):
-        self.webvtt = WebVTT()
-
-    def _get_file(self, filename):
-        return os.path.join(SUBTITLES_DIR, filename)
+class WebVTTTestCase(GenericParserTestCase):
 
     def tearDown(self):
         if os.path.exists(OUTPUT_DIR):
@@ -37,10 +31,10 @@ class WebVTTTestCase(unittest.TestCase):
         copy(self._get_file('one_caption.vtt'), OUTPUT_DIR)
 
         out = io.StringIO()
-        self.webvtt.read(os.path.join(OUTPUT_DIR, 'one_caption.vtt'))
+        vtt = webvtt.read(os.path.join(OUTPUT_DIR, 'one_caption.vtt'))
         new_caption = Caption('00:00:07.000', '00:00:11.890', ['New caption text line1', 'New caption text line2'])
-        self.webvtt.captions.append(new_caption)
-        self.webvtt.write(out)
+        vtt.captions.append(new_caption)
+        vtt.write(out)
 
         out.seek(0)
         lines = [line.rstrip() for line in out.readlines()]
@@ -62,10 +56,10 @@ class WebVTTTestCase(unittest.TestCase):
         os.makedirs(OUTPUT_DIR)
         copy(self._get_file('one_caption.vtt'), OUTPUT_DIR)
 
-        self.webvtt.read(os.path.join(OUTPUT_DIR, 'one_caption.vtt'))
+        vtt = webvtt.read(os.path.join(OUTPUT_DIR, 'one_caption.vtt'))
         new_caption = Caption('00:00:07.000', '00:00:11.890', ['New caption text line1', 'New caption text line2'])
-        self.webvtt.captions.append(new_caption)
-        self.webvtt.save()
+        vtt.captions.append(new_caption)
+        vtt.save()
 
         with open(os.path.join(OUTPUT_DIR, 'one_caption.vtt'), 'r', encoding='utf-8') as f:
             lines = [line.rstrip() for line in f.readlines()]
@@ -87,8 +81,8 @@ class WebVTTTestCase(unittest.TestCase):
         os.makedirs(OUTPUT_DIR)
         copy(self._get_file('one_caption.srt'), OUTPUT_DIR)
 
-        self.webvtt.from_srt(os.path.join(OUTPUT_DIR, 'one_caption.srt'))
-        self.webvtt.save()
+        vtt = webvtt.from_srt(os.path.join(OUTPUT_DIR, 'one_caption.srt'))
+        vtt.save()
 
         self.assertTrue(os.path.exists(os.path.join(OUTPUT_DIR, 'one_caption.vtt')))
 
@@ -108,8 +102,8 @@ class WebVTTTestCase(unittest.TestCase):
         os.makedirs(OUTPUT_DIR)
         copy(self._get_file('two_captions.sbv'), OUTPUT_DIR)
 
-        self.webvtt.from_sbv(os.path.join(OUTPUT_DIR, 'two_captions.sbv'))
-        self.webvtt.save()
+        vtt = webvtt.from_sbv(os.path.join(OUTPUT_DIR, 'two_captions.sbv'))
+        vtt.save()
 
         self.assertTrue(os.path.exists(os.path.join(OUTPUT_DIR, 'two_captions.vtt')))
 
@@ -133,7 +127,7 @@ class WebVTTTestCase(unittest.TestCase):
         target_path = os.path.join(OUTPUT_DIR, 'test_folder')
         os.makedirs(target_path)
 
-        self.webvtt.read(self._get_file('one_caption.vtt')).save(target_path)
+        webvtt.read(self._get_file('one_caption.vtt')).save(target_path)
         self.assertTrue(os.path.exists(os.path.join(target_path, 'one_caption.vtt')))
 
     def test_save_specific_filename(self):
@@ -141,7 +135,7 @@ class WebVTTTestCase(unittest.TestCase):
         os.makedirs(target_path)
         output_file = os.path.join(target_path, 'custom_name.vtt')
 
-        self.webvtt.read(self._get_file('one_caption.vtt')).save(output_file)
+        webvtt.read(self._get_file('one_caption.vtt')).save(output_file)
         self.assertTrue(os.path.exists(output_file))
 
     def test_save_specific_filename_no_extension(self):
@@ -149,7 +143,7 @@ class WebVTTTestCase(unittest.TestCase):
         os.makedirs(target_path)
         output_file = os.path.join(target_path, 'custom_name')
 
-        self.webvtt.read(self._get_file('one_caption.vtt')).save(output_file)
+        webvtt.read(self._get_file('one_caption.vtt')).save(output_file)
         self.assertTrue(os.path.exists(os.path.join(target_path, 'custom_name.vtt')))
 
     def test_caption_timestamp_update(self):
@@ -230,34 +224,34 @@ class WebVTTTestCase(unittest.TestCase):
         )
 
     def test_captions(self):
-        self.webvtt.read(self._get_file('sample.vtt'))
-        self.assertIsInstance(self.webvtt.captions, list)
+        vtt = webvtt.read(self._get_file('sample.vtt'))
+        self.assertIsInstance(vtt.captions, list)
 
     def test_captions_prevent_write(self):
-        self.webvtt.read(self._get_file('sample.vtt'))
+        vtt = webvtt.read(self._get_file('sample.vtt'))
         self.assertRaises(
             AttributeError,
             setattr,
-            self.webvtt,
+            vtt,
             'captions',
             []
         )
 
     def test_sequence_iteration(self):
-        self.webvtt.read(self._get_file('sample.vtt'))
-        self.assertIsInstance(self.webvtt[0], Caption)
-        self.assertEqual(len(self.webvtt), len(self.webvtt.captions))
+        vtt = webvtt.read(self._get_file('sample.vtt'))
+        self.assertIsInstance(vtt[0], Caption)
+        self.assertEqual(len(vtt), len(vtt.captions))
 
     def test_save_no_filename(self):
-        webvtt = WebVTT()
+        vtt = webvtt.WebVTT()
         self.assertRaises(
-            MissingFilenameError,
-            webvtt.save
+            webvtt.exceptions.MissingFilenameError,
+            vtt.save
         )
 
     def test_malformed_start_timestamp(self):
         self.assertRaises(
-            MalformedCaptionError,
+            webvtt.exceptions.MalformedCaptionError,
             Caption,
             '01:00'
         )
@@ -282,8 +276,8 @@ class WebVTTTestCase(unittest.TestCase):
         os.makedirs(OUTPUT_DIR)
         copy(self._get_file('using_identifiers.vtt'), OUTPUT_DIR)
 
-        self.webvtt.read(os.path.join(OUTPUT_DIR, 'using_identifiers.vtt'))
-        self.webvtt.save(os.path.join(OUTPUT_DIR, 'new_using_identifiers.vtt'))
+        vtt = webvtt.read(os.path.join(OUTPUT_DIR, 'using_identifiers.vtt'))
+        vtt.save(os.path.join(OUTPUT_DIR, 'new_using_identifiers.vtt'))
 
         with open(os.path.join(OUTPUT_DIR, 'new_using_identifiers.vtt'), 'r', encoding='utf-8') as f:
             lines = [line.rstrip() for line in f.readlines()]
@@ -314,19 +308,18 @@ class WebVTTTestCase(unittest.TestCase):
 
         self.assertListEqual(lines, expected_lines)
 
-
     def test_save_updated_identifiers(self):
         os.makedirs(OUTPUT_DIR)
         copy(self._get_file('using_identifiers.vtt'), OUTPUT_DIR)
 
-        self.webvtt.read(os.path.join(OUTPUT_DIR, 'using_identifiers.vtt'))
-        self.webvtt.captions[0].identifier = 'first caption'
-        self.webvtt.captions[1].identifier = None
-        self.webvtt.captions[3].identifier = '44'
+        vtt = webvtt.read(os.path.join(OUTPUT_DIR, 'using_identifiers.vtt'))
+        vtt.captions[0].identifier = 'first caption'
+        vtt.captions[1].identifier = None
+        vtt.captions[3].identifier = '44'
         last_caption = Caption('00:00:27.280', '00:00:29.200', 'Caption text #7')
         last_caption.identifier = 'last caption'
-        self.webvtt.captions.append(last_caption)
-        self.webvtt.save(os.path.join(OUTPUT_DIR, 'new_using_identifiers.vtt'))
+        vtt.captions.append(last_caption)
+        vtt.save(os.path.join(OUTPUT_DIR, 'new_using_identifiers.vtt'))
 
         with open(os.path.join(OUTPUT_DIR, 'new_using_identifiers.vtt'), 'r', encoding='utf-8') as f:
             lines = [line.rstrip() for line in f.readlines()]

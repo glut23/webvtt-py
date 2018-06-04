@@ -23,6 +23,21 @@ class Caption(object):
 
         self._lines = text or []
 
+    def __repr__(self):
+        return '<%(cls)s start=%(start)s end=%(end)s text=%(text)s>' % {
+            'cls': self.__class__.__name__,
+            'start': self.start,
+            'end': self.end,
+            'text': self.text.replace('\n', '\\n')
+        }
+
+    def __str__(self):
+        return '%(start)s %(end)s %(text)s' % {
+            'start': self.start,
+            'end': self.end,
+            'text': self.text.replace('\n', '\\n')
+        }
+
     def add_line(self, line):
         self.lines.append(line)
 
