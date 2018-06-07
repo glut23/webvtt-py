@@ -3,7 +3,7 @@ import unittest
 from shutil import rmtree
 
 from webvtt import WebVTTSegmenter, Caption
-from webvtt.exceptions import InvalidCaptionsError
+from webvtt.errors import InvalidCaptionsError
 from webvtt import WebVTT
 
 BASE_DIR = os.path.dirname(__file__)

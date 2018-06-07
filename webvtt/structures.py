@@ -1,8 +1,10 @@
 import re
 
-from .exceptions import MalformedCaptionError
+from .errors import MalformedCaptionError
 
 TIMESTAMP_PATTERN = re.compile('(\d+)?:?(\d{2}):(\d{2})[.,](\d{3})')
+
+__all__ = ['Caption']
 
 
 class Caption(object):

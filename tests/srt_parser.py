@@ -7,7 +7,7 @@ class SRTParserTestCase(GenericParserTestCase):
 
     def test_srt_parse_empty_file(self):
         self.assertRaises(
-            webvtt.exceptions.MalformedFileError,
+            webvtt.errors.MalformedFileError,
             webvtt.from_srt,
             self._get_file('empty.vtt')  # We reuse this file as it is empty and serves the purpose.
         )
@@ -15,7 +15,7 @@ class SRTParserTestCase(GenericParserTestCase):
     def test_srt_invalid_format(self):
         for i in range(1, 5):
             self.assertRaises(
-                webvtt.exceptions.MalformedFileError,
+                webvtt.errors.MalformedFileError,
                 webvtt.from_srt,
                 self._get_file('invalid_format{}.srt'.format(i))
             )
@@ -31,7 +31,7 @@ class SRTParserTestCase(GenericParserTestCase):
 
     def test_srt_missing_timeframe_line(self):
         self.assertRaises(
-            webvtt.exceptions.MalformedCaptionError,
+            webvtt.errors.MalformedCaptionError,
             webvtt.from_srt,
             self._get_file('missing_timeframe.srt')
         )
@@ -45,7 +45,7 @@ class SRTParserTestCase(GenericParserTestCase):
 
     def test_srt_invalid_timestamp(self):
         self.assertRaises(
-            webvtt.exceptions.MalformedCaptionError,
+            webvtt.errors.MalformedCaptionError,
             webvtt.from_srt,
             self._get_file('invalid_timeframe.srt')
         )

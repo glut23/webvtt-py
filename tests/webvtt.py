@@ -1,5 +1,4 @@
 import os
-import unittest
 import io
 from shutil import rmtree, copy
 
@@ -245,13 +244,13 @@ class WebVTTTestCase(GenericParserTestCase):
     def test_save_no_filename(self):
         vtt = webvtt.WebVTT()
         self.assertRaises(
-            webvtt.exceptions.MissingFilenameError,
+            webvtt.errors.MissingFilenameError,
             vtt.save
         )
 
     def test_malformed_start_timestamp(self):
         self.assertRaises(
-            webvtt.exceptions.MalformedCaptionError,
+            webvtt.errors.MalformedCaptionError,
             Caption,
             '01:00'
         )

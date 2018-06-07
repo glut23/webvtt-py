@@ -2,7 +2,7 @@ import re
 import os
 import codecs
 
-from .exceptions import MalformedFileError, MalformedCaptionError
+from .errors import MalformedFileError, MalformedCaptionError
 from .structures import Block, Style, Caption
 
 

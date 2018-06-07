@@ -1,4 +1,6 @@
 
+__all__ = ['MalformedFileError', 'MalformedCaptionError', 'InvalidCaptionsError', 'MissingFilenameError']
+
 
 class MalformedFileError(Exception):
     """Error raised when the file is not well formatted"""

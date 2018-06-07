@@ -1,12 +1,14 @@
 import os
 from math import ceil, floor
 
-from .exceptions import InvalidCaptionsError
-from .core import WebVTT
+from .errors import InvalidCaptionsError
+from .webvtt import WebVTT
 from .structures import Caption
 
 MPEGTS = 900000
 SECONDS = 10  # default number of seconds per segment
+
+__all__ = ['WebVTTSegmenter']
 
 
 class WebVTTSegmenter(object):

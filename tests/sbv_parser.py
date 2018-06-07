@@ -7,14 +7,14 @@ class SBVParserTestCase(GenericParserTestCase):
 
     def test_sbv_parse_empty_file(self):
         self.assertRaises(
-            webvtt.exceptions.MalformedFileError,
+            webvtt.errors.MalformedFileError,
             webvtt.from_sbv,
             self._get_file('empty.vtt')  # We reuse this file as it is empty and serves the purpose.
         )
 
     def test_sbv_invalid_format(self):
         self.assertRaises(
-            webvtt.exceptions.MalformedFileError,
+            webvtt.errors.MalformedFileError,
             webvtt.from_sbv,
             self._get_file('invalid_format.sbv')
         )
@@ -33,21 +33,21 @@ class SBVParserTestCase(GenericParserTestCase):
 
     def test_sbv_missing_timeframe_line(self):
         self.assertRaises(
-            webvtt.exceptions.MalformedCaptionError,
+            webvtt.errors.MalformedCaptionError,
             webvtt.from_sbv,
             self._get_file('missing_timeframe.sbv')
         )
 
     def test_sbv_missing_caption_text(self):
         self.assertRaises(
-            webvtt.exceptions.MalformedCaptionError,
+            webvtt.errors.MalformedCaptionError,
             webvtt.from_sbv,
             self._get_file('missing_caption_text.sbv')
         )
 
     def test_sbv_invalid_timestamp(self):
         self.assertRaises(
-            webvtt.exceptions.MalformedCaptionError,
+            webvtt.errors.MalformedCaptionError,
             webvtt.from_sbv,
             self._get_file('invalid_timeframe.sbv')
         )

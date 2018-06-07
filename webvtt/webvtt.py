@@ -2,7 +2,9 @@ import os
 
 from .parsers import WebVTTParser, SRTParser, SBVParser
 from .writers import WebVTTWriter, SRTWriter
-from .exceptions import MissingFilenameError
+from .errors import MissingFilenameError
+
+__all__ = ['WebVTT']
 
 
 class WebVTT(object):
@@ -17,7 +19,7 @@ class WebVTT(object):
 
         WebVTT().from_srt('captions.srt')
 
-    A list of all supported formats is available calling supported_formats().
+    A list of all supported formats is available calling list_formats().
     """
 
     def __init__(self, file='', captions=None, styles=None):
@@ -102,9 +104,9 @@ class WebVTT(object):
 #            SBVWriter().write(self._captions, f)
 
     @staticmethod
-    def supported_formats():
+    def list_formats():
         """Provides a list of supported formats that this class can read from."""
-        return ['WebVTT (.vtt)', 'SubRip (.srt)', 'YouTube SBV (.sbv)']
+        return ('WebVTT (.vtt)', 'SubRip (.srt)', 'YouTube SBV (.sbv)')
 
     @property
     def captions(self):
