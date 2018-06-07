@@ -1,10 +1,10 @@
 webvtt-py package reference
 ===========================
 
-webvtt.main
------------
+webvtt.webvtt
+-------------
 
-.. automodule:: webvtt.main
+.. automodule:: webvtt.webvtt
     :members:
 
 webvtt.segmenter
@@ -22,13 +22,20 @@ webvtt.cli
 webvtt.generic
 --------------
 
-.. automodule:: webvtt.generic
+.. automodule:: webvtt.structures
     :members:
 
 webvtt.parsers
 --------------
 
 .. automodule:: webvtt.parsers
+    :members:
+    :show-inheritance:
+
+webvtt.writers
+--------------
+
+.. automodule:: webvtt.writers
     :members:
     :show-inheritance:
 

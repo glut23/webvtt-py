@@ -6,29 +6,27 @@ Reading WebVTT caption files
 
 .. code-block:: python
 
-    from webvtt import WebVTT
-
-    webvtt = WebVTT().read('captions.vtt')
+    import webvtt
 
     # we can iterate over the captions
-    for caption in webvtt:
+    for caption in webvtt.read('captions.vtt'):
         print(caption.start)  # start timestamp in text format
         print(caption.end)  # end timestamp in text format
         print(caption.text)  # caption text
 
     # you can also iterate over the lines of a particular caption
-    for line in webvtt[0].lines:
+    for line in vtt[0].lines:
         print(line)
 
     # caption text is returned clean without class tags
     # we can access the raw text of a caption with raw_text
-    >>> webvtt[0].text
+    >>> vtt[0].text
     'This is a caption text'
-    >>> webvtt[0].raw_text
+    >>> vtt[0].raw_text
     'This is a <c.colorE5E5E5>caption</c> text'
 
     # caption identifiers
-    >>> webvtt[0].identifier
+    >>> vtt[0].identifier
     'crédit de transcription'
 
 
@@ -39,7 +37,7 @@ Creating captions
 
     from webvtt import WebVTT, Caption
 
-    webvtt = WebVTT()
+    vtt = WebVTT()
 
     # creating a caption with a list of lines
     caption = Caption(
@@ -49,7 +47,7 @@ Creating captions
     )
 
     # adding a caption
-    webvtt.captions.append(caption)
+    vtt.captions.append(caption)
 
     # creating another caption with a text
     caption = Caption(
@@ -58,7 +56,7 @@ Creating captions
         'Caption line 1\nCaption line 2']
     )
 
-    webvtt.captions.append(caption)
+    vtt.captions.append(caption)
 
 
 Manipulating captions
@@ -66,21 +64,21 @@ Manipulating captions
 
 .. code-block:: python
 
-    from webvtt import WebVTT
+    import webvtt
 
-    webvtt = WebVTT().read('captions.vtt')
+    vtt = webvtt.read('captions.vtt')
 
     # update start timestamp
-    webvtt[0].start = '00:00:01.250'
+    vtt[0].start = '00:00:01.250'
 
     # update end timestamp
-    webvtt[0].end = '00:00:03.890'
+    vtt[0].end = '00:00:03.890'
 
     # update caption text
-    webvtt[0].text = 'My caption text'
+    vtt[0].text = 'My caption text'
 
     # delete a caption
-    del webvtt.captions[2]
+    del vtt.captions[2]
 
 
 Saving captions
@@ -88,19 +86,19 @@ Saving captions
 
 .. code-block:: python
 
-    from webvtt import WebVTT
+    import webvtt
 
-    webvtt = WebVTT().read('captions.vtt')
+    vtt = webvtt.read('captions.vtt')
 
     # save to original file
-    webvtt.save()
+    vtt.save()
 
     # save to a different file
-    webvtt.save('my_captions.vtt')
+    vtt.save('my_captions.vtt')
 
     # write to opened file
     with open('my_captions.vtt', 'w') as fd:
-        webvtt.write(fd)
+        vtt.write(fd)
 
 
 Converting captions
@@ -113,27 +111,27 @@ You can read captions from the following formats:
 
 .. code-block:: python
 
-    from webvtt import WebVTT
+    import webvtt
 
     # to read from a different format use the method from_ followed by
     # the extension.
-    webvtt = WebVTT().from_sbv('captions.sbv')
-    webvtt.save()
+    vtt = webvtt.from_sbv('captions.sbv')
+    vtt.save()
 
     # if we just want to convert the file we can do this in one line
-    WebVTT().from_sbv('captions.sbv').save()
+    webvtt.from_sbv('captions.sbv').save()
 
-Also we can convert to other formats:
+Also we can convert WebVTT to other formats:
 
 * SubRip (.srt)
 
 .. code-block:: python
 
-    from webvtt import WebVTT
+    import webvtt
 
     # save in SRT format
-    webvtt = WebVTT().read('captions.vtt')
-    webvtt.save_as_srt()
+    vtt = webvtt.read('captions.vtt')
+    vtt.save_as_srt()
 
     # write to opened file in SRT format
     with open('my_captions.srt', 'w') as fd:
