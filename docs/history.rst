@@ -9,6 +9,7 @@ History
 * Improved usability with the addition of shortcuts to avoid instantiating the classes so we can do:
 
 import webvtt
+
 webvtt.read('captions.vtt')  # this will return a WebVTT instance
 
 
