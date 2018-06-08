@@ -1,6 +1,17 @@
 History
 =======
 
+0.4.2 (08-06-2018) Rename of modules and usability improvements
+---------------------------------------------------------------
+
+* Renamed and reorganized few of the modules
+* Parsing methods are now class methods: read, from_srt and from_sbv
+* Improved usability with the addition of shortcuts to avoid instantiating the classes so we can do:
+
+import webvtt
+webvtt.read('captions.vtt')  # this will return a WebVTT instance
+
+
 0.4.1 (24-12-2017) Hot fix on cue identifiers
 ---------------------------------------------
 
