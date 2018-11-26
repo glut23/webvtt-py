@@ -1,4 +1,7 @@
+from __future__ import absolute_import, unicode_literals
+
 import os
+from six import text_type
 
 from .parsers import WebVTTParser, SRTParser, SBVParser
 from .writers import WebVTTWriter, SRTWriter
@@ -40,7 +43,7 @@ class WebVTT(object):
         }
 
     def __str__(self):
-        return '\n'.join([str(c) for c in self._captions])
+        return '\n'.join([text_type(c) for c in self._captions])
 
     @classmethod
     def from_srt(cls, file):

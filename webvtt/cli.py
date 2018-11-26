@@ -1,3 +1,8 @@
+from __future__ import absolute_import, unicode_literals
+from docopt import docopt
+
+from . import WebVTTSegmenter, __version__
+
 """
 Usage:
   webvtt segment <file> [--target-duration=SECONDS] [--mpegts=OFFSET] [--output=<dir>]
@@ -14,10 +19,6 @@ Options:
 Examples:
   webvtt segment captions.vtt --output destination/directory
 """
-
-from docopt import docopt
-
-from . import WebVTTSegmenter, __version__
 
 
 def main():
