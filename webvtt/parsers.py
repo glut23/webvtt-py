@@ -152,7 +152,8 @@ class WebVTTParser(TextBasedParser):
         blocks = []
 
         for index, line in enumerate(lines, start=1):
-            if line:
+            # Remove empty lines
+            if line and line.strip():
                 if not blocks:
                     blocks.append(Block(index))
                 if not blocks[-1].lines:
@@ -193,6 +194,9 @@ class WebVTTParser(TextBasedParser):
         self._compute_blocks(lines)
 
         for block in self.blocks:
+            # skip empty blocks
+            if self._is_empty(block):
+                continue
             if self._is_cue_block(block):
                 caption = self._parse_cue_block(block)
                 self.captions.append(caption)
@@ -217,6 +221,15 @@ class WebVTTParser(TextBasedParser):
     def _validate(self, lines):
         if not re.match('WEBVTT', lines[0]):
             raise MalformedFileError('The file does not have a valid format')
+
+    def _is_empty(self, block):
+        is_empty = True
+
+        for line in block.lines:
+            if line.strip() != "":
+                is_empty = False
+
+        return is_empty
 
     def _is_cue_timings_line(self, line):
         return '-->' in line
