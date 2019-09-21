@@ -163,11 +163,12 @@ class WebVTTParser(TextBasedParser):
                 blocks.append(Block(index))
 
         # filter out empty blocks and skip signature
-        self.blocks = list(filter(lambda x: x.lines, blocks))[1:]
+        return list(filter(lambda x: x.lines, blocks))[1:]
 
     def _parse_cue_block(self, block):
         caption = Caption()
         cue_timings = None
+        additional_blocks = None
 
         for line_number, line in enumerate(block.lines):
             if self._is_cue_timings_line(line):
@@ -178,8 +179,13 @@ class WebVTTParser(TextBasedParser):
                         raise MalformedCaptionError(
                             '{} in line {}'.format(e, block.line_number + line_number))
                 else:
-                    raise MalformedCaptionError(
-                        '--> found in line {}'.format(block.line_number + line_number))
+                    additional_blocks = self._compute_blocks(
+                        ['WEBVTT', '\n'] + block.lines[line_number:]
+                    )
+                    break
+                    # TODO: Is there a time we still might want this?
+                    # raise MalformedCaptionError(
+                    #    '--> found in line {}'.format(block.line_number + line_number))
             elif line_number == 0:
                 caption.identifier = line
             else:
@@ -187,19 +193,25 @@ class WebVTTParser(TextBasedParser):
 
         caption.start = cue_timings[0]
         caption.end = cue_timings[1]
-        return caption
+        return caption, additional_blocks
 
     def _parse(self, lines):
         self.captions = []
-        self._compute_blocks(lines)
+        blocks = self._compute_blocks(lines)
+        self._parseBlocks(blocks)
 
-        for block in self.blocks:
+    def _parseBlocks(self, blocks):
+        for block in blocks:
             # skip empty blocks
             if self._is_empty(block):
                 continue
             if self._is_cue_block(block):
-                caption = self._parse_cue_block(block)
+                caption, additional_blocks = self._parse_cue_block(block)
                 self.captions.append(caption)
+
+                if additional_blocks:
+                    self._parseBlocks(additional_blocks)
+
             elif self._is_comment_block(block):
                 continue
             elif self._is_style_block(block):
