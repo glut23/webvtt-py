@@ -66,7 +66,7 @@ class WebVTT(object):
         Such file-like object may be the return of an io.open call,
         io.StringIO object, tempfile.TemporaryFile object, etc."""
         parser = WebVTTParser().read_from_buffer(buffer)
-        return cls(file=file, captions=parser.captions, styles=parser.styles)
+        return cls(captions=parser.captions, styles=parser.styles)
 
     def _get_output_file(self, output, extension='vtt'):
         if not output:
