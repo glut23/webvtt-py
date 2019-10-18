@@ -53,7 +53,7 @@ Creating captions
     caption = Caption(
         '00:00:07.000',
         '00:00:11.890',
-        'Caption line 1\nCaption line 2']
+        'Caption line 1\nCaption line 2'
     )
 
     vtt.captions.append(caption)
