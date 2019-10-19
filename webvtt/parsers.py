@@ -222,15 +222,6 @@ class WebVTTParser(TextBasedParser):
         if not re.match('WEBVTT', lines[0]):
             raise MalformedFileError('The file does not have a valid format')
 
-    def _is_empty(self, block):
-        is_empty = True
-
-        for line in block.lines:
-            if line.strip() != "":
-                is_empty = False
-
-        return is_empty
-
     def _is_cue_timings_line(self, line):
         return '-->' in line
 
