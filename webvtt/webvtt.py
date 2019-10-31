@@ -1,6 +1,6 @@
 import os
 
-from .parsers import WebVTTParser, SRTParser, SBVParser
+from .parsers import WebVTTParser, HlsWebVTTParser, SRTParser, SBVParser
 from .writers import WebVTTWriter, SRTWriter
 from .errors import MissingFilenameError
 
@@ -131,3 +131,27 @@ class WebVTT(object):
     @property
     def styles(self):
         return self._styles
+
+class HlsWebVTT(WebVTT):
+    def __init__(self, file='', captions=None, styles=None, timestamp_map=None):
+        self._timestamp_map = timestamp_map
+        super(HlsWebVTT, self).__init__(file,captions, styles)
+
+    @property
+    def timestamp_map(self):
+        return self._timestamp_map
+
+    @classmethod
+    def read(cls, file):
+        """Reads a WebVTT captions file."""
+        parser = HlsWebVTTParser().read(file)
+        return cls(file=file, captions=parser.captions, styles=parser.styles, timestamp_map=parser.timestamp_map)
+
+    @classmethod
+    def read_buffer(cls, buffer):
+        """Reads a WebVTT captions from a file-like object.
+        Such file-like object may be the return of an io.open call,
+        io.StringIO object, tempfile.TemporaryFile object, etc."""
+        parser = HlsWebVTTParser().read_from_buffer(buffer)
+        return cls(captions=parser.captions, styles=parser.styles, timestamp_map=parser.timestamp_map)
+

@@ -16,3 +16,7 @@ class InvalidCaptionsError(Exception):
 
 class MissingFilenameError(Exception):
     """Error raised when saving a file without filename."""
+
+class HlsTimeMapError(Exception):
+    """Error raised when an Hls Timestamp map is malformed"""
+
