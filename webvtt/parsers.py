@@ -254,9 +254,12 @@ class HlsWebVTTParser(WebVTTParser):
     HLS WebVTT parser. Support X-TIMESTAMP-MAP tag
     """
     def _parse(self, lines):
-        self.timestamp_map = TimestampMap(
-            next(line for line in lines if line.upper().startswith('X-TIMESTAMP-MAP'))
-        )
+        try:
+            self.timestamp_map = TimestampMap(
+                next(line for line in lines if line.upper().startswith('X-TIMESTAMP-MAP'))
+            )
+        except StopIteration:
+            self.timestamp_map = None
         super(HlsWebVTTParser, self)._parse(lines)
 
 class SBVParser(TextBasedParser):
