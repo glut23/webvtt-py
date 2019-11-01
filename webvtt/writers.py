@@ -1,8 +1,12 @@
 
 class WebVTTWriter(object):
+    def __init__(self, header_lines=['WEBVTT']):
+        self._header_lines = header_lines
 
     def write(self, captions, f):
-        f.write('WEBVTT\n')
+        for line in self._header_lines:
+            f.write(line)
+            f.write('\n')
         for c in captions:
             if c.identifier:
                 f.write('\n' + c.identifier)

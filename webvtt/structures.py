@@ -21,6 +21,8 @@ class TimestampMap(object):
             raise HlsTimeMapError('X-TIMESTAMP-MAP tag not found')
         self._raw = raw_timestamp_map
 
+    def __str__(self):
+        return 'X-TIMESTAMP-MAP=LOCAL:%s,MPEGTS:%s'%(self.local, self.mpegts)
     @property
     def local(self):
         regex = re.search(

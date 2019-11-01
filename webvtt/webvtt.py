@@ -155,3 +155,11 @@ class HlsWebVTT(WebVTT):
         parser = HlsWebVTTParser().read_from_buffer(buffer)
         return cls(captions=parser.captions, styles=parser.styles, timestamp_map=parser.timestamp_map)
 
+    def write(self, f, format='vtt'):
+        if format == 'vtt':
+            WebVTTWriter(
+                header_lines=['WEBVTT',str(self.timestamp_map)]
+            ).write(self._captions, f)
+        elif format == 'srt':
+            SRTWriter().write(self._captions, f)
+
