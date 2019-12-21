@@ -261,6 +261,10 @@ class SBVParser(TextBasedParser):
 
     TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d+:\d{2}:\d{2}.\d{3}),(\d+:\d{2}:\d{2}.\d{3})')
 
+    PARSER_OPTIONS = {
+        'ignore_empty_captions': True
+    }
+
     def _validate(self, lines):
         if not self._validate_timeframe_line(lines[0]):
             raise MalformedFileError('The file does not have a valid format')
