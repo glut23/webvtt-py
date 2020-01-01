@@ -1,6 +1,13 @@
 History
 =======
 
+0.4.3 (22-11-2019) Few improvements
+-----------------------------------
+
+* Parsing improvements, thanks to `@sontek <https://github.com/sontek>`_ (#18)
+* Add support for reading content from a file-like object, thanks to `@omerholz <https://github.com/omerholz>`_ (#23)
+* Documentation fixes thanks to `@sontek <https://github.com/sontek>`_ (#22) and `@netcmcc <https://github.com/netcmcc>`_ (#24)
+
 0.4.2 (08-06-2018) Rename of modules and usability improvements
 ---------------------------------------------------------------
 
