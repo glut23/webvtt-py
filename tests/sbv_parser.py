@@ -39,11 +39,7 @@ class SBVParserTestCase(GenericParserTestCase):
         )
 
     def test_sbv_missing_caption_text(self):
-        self.assertRaises(
-            webvtt.errors.MalformedCaptionError,
-            webvtt.from_sbv,
-            self._get_file('missing_caption_text.sbv')
-        )
+        self.assertTrue(webvtt.from_sbv(self._get_file('missing_caption_text.sbv')).captions)
 
     def test_sbv_invalid_timestamp(self):
         self.assertRaises(

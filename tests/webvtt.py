@@ -5,6 +5,7 @@ from shutil import rmtree, copy
 import webvtt
 from webvtt.structures import Caption, Style
 from .generic import GenericParserTestCase
+from webvtt.errors import MalformedFileError
 
 
 BASE_DIR = os.path.dirname(__file__)
@@ -221,6 +222,28 @@ class WebVTTTestCase(GenericParserTestCase):
             c.lines[0],
             'Caption line #1 updated'
         )
+
+    def test_read_file_buffer(self):
+        with open(self._get_file('sample.vtt'), 'r', encoding='utf-8') as f:
+            vtt = webvtt.read_buffer(f)
+            self.assertIsInstance(vtt.captions, list)
+
+    def test_read_memory_buffer(self):
+        payload = ''
+        with open(self._get_file('sample.vtt'), 'r', encoding='utf-8') as f:
+            payload = f.read()
+
+        buffer = io.StringIO(payload)
+        vtt = webvtt.read_buffer(buffer)
+        self.assertIsInstance(vtt.captions, list)
+
+    def test_read_malformed_buffer(self):
+        malformed_payloads = ['', 'MOCK MELFORMED CONTENT']
+        for payload in malformed_payloads:
+            buffer = io.StringIO(payload)
+            with self.assertRaises(MalformedFileError):
+                webvtt.read_buffer(buffer)
+
 
     def test_captions(self):
         vtt = webvtt.read(self._get_file('sample.vtt'))

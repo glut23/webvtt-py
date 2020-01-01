@@ -154,3 +154,11 @@ class WebVTTParserTestCase(GenericParserTestCase):
     def test_parse_captions_with_bom(self):
         vtt = webvtt.read(self._get_file('captions_with_bom.vtt'))
         self.assertEqual(len(vtt.captions), 4)
+
+    def test_empty_lines_are_not_included_in_result(self):
+        vtt = webvtt.read(self._get_file('netflix_chicas_del_cable.vtt'))
+        self.assertEqual(vtt.captions[0].text, "[Alba] En 1928,")
+        self.assertEqual(
+            vtt.captions[-2].text,
+            "Diez años no son suficientes\npara olvidarte..."
+        )

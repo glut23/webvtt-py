@@ -30,6 +30,24 @@ Reading WebVTT caption files
     'crédit de transcription'
 
 
+Reading WebVTT caption files from file-like object
+--------------------------------------------------
+
+.. code-block:: python
+
+    import webvtt
+    import requests
+    from io import StringIO
+
+    payload = requests.get('http://subtitles.com/1234.vtt').text()
+    buffer = StringIO(payload)
+
+    for caption in webvtt.read_buffer(buffer):
+        print(caption.start)
+        print(caption.end)
+        print(caption.text)
+
+
 Creating captions
 -----------------
 
@@ -53,7 +71,7 @@ Creating captions
     caption = Caption(
         '00:00:07.000',
         '00:00:11.890',
-        'Caption line 1\nCaption line 2']
+        'Caption line 1\nCaption line 2'
     )
 
     vtt.captions.append(caption)

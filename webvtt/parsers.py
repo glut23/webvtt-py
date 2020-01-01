@@ -21,30 +21,45 @@ class TextBasedParser(object):
 
     def read(self, file):
         """Reads the captions file."""
-        content = self._read_content(file)
+        content = self._get_content_from_file(file_path=file)
         self._validate(content)
         self._parse(content)
 
         return self
 
-    def _read_content(self, file):
+    def read_from_buffer(self, buffer):
+        content = self._read_content_lines(buffer)
+        self._validate(content)
+        self._parse(content)
 
-        first_bytes = min(32, os.path.getsize(file))
-        with open(file, 'rb') as f:
+        return self
+
+    def _get_content_from_file(self, file_path):
+        encoding = self._read_file_encoding(file_path)
+        with open(file_path, encoding=encoding) as f:
+            return self._read_content_lines(f)
+
+    def _read_file_encoding(self, file_path):
+        first_bytes = min(32, os.path.getsize(file_path))
+        with open(file_path, 'rb') as f:
             raw = f.read(first_bytes)
 
         if raw.startswith(codecs.BOM_UTF8):
-            encoding = 'utf-8-sig'
+            return 'utf-8-sig'
         else:
-            encoding = 'utf-8'
+            return 'utf-8'
 
-        with open(file, encoding=encoding) as f:
-            lines = [line.rstrip('\n') for line in f.readlines()]
+    def _read_content_lines(self, file_obj):
+
+        lines = [line.rstrip('\n') for line in file_obj.readlines()]
 
         if not lines:
             raise MalformedFileError('The file is empty.')
 
         return lines
+
+    def _read_content(self, file):
+        return self._get_content_from_file(file_path=file)
 
     def _parse_timeframe_line(self, line):
         """Parse timeframe line and return start and end timestamps."""
@@ -152,12 +167,16 @@ class WebVTTParser(TextBasedParser):
         blocks = []
 
         for index, line in enumerate(lines, start=1):
-            if line:
+            # clean up exstraneous whitespace
+            final_line = line.strip()
+
+            # Remove empty lines
+            if final_line:
                 if not blocks:
                     blocks.append(Block(index))
                 if not blocks[-1].lines:
                     blocks[-1].line_number = index
-                blocks[-1].lines.append(line)
+                blocks[-1].lines.append(final_line)
             else:
                 blocks.append(Block(index))
 
@@ -241,6 +260,10 @@ class SBVParser(TextBasedParser):
     """
 
     TIMEFRAME_LINE_PATTERN = re.compile('\s*(\d+:\d{2}:\d{2}.\d{3}),(\d+:\d{2}:\d{2}.\d{3})')
+
+    PARSER_OPTIONS = {
+        'ignore_empty_captions': True
+    }
 
     def _validate(self, lines):
         if not self._validate_timeframe_line(lines[0]):
