@@ -58,11 +58,9 @@ class WebVTTParserTestCase(GenericParserTestCase):
         )
 
     def test_webvtt_parse_invalid_timeframe_in_cue_text(self):
-        self.assertRaises(
-            MalformedCaptionError,
-            webvtt.read,
-            self._get_file('invalid_timeframe_in_cue_text.vtt')
-        )
+        vtt = webvtt.read(self._get_file('invalid_timeframe_in_cue_text.vtt'))
+        self.assertEqual(4, len(vtt.captions))
+        self.assertEqual('', vtt.captions[1].text)
 
     def test_webvtt_parse_get_caption_data(self):
         vtt = webvtt.read(self._get_file('one_caption.vtt'))
@@ -161,4 +159,11 @@ class WebVTTParserTestCase(GenericParserTestCase):
         self.assertEqual(
             vtt.captions[-2].text,
             "Diez años no son suficientes\npara olvidarte..."
+        )
+
+    def test_can_parse_youtube_dl_files(self):
+        vtt = webvtt.read(self._get_file('youtube_dl.vtt'))
+        self.assertEqual(
+            "this will happen is I'm telling",
+            vtt.captions[2].text
         )

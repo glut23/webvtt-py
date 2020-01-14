@@ -1,0 +1,24 @@
+WEBVTT
+Kind: captions
+Language: en
+Style:
+::cue(c.colorCCCCCC) { color: rgb(204,204,204);
+ }
+::cue(c.colorE5E5E5) { color: rgb(229,229,229);
+ }
+##
+
+
+00:04:46.070 --> 00:04:46.470 align:start position:0%
+yeah
+
+
+00:04:46.470 --> 00:05:04.080 align:start position:0%
+yeah
+<c.colorCCCCCC>what</c>
+00:05:04.080 --> 00:05:05.069 align:start position:0%
+this<00:05:04.199><c> will</c><c.colorE5E5E5><00:05:04.379><c> happen</c></c><c.colorCCCCCC><00:05:04.620><c> is</c><00:05:04.860><c> I'm</c><00:05:05.069><c> telling</c></c>
+
+00:05:05.069 --> 00:05:05.400 align:start position:0%
+this will<c.colorE5E5E5> happen</c><c.colorCCCCCC> is I'm telling
+ </c>
