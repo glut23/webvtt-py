@@ -2,8 +2,9 @@ import os
 import io
 from shutil import rmtree, copy
 
+from webvtt.webvtt import HlsWebVTT
 import webvtt
-from webvtt.structures import Caption, Style
+from webvtt.structures import Caption, Style, TimestampMap
 from .generic import GenericParserTestCase
 from webvtt.errors import MalformedFileError
 
@@ -244,6 +245,40 @@ class WebVTTTestCase(GenericParserTestCase):
             with self.assertRaises(MalformedFileError):
                 webvtt.read_buffer(buffer)
 
+    def test_timestamp_map(self):
+        tag_one = 'X-TIMESTAMP-MAP=LOCAL:1086:59:52.424,MPEGTS:183000'
+        tag_two = 'X-TIMESTAMP-MAP=MPEGTS:183000,LOCAL:1086:59:52.424'
+        timestamp_map_one = TimestampMap(tag_one)
+        timestamp_map_two = TimestampMap(tag_two)
+
+        self.assertEqual(
+            timestamp_map_one.local,
+            '1086:59:52.424'
+        )
+        self.assertEqual(
+            timestamp_map_two.local,
+            '1086:59:52.424'
+        )
+        self.assertEqual(
+            timestamp_map_one.mpegts,
+            '183000'
+        )
+        self.assertEqual(
+            timestamp_map_two.mpegts,
+            '183000'
+        )
+
+    def test_read_hls_webvtt(self):
+        vtt = HlsWebVTT.read(self._get_file('sample_hls.vtt'))
+        self.assertIsInstance(vtt.captions, list)
+        self.assertIsInstance(vtt.timestamp_map, TimestampMap)
+        self.assertTrue(vtt.timestamp_map.local)
+        self.assertTrue(vtt.timestamp_map.mpegts)
+
+    def test_read_non_hls_webvtt_with_hls_webvtt_parser(self):
+        vtt = HlsWebVTT.read(self._get_file('sample.vtt'))
+        self.assertIsInstance(vtt.captions, list)
+        self.assertIsNone(vtt.timestamp_map)
 
     def test_captions(self):
         vtt = webvtt.read(self._get_file('sample.vtt'))

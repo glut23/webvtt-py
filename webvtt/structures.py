@@ -1,10 +1,59 @@
 import re
 
-from .errors import MalformedCaptionError
+from .errors import MalformedCaptionError, HlsTimeMapError
 
 TIMESTAMP_PATTERN = re.compile('(\d+)?:?(\d{2}):(\d{2})[.,](\d{3})')
 
+TIMESTAMP_MAP_LOCAL_PATTERN = re.compile(
+    'X-TIMESTAMP-MAP\=.*?LOCAL\:(?P<local>(\d+)?:?(\d{2}):(\d{2})[.,](\d{3}))',
+    re.IGNORECASE
+)
+
+TIMESTAMP_MAP_MPEGTS_PATTERN = re.compile(
+    'X-TIMESTAMP-MAP\=.*?MPEGTS\:(?P<mpegts>(\d+))',
+    re.IGNORECASE
+)
 __all__ = ['Caption']
+
+class TimestampMap(object):
+    def __init__(self, raw_timestamp_map):
+        if 'X-TIMESTAMP-MAP' not in raw_timestamp_map:
+            raise HlsTimeMapError('X-TIMESTAMP-MAP tag not found')
+        self._raw = raw_timestamp_map
+
+    def __str__(self):
+        return 'X-TIMESTAMP-MAP=LOCAL:%s,MPEGTS:%s'%(self.local, self.mpegts)
+    @property
+    def local(self):
+        regex = re.search(
+            TIMESTAMP_MAP_LOCAL_PATTERN,
+            self._raw,
+        )
+        if regex is None:
+            return None
+        else:
+            try:
+                return regex.group('local')
+            except (AttributeError,IndexError) as e:
+                return None
+            except Exception as e:
+                raise HlsTimeMapError('could not parse LOCAL') from e
+
+    @property
+    def mpegts(self):
+        regex = re.search(
+            TIMESTAMP_MAP_MPEGTS_PATTERN,
+            self._raw,
+        )
+        if regex is None:
+            return None
+        else:
+            try:
+                return regex.group('mpegts')
+            except (AttributeError,IndexError) as e:
+                return None
+            except Exception as e:
+                raise HlsTimeMapError('could not parse MPEGTS') from e
 
 
 class Caption(object):

@@ -3,7 +3,7 @@ import os
 import codecs
 
 from .errors import MalformedFileError, MalformedCaptionError
-from .structures import Block, Style, Caption
+from .structures import Block, Style, Caption, TimestampMap
 
 
 class TextBasedParser(object):
@@ -275,6 +275,18 @@ class WebVTTParser(TextBasedParser):
         """Returns True if it is a style block"""
         return re.match(self.STYLE_PATTERN, block.lines[0])
 
+class HlsWebVTTParser(WebVTTParser):
+    """
+    HLS WebVTT parser. Support X-TIMESTAMP-MAP tag
+    """
+    def _parse(self, lines):
+        try:
+            self.timestamp_map = TimestampMap(
+                next(line for line in lines if line.upper().startswith('X-TIMESTAMP-MAP'))
+            )
+        except StopIteration:
+            self.timestamp_map = None
+        super(HlsWebVTTParser, self)._parse(lines)
 
 class SBVParser(TextBasedParser):
     """
