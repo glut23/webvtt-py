@@ -1,6 +1,7 @@
 include LICENSE
-include MANIFEST.in
-include *.rst
+include README.rst
+
+graft tests
+
 global-exclude __pycache__
 global-exclude *.py[co]
-recursive-exclude tests *
