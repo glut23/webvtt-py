@@ -1,6 +1,16 @@
 History
 =======
 
+0.4.4 (27-03-2020)
+------------------
+
+* Allow parsing empty SBV captions, thanks to `@ishunyu <https://github.com/ishunyu>`_ (#26)
+* Fix invalid time cues, thanks to `@sontek <https://github.com/sontek>`_ (#19)
+* Enable pytest as test runner, thanks to `@sontek <https://github.com/sontek>`_ (#20)
+* Packaging improvements
+* Added Python 3.8 support
+* Improve parsing empty lines
+
 0.4.3 (22-11-2019) Few improvements
 -----------------------------------
 
