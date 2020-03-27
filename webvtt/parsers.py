@@ -167,16 +167,14 @@ class WebVTTParser(TextBasedParser):
         blocks = []
 
         for index, line in enumerate(lines, start=1):
-            # clean up exstraneous whitespace
-            final_line = line.strip()
-
-            # Remove empty lines
-            if final_line:
+            if line:
                 if not blocks:
                     blocks.append(Block(index))
                 if not blocks[-1].lines:
+                    if not line.strip():
+                        continue
                     blocks[-1].line_number = index
-                blocks[-1].lines.append(final_line)
+                blocks[-1].lines.append(line)
             else:
                 blocks.append(Block(index))
 
@@ -198,7 +196,7 @@ class WebVTTParser(TextBasedParser):
                             '{} in line {}'.format(e, block.line_number + line_number))
                 else:
                     additional_blocks = self._compute_blocks(
-                        ['WEBVTT', '\n'] + block.lines[line_number:]
+                        ['WEBVTT', ''] + block.lines[line_number:]
                     )
                     break
             elif line_number == 0:
