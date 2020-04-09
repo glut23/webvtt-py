@@ -1,5 +1,6 @@
 import os
 import io
+import textwrap
 from shutil import rmtree, copy
 
 import webvtt
@@ -236,6 +237,23 @@ class WebVTTTestCase(GenericParserTestCase):
         buffer = io.StringIO(payload)
         vtt = webvtt.read_buffer(buffer)
         self.assertIsInstance(vtt.captions, list)
+
+    def test_read_memory_buffer_carriage_return(self):
+        """https://github.com/glut23/webvtt-py/issues/29"""
+        buffer = io.StringIO(textwrap.dedent('''\
+            WEBVTT\r
+            \r
+            00:00:00.500 --> 00:00:07.000\r
+            Caption text #1\r
+            \r
+            00:00:07.000 --> 00:00:11.890\r
+            Caption text #2\r
+            \r
+            00:00:11.890 --> 00:00:16.320\r
+            Caption text #3\r
+        '''))
+        vtt = webvtt.read_buffer(buffer)
+        self.assertEqual(len(vtt.captions), 3)
 
     def test_read_malformed_buffer(self):
         malformed_payloads = ['', 'MOCK MELFORMED CONTENT']

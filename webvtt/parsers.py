@@ -51,7 +51,7 @@ class TextBasedParser(object):
 
     def _read_content_lines(self, file_obj):
 
-        lines = [line.rstrip('\n') for line in file_obj.readlines()]
+        lines = [line.rstrip('\n\r') for line in file_obj.readlines()]
 
         if not lines:
             raise MalformedFileError('The file is empty.')
