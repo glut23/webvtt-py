@@ -153,4 +153,4 @@ Also we can convert WebVTT to other formats:
 
     # write to opened file in SRT format
     with open('my_captions.srt', 'w') as fd:
-        webvtt.write(fd, format='srt)
+        vtt.write(fd, format='srt')
