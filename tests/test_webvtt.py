@@ -393,3 +393,25 @@ class WebVTTTestCase(GenericParserTestCase):
         ]
 
         self.assertListEqual(lines, expected_lines)
+
+    def test_content_formatting(self):
+        """
+        Verify that content property returns the correctly formatted webvtt.
+        """
+        captions = [
+            Caption('00:00:00.500', '00:00:07.000', ['Caption test line 1', 'Caption test line 2']),
+            Caption('00:00:08.000', '00:00:15.000', ['Caption test line 3', 'Caption test line 4']),
+        ]
+        expected_content = textwrap.dedent("""\
+                WEBVTT
+
+                00:00:00.500 --> 00:00:07.000
+                Caption test line 1
+                Caption test line 2
+                   
+                00:00:08.000 --> 00:00:15.000
+                Caption test line 3
+                Caption test line 4
+                """).strip()
+        vtt = webvtt.WebVTT(captions=captions)
+        self.assertEqual(expected_content, vtt.content)

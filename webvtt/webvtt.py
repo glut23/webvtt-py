@@ -131,3 +131,13 @@ class WebVTT(object):
     @property
     def styles(self):
         return self._styles
+
+    @property
+    def content(self):
+        """
+        Return webvtt content with webvtt formatting.
+
+        This property is useful in cases where the webvtt content is needed
+        but no file saving on the system is required.
+        """
+        return WebVTTWriter().webvtt_content(self._captions)

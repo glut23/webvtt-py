@@ -2,12 +2,20 @@
 class WebVTTWriter(object):
 
     def write(self, captions, f):
-        f.write('WEBVTT\n')
-        for c in captions:
-            if c.identifier:
-                f.write('\n' + c.identifier)
-            f.write('\n{} --> {}\n'.format(c.start, c.end))
-            f.writelines(['{}\n'.format(l) for l in c.lines])
+        f.write(self.webvtt_content(captions))
+
+    def webvtt_content(self, captions):
+        """
+        Return captions content with webvtt formatting.
+        """
+        output = ["WEBVTT"]
+        for caption in captions:
+            output.append("")
+            if caption.identifier:
+                output.append(caption.identifier)
+            output.append('{} --> {}'.format(caption.start, caption.end))
+            output.extend(caption.lines)
+        return '\n'.join(output)
 
 
 class SRTWriter(object):
