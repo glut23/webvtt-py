@@ -1,6 +1,11 @@
 History
 =======
 
+0.4.6
+------------------
+
+* Add capability to get WebVTT formatted content without an output file
+
 0.4.5 (09-04-2020)
 ------------------
 

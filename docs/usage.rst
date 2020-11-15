@@ -119,6 +119,21 @@ Saving captions
         vtt.write(fd)
 
 
+Fetching WebVTT formatted Captions
+------------------------------------
+
+WebVTT formatted captions content can be obtained without having to create an output file.
+
+.. code-block:: python
+
+    import webvtt
+
+    vtt = webvtt.read('captions.vtt')
+
+    # Print the captions formatted in webvtt
+    print(vtt.content)
+
+
 Converting captions
 -------------------
 
