@@ -13,6 +13,7 @@ dist/
 
 # PyCharm
 .idea
+venv
 
 # Documentation
 docs/_build/

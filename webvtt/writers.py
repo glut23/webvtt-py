@@ -20,12 +20,18 @@ class WebVTTWriter(object):
 
 class SRTWriter(object):
 
-    def write(self, captions, f):
+    def write(self, captions, styles, f):
+        colours = dict()
+        if styles is not None:
+            for style in styles:
+                colours.update(style.colours)
+
         for line_number, caption in enumerate(captions, start=1):
             f.write('{}\n'.format(line_number))
             f.write('{} --> {}\n'.format(self._to_srt_timestamp(caption.start_in_seconds),
                                          self._to_srt_timestamp(caption.end_in_seconds)))
-            f.writelines(['{}\n'.format(l) for l in caption.lines])
+            f.write('{}\n'.format(caption.to_srt_formatted(colours)))
+            # f.writelines(['{}\n'.format(l) for l in caption.lines])
             f.write('\n')
 
     def _to_srt_timestamp(self, total_seconds):
