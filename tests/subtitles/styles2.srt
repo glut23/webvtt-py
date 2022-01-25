@@ -8,7 +8,7 @@
 
 3
 00:00:32,439 --> 00:00:35,320
-<font color="#ff00ff">Musique douce</font>
+<font color="#ff00ff"><i>Some italic</i> and normal coloured text. By the way, 2 < 3 !</font>
 
 4
 00:00:35,560 --> 00:02:25,240

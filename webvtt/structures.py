@@ -1,3 +1,4 @@
+import html
 import re
 
 from .errors import MalformedCaptionError
@@ -49,7 +50,7 @@ class Caption(object):
     def replace_color(x, tag, v):
         return ("" if tag == "c" else ("<" + tag + ">")) \
                + "<font color=\"" + v + "\">" \
-               + x.group(1) \
+               + html.unescape(x.group(1)) \
                + "</font>" \
                + ("" if tag == "c" else ("</" + tag + ">"))
 
