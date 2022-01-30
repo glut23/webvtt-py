@@ -43,7 +43,7 @@ sub1
 
 sub2
 00:00:32.439 --> 00:00:35.320 line:-1
-<c.magenta.bg_black><i>Some italic</i> and normal coloured text. By the way, 2 &lt; 3 !</c>
+<c.magenta.bg_black><i.blue>Some italic</i> and normal coloured text. By the way, 2 &lt; 3 !</c>
 
 sub3
 00:00:35.560 --> 00:02:25.240 align:left line:-1
