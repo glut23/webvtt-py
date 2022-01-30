@@ -33,3 +33,18 @@ class SRTCaptionsTestCase(GenericParserTestCase):
             converted = f.read()
 
         self.assertEqual(original.strip(), converted.strip())
+
+    def test_convert_to_srt_with_styles(self):
+        copy(self._get_file('styles2.vtt'), OUTPUT_DIR)
+        copy(self._get_file('styles2.srt'), OUTPUT_DIR)
+
+        vtt = webvtt.read(os.path.join(OUTPUT_DIR, 'styles2.vtt'))
+        vtt.save_as_srt(os.path.join(OUTPUT_DIR, 'styles2_converted.srt'))
+
+        with open(os.path.join(OUTPUT_DIR, 'styles2.srt'), 'r', encoding='utf-8') as f:
+            original = f.read()
+
+        with open(os.path.join(OUTPUT_DIR, 'styles2_converted.srt'), 'r', encoding='utf-8') as f:
+            converted = f.read()
+
+        self.assertEqual(original.strip(), converted.strip())

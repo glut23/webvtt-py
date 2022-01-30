@@ -1,6 +1,9 @@
+import html
 import re
 
 from .errors import MalformedCaptionError
+
+COLOURS_PATTERN = re.compile(r'::cue\(\.([^)]+)\)\s*{.*?color:(.*?);.*?}')
 
 TIMESTAMP_PATTERN = re.compile('(\d+)?:?(\d{2}):(\d{2})[.,](\d{3})')
 
@@ -42,6 +45,33 @@ class Caption(object):
 
     def add_line(self, line):
         self.lines.append(line)
+
+    @staticmethod
+    def replace_color(x, tag, v):
+        return ("" if tag == "c" else ("<" + tag + ">")) \
+               + "<font color=\"" + v + "\">" \
+               + html.unescape(x.group(1)) \
+               + "</font>" \
+               + ("" if tag == "c" else ("</" + tag + ">"))
+
+    def _replace_colors(self, raw_text, colours, tag):
+        result = raw_text
+        for k, v in colours.items():
+            regex_string = "<" + tag + "(?:\\..*?)?\\." + str(k) + "(?:\\..*?)?>(.*?)</" + tag + ">"
+            if re.search(regex_string, result) is not None:
+                result = re.sub(regex_string, lambda x: self.replace_color(x, tag, v), result)
+        return result
+
+    def to_srt_formatted(self, colours):
+        caption_text = self.raw_text
+        no_tag_found = True
+        for tag in ['c', 'i', 'b', 'u']:
+            if re.search("<" + tag + "\\..*?>.*?</" + tag + ">", caption_text) is not None:
+                caption_text = self._replace_colors(caption_text, colours, tag)
+                no_tag_found = False
+        if no_tag_found:
+            caption_text = self.text
+        return caption_text
 
     def _to_seconds(self, hours, minutes, seconds, milliseconds):
         return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000
@@ -133,3 +163,12 @@ class Style(GenericBlock):
         if type(value) != str:
             raise TypeError('The text value must be a string.')
         self.lines = value.split('\n')
+
+    @property
+    def colours(self):
+        """Returns the colours as a dict"""
+        colours_found = COLOURS_PATTERN.findall(self.text)
+        colours_classes = list(map(lambda x: x[0], colours_found))
+        colours_values = list(map(lambda x: x[1].replace(" ", ""), colours_found))
+        colours = dict(zip(colours_classes, colours_values))
+        return colours
