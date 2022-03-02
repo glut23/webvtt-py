@@ -140,7 +140,7 @@ class SRTParser(TextBasedParser):
     }
 
     def _validate(self, lines):
-        if len(lines) < 2 or lines[0] != '1' or not self._validate_timeframe_line(lines[1]):
+        if len(lines) < 2 or lines[0] != '0' or not self._validate_timeframe_line(lines[1]):
             raise MalformedFileError('The file does not have a valid format.')
 
     def _is_timeframe_line(self, line):
