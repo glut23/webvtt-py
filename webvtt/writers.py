@@ -1,14 +1,18 @@
 
 class WebVTTWriter(object):
 
-    def write(self, captions, f):
-        f.write(self.webvtt_content(captions))
+    def write(self, styles, captions, f):
+        f.write(self.webvtt_content(styles, captions))
 
-    def webvtt_content(self, captions):
+    def webvtt_content(self, styles, captions):
         """
         Return captions content with webvtt formatting.
         """
         output = ["WEBVTT"]
+        for style in styles:
+            output.append("")
+            output.append("STYLE")
+            output.append(style.text)
         for caption in captions:
             output.append("")
             if caption.identifier:
