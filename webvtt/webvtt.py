@@ -25,7 +25,7 @@ class WebVTT(object):
     def __init__(self, file='', captions=None, styles=None):
         self.file = file
         self._captions = captions or []
-        self._styles = styles
+        self._styles = styles or []
 
     def __len__(self):
         return len(self._captions)
@@ -105,7 +105,7 @@ class WebVTT(object):
 
     def write(self, f, format='vtt'):
         if format == 'vtt':
-            WebVTTWriter().write(self._captions, f)
+            WebVTTWriter().write(self._styles, self._captions, f)
         elif format == 'srt':
             SRTWriter().write(self._captions, f)
 #        elif output_format == OutputFormat.SBV:
