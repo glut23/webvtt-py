@@ -157,7 +157,7 @@ class WebVTTParser(TextBasedParser):
 
     TIMEFRAME_LINE_PATTERN = re.compile(
         # matches timestamp format: 0:0:13.540 --> 0:0:17.850
-        r'\s*((?:\d+:)?\d{1,2}:\d{1,2}.\d{1,3})\s*-->\s*((?:\d+:)?\d{1,2}:\d{1,2}.\d{1,3})'
+        r'\s*((?:\d+:)?\d{1,2}:\d{1,2}.\d{3})\s*-->\s*((?:\d+:)?\d{1,2}:\d{1,2}.\d{3})'
     )
     COMMENT_PATTERN = re.compile(r'NOTE(?:\s.+|$)')
     STYLE_PATTERN = re.compile(r'STYLE[ \t]*$')
