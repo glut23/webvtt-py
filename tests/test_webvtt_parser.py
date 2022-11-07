@@ -90,6 +90,13 @@ class WebVTTParserTestCase(GenericParserTestCase):
         self.assertEqual(vtt.captions[2].start, '00:00:11.890')
         self.assertEqual(vtt.captions[2].end, '00:00:16.320')
 
+    def test_webvtt_microsoft_teams_timestamps_format(self):
+        vtt = webvtt.read(self._get_file('teams_timeframe.vtt'))
+        self.assertEqual(vtt.captions[0].start, '00:00:00.000')
+        self.assertEqual(vtt.captions[0].end, '00:00:00.570')
+        self.assertEqual(vtt.captions[1].start, '00:00:00.210')
+        self.assertEqual(vtt.captions[1].end, '00:00:01.130')
+
     def test_parse_timestamp(self):
         caption = Caption(start='02:03:11.890')
         self.assertEqual(
