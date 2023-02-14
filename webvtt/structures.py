@@ -2,7 +2,7 @@ import re
 
 from .errors import MalformedCaptionError
 
-TIMESTAMP_PATTERN = re.compile('(\d+)?:?(\d{2}):(\d{2})[.,](\d{3})')
+TIMESTAMP_PATTERN = re.compile(r'(\d+)?:?(\d{2}):(\d{2})[.,](\d{3})')
 
 __all__ = ['Caption']
 
