@@ -19,12 +19,6 @@ setup(
         'webvtt',
     ],
     include_package_data=True,
-    install_requires=['docopt'],
-    entry_points={
-        'console_scripts': [
-            'webvtt=webvtt.cli:main'
-        ]
-    },
     license='MIT',
     classifiers=[
         'Development Status :: 3 - Alpha',
