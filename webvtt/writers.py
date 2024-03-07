@@ -25,7 +25,7 @@ class SRTWriter(object):
             f.write('{}\n'.format(line_number))
             f.write('{} --> {}\n'.format(self._to_srt_timestamp(caption.start_in_seconds),
                                          self._to_srt_timestamp(caption.end_in_seconds)))
-            f.writelines(['{}\n'.format(l) for l in caption.lines])
+            f.write('{}\n'.format(caption.text))
             f.write('\n')
 
     def _to_srt_timestamp(self, total_seconds):
