@@ -262,6 +262,41 @@ class TestVTTModule(unittest.TestCase):
             'Caption text #2 line 2'
             )
 
+    def test_parse_caption_with_blank_line_after_timing(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.500 --> 00:00:05.000
+
+            Caption text #1
+            ''').strip().split('\n')
+            )
+
+        self.assertEqual(len(output.captions), 1)
+        self.assertEqual(
+            str(output.captions[0]),
+            '00:00:00.500 00:00:05.000 Caption text #1',
+            )
+
+    def test_parse_caption_with_multiple_blank_lines_after_timing(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.500 --> 00:00:05.000
+
+
+            Caption text #1
+            ''').strip().split('\n')
+            )
+
+        self.assertEqual(len(output.captions), 1)
+        self.assertEqual(
+            str(output.captions[0]),
+            '00:00:00.500 00:00:05.000 Caption text #1',
+            )
+
     def test_parse_styles(self):
         output = vtt.parse(
             textwrap.dedent('''

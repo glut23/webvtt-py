@@ -243,6 +243,40 @@ class WebVTTStyleBlock:
         return ['STYLE', *lines]
 
 
+def remove_empty_lines(
+        lines: typing.Sequence[str]
+        ) -> typing.List[str]:
+    """
+    Remove empty lines appearing directly after cue timings.
+
+    :param lines: original lines of text
+    :returns: cleaned list of lines
+    """
+    cleaned = []
+    total = len(lines)
+    i = 0
+    while i < total:
+        line = lines[i]
+        cleaned.append(line)
+
+        # If this line is a cue timing line, check for empty lines after it.
+        if re.match(WebVTTCueBlock.CUE_TIMINGS_PATTERN, line):
+            # Skip all empty lines that follow,
+            # unless the next non-empty line is another timing line.
+            j = i + 1
+            while j < total and not lines[j].strip():
+                next_j = j + 1
+                # Stop skipping if next non-empty line is also a cue timing.
+                if next_j < total and re.match(WebVTTCueBlock.CUE_TIMINGS_PATTERN, lines[next_j]):
+                    break
+                j += 1
+            i = j  # Continue from after the skipped lines
+        else:
+            i += 1
+
+    return cleaned
+
+
 def parse(
         lines: typing.Sequence[str]
         ) -> ParserOutput:
@@ -255,7 +289,7 @@ def parse(
     if not is_valid_content(lines):
         raise MalformedFileError('Invalid format')
 
-    return parse_items(lines)
+    return parse_items(remove_empty_lines(lines))
 
 
 def is_valid_content(lines: typing.Sequence[str]) -> bool:
