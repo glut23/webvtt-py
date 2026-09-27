@@ -1,3 +1,5 @@
+import re
+import time
 import unittest
 
 from webvtt.models import Timestamp, Caption, Style
@@ -446,6 +448,27 @@ class TestCaption(unittest.TestCase):
         self.assertEqual(caption.text, 'This is a test')
         self.assertEqual(caption.raw_text, 'This is a test')
         self.assertIsNone(caption.voice)
+
+    def test_text_strips_tags_like_regex(self):
+        for raw_text in (
+            '<v Bob>Hello <b>test</b>!',
+            'a <unclosed tag',
+            'a <b <i>nested< one',
+            '<b>first line\nsecond</b> line <',
+            '',
+        ):
+            caption = Caption(text=raw_text)
+            self.assertEqual(
+                caption.text,
+                re.sub('<.*?>', '', raw_text)
+            )
+
+    def test_text_unclosed_tags_are_linear(self):
+        # re.sub('<.*?>', ...) took about 10 seconds on this input
+        caption = Caption(text='<' * 64000)
+        start = time.perf_counter()
+        self.assertEqual(caption.text, '<' * 64000)
+        self.assertLess(time.perf_counter() - start, 1)
 
 
 class TestStyle(unittest.TestCase):

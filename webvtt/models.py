@@ -96,6 +96,31 @@ class Timestamp:
                 )
 
 
+def _strip_cue_text_tags(line: str) -> str:
+    """
+    Remove cue tags from a single line of text.
+
+    Gives the same result as ``re.sub('<.*?>', '', line)`` for a line
+    without a newline, in linear time. That regex rescans the rest of the
+    line from every ``<`` that has no ``>`` after it, which is quadratic in
+    the length of the line; once one ``<`` has no closing ``>``, no later
+    ``<`` on the line has one either, so the scan can stop there.
+    """
+    parts = []
+    pos = 0
+    while True:
+        start = line.find('<', pos)
+        if start < 0:
+            break
+        end = line.find('>', start + 1)
+        if end < 0:
+            break
+        parts.append(line[pos:start])
+        pos = end + 1
+    parts.append(line[pos:])
+    return ''.join(parts)
+
+
 class Caption:
     """Representation of a caption."""
 
@@ -193,7 +218,10 @@ class Caption:
     @property
     def text(self) -> str:
         """Return the text of the caption (without cue tags)."""
-        return re.sub(self.CUE_TEXT_TAGS, '', self.raw_text)
+        return '\n'.join(
+            _strip_cue_text_tags(line)
+            for line in self.raw_text.split('\n')
+        )
 
     @text.setter
     def text(self, value: str):
