@@ -419,6 +419,29 @@ class TestWebVTT(unittest.TestCase):
             '00:00:11.890 00:00:16.320 Caption text #3'
             )
 
+    def test_read_buffer_with_bom(self):
+        for format in ('vtt', 'srt', 'sbv'):
+            source = (PATH_TO_SAMPLES / ('sample.' + format)).read_text()
+            expected = webvtt.from_buffer(io.StringIO(source), format=format)
+            for buffer in (
+                    io.StringIO('\ufeff' + source),
+                    io.BytesIO(('\ufeff' + source).encode('utf-8')),
+                    iter(('\ufeff' + source).splitlines())
+                    ):
+                with self.subTest(format=format, buffer=type(buffer)):
+                    actual = webvtt.from_buffer(buffer, format=format)
+                    self.assertEqual(
+                        [(c.start, c.end, c.text) for c in actual],
+                        [(c.start, c.end, c.text) for c in expected]
+                        )
+
+    def test_get_lines_preserves_bom_in_caption_text(self):
+        self.assertEqual(
+            webvtt.WebVTT._get_lines(iter(['\ufeffWEBVTT\r\n',
+                                           '\ufeffcaption\n'])),
+            ['WEBVTT', '\ufeffcaption']
+            )
+
     def test_read_buffer_unsupported_format(self):
         self.assertRaises(
             ValueError,
