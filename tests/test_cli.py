@@ -41,19 +41,19 @@ class CLITestCase(unittest.TestCase):
                 #EXT-X-TARGETDURATION:10
                 #EXT-X-VERSION:3
                 #EXT-X-PLAYLIST-TYPE:VOD
-                #EXTINF:30.00000
+                #EXTINF:10.00000,
                 fileSequence0.webvtt
-                #EXTINF:30.00000
+                #EXTINF:10.00000,
                 fileSequence1.webvtt
-                #EXTINF:30.00000
+                #EXTINF:10.00000,
                 fileSequence2.webvtt
-                #EXTINF:30.00000
+                #EXTINF:10.00000,
                 fileSequence3.webvtt
-                #EXTINF:30.00000
+                #EXTINF:10.00000,
                 fileSequence4.webvtt
-                #EXTINF:30.00000
+                #EXTINF:10.00000,
                 fileSequence5.webvtt
-                #EXTINF:30.00000
+                #EXTINF:10.00000,
                 fileSequence6.webvtt
                 #EXT-X-ENDLIST
                 '''
