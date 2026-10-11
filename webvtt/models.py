@@ -9,7 +9,7 @@ from .errors import MalformedCaptionError
 class Timestamp:
     """Representation of a timestamp."""
 
-    PATTERN = re.compile(r'(?:(\d{1,2}):)?(\d{1,2}):(\d{1,2})\.(\d{3})')
+    PATTERN = re.compile(r'(?:(\d{1,}):)?(\d{1,2}):(\d{1,2})\.(\d{3})')
 
     def __init__(
             self,

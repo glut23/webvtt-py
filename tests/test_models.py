@@ -38,6 +38,14 @@ class TestTimestamp(unittest.TestCase):
         self.assertEqual(timestamp.seconds, 11)
         self.assertEqual(timestamp.milliseconds, 670)
 
+    def test_from_string_more_than_two_digits_hours(self):
+        timestamp = Timestamp.from_string('100:24:11.670')
+        self.assertEqual(timestamp.hours, 100)
+        self.assertEqual(timestamp.minutes, 24)
+        self.assertEqual(timestamp.seconds, 11)
+        self.assertEqual(timestamp.milliseconds, 670)
+        self.assertEqual(str(timestamp), '100:24:11.670')
+
     def test_from_string_wrong_minutes(self):
         with self.assertRaises(MalformedCaptionError):
             Timestamp.from_string('01:76:11.670')
