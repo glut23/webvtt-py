@@ -46,19 +46,19 @@ class TestSegmenter(unittest.TestCase):
                 #EXT-X-TARGETDURATION:10
                 #EXT-X-VERSION:3
                 #EXT-X-PLAYLIST-TYPE:VOD
-                #EXTINF:30.00000
+                #EXTINF:10.00000,
                 fileSequence0.webvtt
-                #EXTINF:30.00000
+                #EXTINF:10.00000,
                 fileSequence1.webvtt
-                #EXTINF:30.00000
+                #EXTINF:10.00000,
                 fileSequence2.webvtt
-                #EXTINF:30.00000
+                #EXTINF:10.00000,
                 fileSequence3.webvtt
-                #EXTINF:30.00000
+                #EXTINF:10.00000,
                 fileSequence4.webvtt
-                #EXTINF:30.00000
+                #EXTINF:10.00000,
                 fileSequence5.webvtt
-                #EXTINF:30.00000
+                #EXTINF:10.00000,
                 fileSequence6.webvtt
                 #EXT-X-ENDLIST
                 '''
@@ -224,11 +224,11 @@ class TestSegmenter(unittest.TestCase):
                 #EXT-X-TARGETDURATION:30
                 #EXT-X-VERSION:3
                 #EXT-X-PLAYLIST-TYPE:VOD
-                #EXTINF:30.00000
+                #EXTINF:30.00000,
                 fileSequence0.webvtt
-                #EXTINF:30.00000
+                #EXTINF:30.00000,
                 fileSequence1.webvtt
-                #EXTINF:30.00000
+                #EXTINF:30.00000,
                 fileSequence2.webvtt
                 #EXT-X-ENDLIST
                 '''
@@ -315,6 +315,24 @@ class TestSegmenter(unittest.TestCase):
                 '''
                 ).lstrip()
             )
+
+    def test_manifest_uses_segment_duration(self):
+        for seconds in (5, 10, 30, 45):
+            with self.subTest(seconds=seconds):
+                segmenter.write_manifest(
+                    pathlib.Path(self.temp_dir.name), [[], []], seconds
+                    )
+                manifest = (
+                    pathlib.Path(self.temp_dir.name) / 'prog_index.m3u8'
+                    ).read_text()
+                self.assertIn(
+                    f'#EXT-X-TARGETDURATION:{seconds}\n', manifest
+                    )
+                self.assertEqual(
+                    [line for line in manifest.splitlines()
+                     if line.startswith('#EXTINF:')],
+                    [f'#EXTINF:{seconds:.5f},'] * 2
+                    )
 
     def test_segment_with_no_captions(self):
         segmenter.segment(
