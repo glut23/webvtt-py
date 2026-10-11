@@ -219,7 +219,10 @@ class WebVTT:
         :param lines: iterable of lines
         :returns: a list of cleaned lines
         """
-        return [line.rstrip('\n\r') for line in lines]
+        cleaned_lines = [line.rstrip('\n\r') for line in lines]
+        if cleaned_lines and cleaned_lines[0].startswith('\ufeff'):
+            cleaned_lines[0] = cleaned_lines[0][1:]
+        return cleaned_lines
 
     def _get_destination_file(
             self,
