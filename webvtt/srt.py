@@ -90,7 +90,7 @@ def is_valid_content(lines: typing.Sequence[str]) -> bool:
     Validate lines of text for valid SBV content.
 
     :param lines: lines of text
-    :returns: true for a valid SBV content
+    :returns: true for a valid SRT content
     """
     return bool(
         len(lines) >= 3 and
