@@ -3,7 +3,7 @@
 import typing
 import os
 import pathlib
-from math import ceil, floor
+from math import floor
 
 from .webvtt import WebVTT, Caption
 
@@ -49,7 +49,7 @@ def slice_segments(
     total_segments = (
         0
         if not captions else
-        int(ceil(captions[-1].end_in_seconds / seconds))
+        floor(captions[-1].end_in_seconds / seconds) + 1
     )
 
     segments: typing.List[typing.List[Caption]] = [
