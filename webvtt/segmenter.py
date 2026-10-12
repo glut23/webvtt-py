@@ -115,7 +115,7 @@ def write_manifest(
         f.write('#EXT-X-PLAYLIST-TYPE:VOD\n')
 
         for index, _ in enumerate(segments):
-            f.write('#EXTINF:30.00000\n')
+            f.write(f'#EXTINF:{seconds:.5f},\n')
             f.write(f'fileSequence{index}.webvtt\n')
 
         f.write('#EXT-X-ENDLIST\n')
