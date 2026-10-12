@@ -5,6 +5,7 @@ import pathlib
 import textwrap
 
 from webvtt import segmenter
+from webvtt.models import Caption
 
 PATH_TO_SAMPLES = pathlib.Path(__file__).resolve().parent / 'samples'
 
@@ -333,6 +334,29 @@ class TestSegmenter(unittest.TestCase):
                      if line.startswith('#EXTINF:')],
                     [f'#EXTINF:{seconds:.5f},'] * 2
                     )
+
+    def test_slice_segments_last_caption_ends_on_segment_boundary(self):
+        captions = [
+            Caption('00:00.000', '00:09.000', 'first'),
+            Caption('00:09.000', '00:10.000', 'second'),
+            ]
+
+        segments = segmenter.slice_segments(captions, 10)
+
+        self.assertEqual(
+            [[c.text for c in segment] for segment in segments],
+            [['first', 'second'], ['second']]
+            )
+
+    def test_slice_segments_last_caption_ends_mid_second(self):
+        captions = [Caption('00:00.000', '00:10.500', 'only')]
+
+        segments = segmenter.slice_segments(captions, 10)
+
+        self.assertEqual(
+            [[c.text for c in segment] for segment in segments],
+            [['only'], ['only']]
+            )
 
     def test_segment_with_no_captions(self):
         segmenter.segment(
