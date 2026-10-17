@@ -41,9 +41,14 @@ class WebVTTCueBlock:
     """Representation of a cue timing block."""
 
     CUE_TIMINGS_PATTERN = re.compile(
-        r'\s*((?:\d+:)?\d{2}:\d{2}\.\d{3})'
+        r'\s*((?:\d+:)?\d{1,2}:\d{1,2}\.\d{1,3})'
         r'\s*-->\s*'
-        r'((?:\d+:)?\d{2}:\d{2}\.\d{3})'
+        r'((?:\d+:)?\d{1,2}:\d{1,2}\.\d{1,3})'
+        )
+    STRICT_CUE_TIMINGS_PATTERN = re.compile(
+        r'\s*((?:\d{2,}:)?\d{2}:\d{2}\.\d{3})'
+        r'\s*-->\s*'
+        r'((?:\d{2,}:)?\d{2}:\d{2}\.\d{3})'
         )
 
     def __init__(
@@ -68,24 +73,33 @@ class WebVTTCueBlock:
     @classmethod
     def is_valid(
             cls,
-            lines: typing.Sequence[str]
+            lines: typing.Sequence[str],
+            strict: bool = False
             ) -> bool:
         """
         Validate the lines for a match of a cue time block.
 
+        Timestamps with fields shorter than the WebVTT format requires, as
+        in ``0:0:13.540``, are accepted unless strict.
+
         :param lines: the lines to be validated
+        :param strict: only accept timestamps in the WebVTT format
         :returns: true for a matching cue time block
         """
+        pattern = (
+            cls.STRICT_CUE_TIMINGS_PATTERN if strict
+            else cls.CUE_TIMINGS_PATTERN
+            )
         return bool(
             (
               len(lines) >= 1 and
-              re.match(cls.CUE_TIMINGS_PATTERN, lines[0]) and
+              re.match(pattern, lines[0]) and
               (len(lines) < 2 or "-->" not in lines[1])
               ) or
             (
               len(lines) >= 2 and
               "-->" not in lines[0] and
-              re.match(cls.CUE_TIMINGS_PATTERN, lines[1]) and
+              re.match(pattern, lines[1]) and
               (len(lines) < 3 or "-->" not in lines[2])
               )
         )
@@ -356,7 +370,7 @@ def parse_items(
     comments: typing.List[WebVTTCommentBlock] = []
 
     for block_lines in iter_blocks_of_lines(lines, strict):
-        item = parse_item(block_lines)
+        item = parse_item(block_lines, strict)
         if item:
             item.comments = [comment.text for comment in comments]
             comments = []
@@ -380,15 +394,17 @@ def parse_items(
 
 
 def parse_item(
-        lines: typing.Sequence[str]
+        lines: typing.Sequence[str],
+        strict: bool = False
         ) -> typing.Union[Caption, Style, None]:
     """
     Parse an item from lines of text.
 
     :param lines: lines of text
+    :param strict: only accept cue timestamps in the WebVTT format
     :returns: An item (Caption or Style) if found, otherwise None
     """
-    if WebVTTCueBlock.is_valid(lines):
+    if WebVTTCueBlock.is_valid(lines, strict):
         cue_block = WebVTTCueBlock.from_lines(lines)
         return Caption(cue_block.start,
                        cue_block.end,

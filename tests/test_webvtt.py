@@ -753,6 +753,32 @@ class TestWebVTT(unittest.TestCase):
         vtt = webvtt.read(PATH_TO_SAMPLES / 'sample.vtt', strict=True)
         self.assertEqual(len(vtt.captions), 16)
 
+    def test_parse_non_padded_timestamps(self):
+        """https://github.com/glut23/webvtt-py/issues/44"""
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'non_padded_timestamps.vtt')
+        self.assertEqual(len(vtt.captions), 3)
+        self.assertEqual(
+            [(caption.start, caption.end) for caption in vtt.captions],
+            [('00:00:00.000', '00:00:03.540'),
+             ('00:00:03.540', '00:00:07.230'),
+             ('00:01:05.200', '01:02:07.950')]
+            )
+        self.assertEqual(vtt.captions[1].voice, 'John Smith')
+        self.assertEqual(vtt.captions[1].text, "Morning, let's get started.")
+        self.assertEqual(vtt.captions[2].end_in_seconds, 3727)
+        self.assertIn(
+            '00:01:05.200 --> 01:02:07.950\n<v Jane Doe>Thanks for joining.',
+            vtt.content
+            )
+
+    def test_parse_non_padded_timestamps_strict(self):
+        self.assertRaises(
+            MalformedCaptionError,
+            webvtt.read,
+            PATH_TO_SAMPLES / 'non_padded_timestamps.vtt',
+            strict=True
+            )
+
     def test_parse_get_caption_data(self):
         vtt = webvtt.read(PATH_TO_SAMPLES / 'one_caption.vtt')
         self.assertEqual(vtt.captions[0].start_in_seconds, 0)

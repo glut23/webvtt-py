@@ -31,6 +31,15 @@ class TestTimestamp(unittest.TestCase):
         self.assertEqual(timestamp.seconds, 7)
         self.assertEqual(timestamp.milliseconds, 670)
 
+    def test_from_string_short_fraction(self):
+        timestamp = Timestamp.from_string('0:1:5.2')
+        self.assertEqual(timestamp.hours, 0)
+        self.assertEqual(timestamp.minutes, 1)
+        self.assertEqual(timestamp.seconds, 5)
+        self.assertEqual(timestamp.milliseconds, 200)
+        self.assertEqual(str(timestamp), '00:01:05.200')
+        self.assertEqual(Timestamp.from_string('00:12.54').milliseconds, 540)
+
     def test_from_string_missing_hours(self):
         timestamp = Timestamp.from_string('24:11.670')
         self.assertEqual(timestamp.hours, 0)
