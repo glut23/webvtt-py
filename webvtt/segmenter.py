@@ -6,6 +6,7 @@ import pathlib
 from math import floor
 
 from .webvtt import WebVTT, Caption
+from .models import Timestamp, TimestampMap
 
 DEFAULT_MPEGTS = 900000
 DEFAULT_SECONDS = 10  # default number of seconds per segment
@@ -84,11 +85,11 @@ def write_segments(
     for index, segment in enumerate(segments):
         segment_file = output_folder / f'fileSequence{index}.webvtt'
 
+        timestamp_map = TimestampMap(local=Timestamp(), mpegts=mpegts)
+
         with open(segment_file, 'w', encoding='utf-8') as f:
             f.write('WEBVTT\n')
-            f.write(f'X-TIMESTAMP-MAP=MPEGTS:{mpegts},'
-                    'LOCAL:00:00:00.000\n'
-                    )
+            f.write(f'{timestamp_map}\n')
 
             for caption in segment:
                 f.write('\n{} --> {}\n'.format(caption.start, caption.end))

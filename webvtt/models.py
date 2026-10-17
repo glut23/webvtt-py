@@ -2,8 +2,9 @@
 
 import re
 import typing
+from dataclasses import dataclass
 
-from .errors import MalformedCaptionError
+from .errors import MalformedCaptionError, MalformedFileError
 
 
 class Timestamp:
@@ -101,6 +102,52 @@ class Timestamp:
                 self.minutes * 60 +
                 self.seconds
                 )
+
+
+@dataclass
+class TimestampMap:
+    """Representation of an HLS ``X-TIMESTAMP-MAP`` header (RFC 8216 §3.5)."""
+
+    local: Timestamp
+    mpegts: int
+
+    def __str__(self):
+        """Return the ``X-TIMESTAMP-MAP`` header line."""
+        return f'X-TIMESTAMP-MAP=MPEGTS:{self.mpegts},LOCAL:{self.local}'
+
+    @classmethod
+    def from_string(cls, value: str) -> 'TimestampMap':
+        """
+        Return a `TimestampMap` instance from a header value string.
+
+        The ``LOCAL`` and ``MPEGTS`` fields may appear in either order.
+
+        :param value: the header value, e.g.
+            ``LOCAL:00:00:00.000,MPEGTS:900000``
+        :returns: a `TimestampMap` instance
+
+        :raises MalformedFileError: if a required field is missing or
+            malformed
+        """
+        local = None
+        mpegts = None
+
+        try:
+            for field in value.split(','):
+                name, _, field_value = field.strip().partition(':')
+                if name == 'LOCAL':
+                    local = Timestamp.from_string(field_value.strip())
+                elif name == 'MPEGTS':
+                    mpegts = int(field_value.strip())
+        except (MalformedCaptionError, ValueError):
+            raise MalformedFileError(
+                f'Invalid X-TIMESTAMP-MAP {value!r}'
+                ) from None
+
+        if local is None or mpegts is None:
+            raise MalformedFileError(f'Invalid X-TIMESTAMP-MAP {value!r}')
+
+        return cls(local=local, mpegts=mpegts)
 
 
 def _strip_cue_text_tags(line: str) -> str:

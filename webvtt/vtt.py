@@ -5,8 +5,11 @@ import typing
 from dataclasses import dataclass
 
 from .errors import MalformedFileError, MalformedCaptionError
-from .models import Caption, Style
+from .models import Caption, Style, TimestampMap
 from . import utils
+
+
+TIMESTAMP_MAP_HEADER = 'X-TIMESTAMP-MAP='
 
 
 @dataclass
@@ -17,6 +20,7 @@ class ParserOutput:
     captions: typing.List[Caption]
     header_comments: typing.List[str]
     footer_comments: typing.List[str]
+    timestamp_map: typing.Optional[TimestampMap] = None
 
     @classmethod
     def from_data(
@@ -34,7 +38,8 @@ class ParserOutput:
             captions=[it for it in items if isinstance(it, Caption)],
             styles=[it for it in items if isinstance(it, Style)],
             header_comments=data.get('header_comments', []),
-            footer_comments=data.get('footer_comments', [])
+            footer_comments=data.get('footer_comments', []),
+            timestamp_map=data.get('timestamp_map')
             )
 
 
@@ -276,6 +281,23 @@ def is_valid_content(lines: typing.Sequence[str]) -> bool:
     return bool(lines and lines[0].startswith('WEBVTT'))
 
 
+def _parse_timestamp_map(
+        lines: typing.Sequence[str]
+        ) -> typing.Optional[TimestampMap]:
+    """
+    Return a `TimestampMap` parsed from a header line, or None.
+
+    :param lines: lines of text
+    :returns: a `TimestampMap` instance if a header line is found, else None
+    """
+    for line in lines:
+        if line.startswith(TIMESTAMP_MAP_HEADER):
+            return TimestampMap.from_string(
+                line[len(TIMESTAMP_MAP_HEADER):]
+                )
+    return None
+
+
 def parse_items(
         lines: typing.Sequence[str],
         strict: bool = False
@@ -293,8 +315,12 @@ def parse_items(
     header_comments: typing.List[str] = []
     items: typing.List[typing.Union[Caption, Style]] = []
     comments: typing.List[WebVTTCommentBlock] = []
+    timestamp_map: typing.Optional[TimestampMap] = None
 
     for block_lines in utils.iter_blocks_of_lines(lines):
+        if not items and timestamp_map is None:
+            timestamp_map = _parse_timestamp_map(block_lines)
+
         item = parse_item(block_lines)
         if item:
             item.comments = [comment.text for comment in comments]
@@ -313,7 +339,8 @@ def parse_items(
     return ParserOutput.from_data(
         {'items': items,
          'header_comments': header_comments,
-         'footer_comments': [comment.text for comment in comments]
+         'footer_comments': [comment.text for comment in comments],
+         'timestamp_map': timestamp_map
          }
         )
 
@@ -346,7 +373,8 @@ def write(
         captions: typing.Iterable[Caption],
         styles: typing.Iterable[Style],
         header_comments: typing.Iterable[str],
-        footer_comments: typing.Iterable[str]
+        footer_comments: typing.Iterable[str],
+        timestamp_map: typing.Optional[TimestampMap] = None
         ):
     """
     Write captions to an output.
@@ -356,12 +384,15 @@ def write(
     :param styles: Iterable of `Style` objects
     :param header_comments: the comments for the header
     :param footer_comments: the comments for the footer
+    :param timestamp_map: optional `TimestampMap` written right after the
+        ``WEBVTT`` line
     """
     f.write(
         to_str(captions,
                styles,
                header_comments,
-               footer_comments
+               footer_comments,
+               timestamp_map
                )
         )
 
@@ -370,7 +401,8 @@ def to_str(
         captions: typing.Iterable[Caption],
         styles: typing.Iterable[Style],
         header_comments: typing.Iterable[str],
-        footer_comments: typing.Iterable[str]
+        footer_comments: typing.Iterable[str],
+        timestamp_map: typing.Optional[TimestampMap] = None
         ) -> str:
     """
     Convert captions to a string with webvtt format.
@@ -379,9 +411,14 @@ def to_str(
     :param styles: the iterable of `Style` objects
     :param header_comments: the comments for the header
     :param footer_comments: the comments for the footer
+    :param timestamp_map: optional `TimestampMap` written right after the
+        ``WEBVTT`` line
     :returns: String of the content in WebVTT format.
     """
     output = ['WEBVTT']
+
+    if timestamp_map is not None:
+        output.append(str(timestamp_map))
 
     for comment in header_comments:
         output.extend([

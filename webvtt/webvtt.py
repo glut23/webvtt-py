@@ -9,7 +9,7 @@ from functools import partial
 from . import vtt, utils
 from . import srt
 from . import sbv
-from .models import Caption, Style, Timestamp
+from .models import Caption, Style, Timestamp, TimestampMap
 from .errors import MissingFilenameError
 
 DEFAULT_ENCODING = 'utf-8'
@@ -36,6 +36,7 @@ class WebVTT:
             styles: typing.Optional[typing.List[Style]] = None,
             header_comments: typing.Optional[typing.List[str]] = None,
             footer_comments: typing.Optional[typing.List[str]] = None,
+            timestamp_map: typing.Optional[TimestampMap] = None,
             ):
         """
         Initialize.
@@ -45,12 +46,14 @@ class WebVTT:
         :param styles: the list of styles
         :param header_comments: list of comments for the start of the file
         :param footer_comments: list of comments for the bottom of the file
+        :param timestamp_map: optional HLS ``X-TIMESTAMP-MAP`` data
         """
         self.file = file
         self.captions = captions or []
         self.styles = styles or []
         self.header_comments = header_comments or []
         self.footer_comments = footer_comments or []
+        self.timestamp_map = timestamp_map
         self._has_bom = False
         self.encoding = DEFAULT_ENCODING
 
@@ -157,7 +160,8 @@ class WebVTT:
                 captions=output.captions,
                 styles=output.styles,
                 header_comments=output.header_comments,
-                footer_comments=output.footer_comments
+                footer_comments=output.footer_comments,
+                timestamp_map=output.timestamp_map
                 )
 
         if format == 'srt':
@@ -235,7 +239,8 @@ class WebVTT:
             captions=output.captions,
             styles=output.styles,
             header_comments=output.header_comments,
-            footer_comments=output.footer_comments
+            footer_comments=output.footer_comments,
+            timestamp_map=output.timestamp_map
         )
 
     @staticmethod
@@ -321,7 +326,8 @@ class WebVTT:
                 self.captions,
                 self.styles,
                 self.header_comments,
-                self.footer_comments
+                self.footer_comments,
+                self.timestamp_map
                 )
 
     def save_as_srt(
@@ -359,7 +365,8 @@ class WebVTT:
                              self.captions,
                              self.styles,
                              self.header_comments,
-                             self.footer_comments
+                             self.footer_comments,
+                             self.timestamp_map
                              )
         if format == 'srt':
             return srt.write(f, self.captions)
@@ -410,5 +417,6 @@ class WebVTT:
             self.captions,
             self.styles,
             self.header_comments,
-            self.footer_comments
+            self.footer_comments,
+            self.timestamp_map
             )

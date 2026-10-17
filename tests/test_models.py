@@ -2,8 +2,8 @@ import re
 import time
 import unittest
 
-from webvtt.models import Timestamp, Caption, Style
-from webvtt.errors import MalformedCaptionError
+from webvtt.models import Timestamp, TimestampMap, Caption, Style
+from webvtt.errors import MalformedCaptionError, MalformedFileError
 
 
 class TestTimestamp(unittest.TestCase):
@@ -146,6 +146,66 @@ class TestTimestamp(unittest.TestCase):
         self.assertEqual(
             repr(timestamp),
             '<Timestamp hours=1 minutes=12 seconds=45 milliseconds=320>'
+            )
+
+
+class TestTimestampMap(unittest.TestCase):
+
+    def test_from_string_local_first(self):
+        timestamp_map = TimestampMap.from_string(
+            'LOCAL:00:00:00.000,MPEGTS:900000'
+            )
+        self.assertEqual(timestamp_map.local, Timestamp(0, 0, 0, 0))
+        self.assertEqual(timestamp_map.mpegts, 900000)
+
+    def test_from_string_mpegts_first(self):
+        timestamp_map = TimestampMap.from_string(
+            'MPEGTS:900000,LOCAL:00:00:00.000'
+            )
+        self.assertEqual(timestamp_map.local, Timestamp(0, 0, 0, 0))
+        self.assertEqual(timestamp_map.mpegts, 900000)
+
+    def test_from_string_with_spaces(self):
+        timestamp_map = TimestampMap.from_string(
+            ' LOCAL:00:00:00.000 , MPEGTS:900000 '
+            )
+        self.assertEqual(timestamp_map.local, Timestamp(0, 0, 0, 0))
+        self.assertEqual(timestamp_map.mpegts, 900000)
+
+    def test_from_string_ignores_unknown_fields(self):
+        timestamp_map = TimestampMap.from_string(
+            'FOO:bar,LOCAL:00:00:00.000,MPEGTS:900000'
+            )
+        self.assertEqual(timestamp_map.local, Timestamp(0, 0, 0, 0))
+        self.assertEqual(timestamp_map.mpegts, 900000)
+
+    def test_from_string_long_local(self):
+        timestamp_map = TimestampMap.from_string(
+            'LOCAL:1088:42:00.000,MPEGTS:900000'
+            )
+        self.assertEqual(timestamp_map.local, Timestamp(1088, 42, 0, 0))
+        self.assertEqual(timestamp_map.mpegts, 900000)
+
+    def test_from_string_missing_field(self):
+        with self.assertRaises(MalformedFileError):
+            TimestampMap.from_string('LOCAL:00:00:00.000')
+
+    def test_from_string_invalid_mpegts(self):
+        with self.assertRaises(MalformedFileError):
+            TimestampMap.from_string('LOCAL:00:00:00.000,MPEGTS:abc')
+
+    def test_from_string_invalid_local(self):
+        with self.assertRaises(MalformedFileError):
+            TimestampMap.from_string('LOCAL:not-a-time,MPEGTS:900000')
+
+    def test_str(self):
+        timestamp_map = TimestampMap(
+            local=Timestamp(0, 0, 0, 0),
+            mpegts=900000
+            )
+        self.assertEqual(
+            str(timestamp_map),
+            'X-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000'
             )
 
 

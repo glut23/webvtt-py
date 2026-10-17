@@ -4,7 +4,7 @@ import io
 
 from webvtt import vtt
 from webvtt.errors import MalformedFileError, MalformedCaptionError
-from webvtt.models import Caption, Style
+from webvtt.models import Caption, Style, Timestamp, TimestampMap
 
 
 class TestWebVTTCueBlock(unittest.TestCase):
@@ -579,6 +579,67 @@ class TestVTTModule(unittest.TestCase):
             )
         self.assertEqual(len(output.captions), 1)
         self.assertEqual(output.captions[0].text, 'Caption text #2')
+
+    def test_parse_timestamp_map(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+            X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:900000
+
+            00:00:00.500 --> 00:00:07.000
+            Caption text #1
+            ''').strip().split('\n')
+            )
+        self.assertIsNotNone(output.timestamp_map)
+        self.assertEqual(output.timestamp_map.local, Timestamp(0, 0, 0, 0))
+        self.assertEqual(output.timestamp_map.mpegts, 900000)
+
+    def test_parse_no_timestamp_map(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.500 --> 00:00:07.000
+            Caption text #1
+            ''').strip().split('\n')
+            )
+        self.assertIsNone(output.timestamp_map)
+
+    def test_parse_timestamp_map_mpegts_first(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+            X-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000
+
+            00:00:00.500 --> 00:00:07.000
+            Caption text #1
+            ''').strip().split('\n')
+            )
+        self.assertIsNotNone(output.timestamp_map)
+        self.assertEqual(output.timestamp_map.mpegts, 900000)
+
+    def test_write_timestamp_map(self):
+        timestamp_map = TimestampMap(
+            local=Timestamp(0, 0, 0, 0),
+            mpegts=900000
+            )
+        self.assertEqual(
+            vtt.to_str([], [], [], [], timestamp_map),
+            'WEBVTT\n'
+            'X-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000\n'
+            )
+
+    def test_parse_malformed_timestamp_map(self):
+        with self.assertRaises(MalformedFileError):
+            vtt.parse(
+                textwrap.dedent('''
+                WEBVTT
+                X-TIMESTAMP-MAP=LOCAL:not-a-time,MPEGTS:900000
+
+                00:00:00.500 --> 00:00:07.000
+                Caption text #1
+                ''').strip().split('\n')
+                )
 
     def test_parse_strict_malformed_cue_block(self):
         with self.assertRaises(MalformedCaptionError) as cm:
