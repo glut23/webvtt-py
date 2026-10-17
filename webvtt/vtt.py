@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from .errors import MalformedFileError, MalformedCaptionError
 from .models import Caption, Style
 
+TIMESTAMP = r'(?:\d+:)?\d{1,2}:\d{1,2}\.\d{1,3}'
+STRICT_TIMESTAMP = r'(?:\d{2,}:)?\d{2}:\d{2}\.\d{3}'
+
 
 @dataclass
 class ParserOutput:
@@ -41,14 +44,10 @@ class WebVTTCueBlock:
     """Representation of a cue timing block."""
 
     CUE_TIMINGS_PATTERN = re.compile(
-        r'\s*((?:\d+:)?\d{1,2}:\d{1,2}\.\d{1,3})'
-        r'\s*-->\s*'
-        r'((?:\d+:)?\d{1,2}:\d{1,2}\.\d{1,3})'
+        rf'\s*({TIMESTAMP})\s*-->\s*({TIMESTAMP})'
         )
     STRICT_CUE_TIMINGS_PATTERN = re.compile(
-        r'\s*((?:\d{2,}:)?\d{2}:\d{2}\.\d{3})'
-        r'\s*-->\s*'
-        r'((?:\d{2,}:)?\d{2}:\d{2}\.\d{3})'
+        rf'\s*({STRICT_TIMESTAMP})\s*-->\s*({STRICT_TIMESTAMP})(?=\s|$)'
         )
 
     def __init__(
@@ -401,16 +400,25 @@ def parse_item(
     Parse an item from lines of text.
 
     :param lines: lines of text
-    :param strict: only accept cue timestamps in the WebVTT format
+    :param strict: only accept cue timestamps in the WebVTT format and
+        raise an error for cues with an invalid timestamp
     :returns: An item (Caption or Style) if found, otherwise None
+
+    :raises MalformedCaptionError: if strict and a cue has an invalid
+        timestamp
     """
     if WebVTTCueBlock.is_valid(lines, strict):
         cue_block = WebVTTCueBlock.from_lines(lines)
-        return Caption(cue_block.start,
-                       cue_block.end,
-                       cue_block.payload,
-                       cue_block.identifier
-                       )
+        try:
+            return Caption(cue_block.start,
+                           cue_block.end,
+                           cue_block.payload,
+                           cue_block.identifier
+                           )
+        except MalformedCaptionError:
+            if strict:
+                raise
+            return None
 
     if WebVTTStyleBlock.is_valid(lines):
         return Style(WebVTTStyleBlock.from_lines(lines).text)

@@ -83,6 +83,37 @@ class TestWebVTTCueBlock(unittest.TestCase):
                 )
             )
 
+    def test_is_valid_strict_hours(self):
+        for timings in (
+                '0:00:13.540 --> 00:00:17.850',
+                '00:00:13.540 --> 0:00:17.850'
+                ):
+            self.assertTrue(vtt.WebVTTCueBlock.is_valid([timings]))
+            self.assertFalse(
+                vtt.WebVTTCueBlock.is_valid([timings], strict=True)
+                )
+        self.assertTrue(
+            vtt.WebVTTCueBlock.is_valid(
+                ['100:00:13.540 --> 100:00:17.850'],
+                strict=True
+                )
+            )
+
+    def test_is_valid_strict_end_timestamp_boundary(self):
+        for timings in (
+                '00:00:13.540 --> 00:00:17.8505',
+                '00:00:13.540 --> 00:00:17.850abc'
+                ):
+            self.assertFalse(
+                vtt.WebVTTCueBlock.is_valid([timings], strict=True)
+                )
+        self.assertTrue(
+            vtt.WebVTTCueBlock.is_valid(
+                ['00:00:13.540 --> 00:00:17.850 align:start'],
+                strict=True
+                )
+            )
+
     def test_from_lines(self):
         cue_block = vtt.WebVTTCueBlock.from_lines(textwrap.dedent('''
             identifier
@@ -631,6 +662,34 @@ class TestVTTModule(unittest.TestCase):
                 strict=True
                 )
         self.assertIn('0:0:3.540 --> 0:0:7.230', str(cm.exception))
+
+    def test_parse_ignores_out_of_range_timestamp(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            00:00:61.000 --> 00:00:62.000
+            Caption text #1
+
+            00:00:04.300 --> 00:00:07.000
+            Caption text #2
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(output.captions), 1)
+        self.assertEqual(output.captions[0].text, 'Caption text #2')
+
+    def test_parse_strict_out_of_range_timestamp(self):
+        with self.assertRaises(MalformedCaptionError) as cm:
+            vtt.parse(
+                textwrap.dedent('''
+                WEBVTT
+
+                00:00:61.000 --> 00:00:62.000
+                Caption text #1
+                ''').strip().split('\n'),
+                strict=True
+                )
+        self.assertIn('00:00:61.000', str(cm.exception))
 
     def test_parse_strict_malformed_cue_block(self):
         with self.assertRaises(MalformedCaptionError) as cm:
