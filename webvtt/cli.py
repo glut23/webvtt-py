@@ -4,6 +4,7 @@ import argparse
 import typing
 
 from . import segmenter
+from .errors import MalformedFileError
 
 
 def main(argv: typing.Optional[typing.Sequence] = None):
@@ -56,12 +57,23 @@ def main(argv: typing.Optional[typing.Sequence] = None):
 
     args = arguments.parse_args(argv)
 
-    segmenter.segment(
-        args.file,
-        args.output,
-        args.target_duration,
-        args.mpegts
-        )
+    try:
+        segmenter.segment(
+            args.file,
+            args.output,
+            args.target_duration,
+            args.mpegts
+            )
+    except OSError as error:
+        message = f'{error.filename or args.file}: {error.strerror or error}'
+    except UnicodeDecodeError as error:
+        message = f'{args.file}: cannot be decoded as {error.encoding}'
+    except MalformedFileError:
+        message = f'{args.file}: not a valid WebVTT file'
+    else:
+        return
+
+    arguments.exit(1, f'{arguments.prog}: error: {message}\n')
 
 
 if __name__ == '__main__':

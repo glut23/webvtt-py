@@ -62,7 +62,11 @@ Exit status
     The file was segmented successfully.
 
 ``1``
-    The input file could not be read or is not a valid WebVTT file.
+    The input file could not be read or is not a valid WebVTT file, or the
+    output directory could not be written. An error message is printed to
+    standard error, for example::
+
+        webvtt: error: captions.vtt: not a valid WebVTT file
 
 ``2``
     Invalid command line arguments.
