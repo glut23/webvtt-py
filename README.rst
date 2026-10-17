@@ -31,6 +31,27 @@ Usage
       print(caption.text)        # cue payload
       print(caption.voice)       # cue voice span if any
 
+Writing captions
+----------------
+
+.. code-block:: python
+
+  from webvtt import WebVTT, Caption
+
+  vtt = WebVTT()
+
+  vtt.captions.append(
+      Caption('00:00:00.500', '00:00:07.000', 'Caption line 1\nCaption line 2')
+  )
+  vtt.captions.append(
+      Caption('00:00:07.000', '00:00:11.890', ['Caption line 1', 'Caption line 2'])
+  )
+
+  vtt.save('captions.vtt')
+
+  # or get the content without writing a file
+  print(vtt.content)
+
 Segmenting for HLS
 ------------------
 

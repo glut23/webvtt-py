@@ -159,6 +159,12 @@ Creating captions
 
     vtt.captions.append(caption)
 
+    # save the captions to a file
+    vtt.save('captions.vtt')
+
+A ``WebVTT`` object created from scratch has no filename, so ``save()``
+requires an output path. Calling it without one raises ``MissingFilenameError``.
+
 
 Manipulating captions
 ---------------------
@@ -201,7 +207,7 @@ Saving captions
     vtt.save('other/folder/new_captions')
 
     # if there is a filename present in the object we can target a folder
-    vtt.save('other/folder)
+    vtt.save('other/folder')
 
     # write to an opened file
     with open('other_captions.vtt', 'w') as f:
