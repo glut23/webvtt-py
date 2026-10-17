@@ -1,4 +1,4 @@
-build:
+build: man
 	rm -rf dist
 	mkdir dist
 	python setup.py sdist bdist_wheel
