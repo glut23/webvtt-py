@@ -10,4 +10,9 @@ release_test: build
 release: build
 	twine upload dist/*
 
-.PHONY: build release_test release
+man:
+	sphinx-build -q -E -b man docs/source docs/build/man
+	mkdir -p man
+	cp docs/build/man/webvtt.1 man/webvtt.1
+
+.PHONY: build release_test release man

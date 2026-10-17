@@ -1,3 +1,6 @@
+.. This page is also the webvtt(1) manpage. After editing it, run
+   ``make man`` to regenerate man/webvtt.1.
+
 Command line
 ============
 

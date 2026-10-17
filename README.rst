@@ -134,7 +134,8 @@ overlaps, ``out/fileSequence1.webvtt``:
   Thanks for watching!
 
 Use ``-d`` to change the segment duration and ``-m`` to change the MPEG-TS
-value. Run ``webvtt --help`` or see the `CLI documentation`_ for all options.
+value. Run ``webvtt --help``, ``man webvtt`` or see the `CLI documentation`_
+for all options.
 
 .. _`CLI documentation`: https://webvtt-py.readthedocs.io/en/latest/cli.html
 
