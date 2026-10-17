@@ -461,12 +461,20 @@ are part of the cue text, and a line containing ``-->`` starts a new
 block when it is not the timings line of the current one. Cues without
 text are kept as captions with empty text.
 
+Timestamps with fields shorter than the specification requires, such as
+``0:0:13.540`` in Microsoft Teams transcripts or ``0:1:5.2``, are accepted
+and the captions are saved in the standard ``00:00:13.540`` and
+``00:01:05.200`` format. The fraction of a second is padded on the right,
+so ``.2`` is read as 200 milliseconds.
+
 By default the parser ignores blocks it cannot parse, so a cue with
-malformed timings such as ``00:00:00.-004 --> 00:00:04.300`` is skipped.
+malformed timings such as ``00:00:00.-004 --> 00:00:04.300`` or out of
+range ones such as ``00:00:61.000 --> 00:00:62.000`` is skipped.
 To validate the content, pass ``strict=True`` to ``read``,
 ``from_buffer`` or ``from_string`` and a ``MalformedCaptionError`` is
-raised instead. Strict parsing also raises the error when a cue is not
-separated from the previous cue, comment or style by an empty line:
+raised instead. Strict parsing also raises the error for timestamps that
+are not in the WebVTT format and when a cue is not separated from the
+previous cue, comment or style by an empty line:
 
 .. code-block:: python
 

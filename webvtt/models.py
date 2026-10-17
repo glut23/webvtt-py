@@ -9,7 +9,7 @@ from .errors import MalformedCaptionError
 class Timestamp:
     """Representation of a timestamp."""
 
-    PATTERN = re.compile(r'(?:(\d{1,}):)?(\d{1,2}):(\d{1,2})\.(\d{3})')
+    PATTERN = re.compile(r'(?:(\d{1,}):)?(\d{1,2}):(\d{1,2})\.(\d{1,3})')
 
     def __init__(
             self,
@@ -73,6 +73,10 @@ class Timestamp:
         """
         Return a `Timestamp` instance from a string value.
 
+        The fields can be shorter than the WebVTT format requires, as in
+        ``0:1:5.2``, and the fraction of a second is padded on the right so
+        ``.2`` is read as 200 milliseconds.
+
         :param value: the timestamp in ``[hh:]mm:ss.mmm`` format
         :returns: a `Timestamp` instance
 
@@ -88,7 +92,7 @@ class Timestamp:
         hours = int(match.group(1) or 0)
         minutes = int(match.group(2))
         seconds = int(match.group(3))
-        milliseconds = int(match.group(4))
+        milliseconds = int(match.group(4).ljust(3, '0'))
 
         if minutes > 59 or seconds > 59:
             raise MalformedCaptionError(f'Invalid timestamp {value!r}')
