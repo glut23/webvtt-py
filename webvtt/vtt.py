@@ -4,7 +4,7 @@ import re
 import typing
 from dataclasses import dataclass
 
-from .errors import MalformedFileError
+from .errors import MalformedFileError, MalformedCaptionError
 from .models import Caption, Style
 from . import utils
 
@@ -42,7 +42,9 @@ class WebVTTCueBlock:
     """Representation of a cue timing block."""
 
     CUE_TIMINGS_PATTERN = re.compile(
-        r'\s*((?:\d+:)?\d{2}:\d{2}.\d{3})\s*-->\s*((?:\d+:)?\d{2}:\d{2}.\d{3})'
+        r'\s*((?:\d+:)?\d{2}:\d{2}\.\d{3})'
+        r'\s*-->\s*'
+        r'((?:\d+:)?\d{2}:\d{2}\.\d{3})'
         )
 
     def __init__(
@@ -244,20 +246,24 @@ class WebVTTStyleBlock:
 
 
 def parse(
-        lines: typing.Sequence[str]
+        lines: typing.Sequence[str],
+        strict: bool = False
         ) -> ParserOutput:
     """
     Parse VTT captions from lines of text.
 
     :param lines: lines of text
+    :param strict: raise an error on malformed cue blocks instead of
+        ignoring them
     :returns: object `ParserOutput` with all parsed items
 
     :raises MalformedFileError: if the content is not in WebVTT format
+    :raises MalformedCaptionError: if strict and a cue block is malformed
     """
     if not is_valid_content(lines):
         raise MalformedFileError('Invalid format')
 
-    return parse_items(lines)
+    return parse_items(lines, strict)
 
 
 def is_valid_content(lines: typing.Sequence[str]) -> bool:
@@ -271,13 +277,18 @@ def is_valid_content(lines: typing.Sequence[str]) -> bool:
 
 
 def parse_items(
-        lines: typing.Sequence[str]
+        lines: typing.Sequence[str],
+        strict: bool = False
         ) -> ParserOutput:
     """
     Parse items from the text.
 
     :param lines: lines of text
+    :param strict: raise an error on malformed cue blocks instead of
+        ignoring them
     :returns: an object `ParserOutput` with all parsed items
+
+    :raises MalformedCaptionError: if strict and a cue block is malformed
     """
     header_comments: typing.List[str] = []
     items: typing.List[typing.Union[Caption, Style]] = []
@@ -291,6 +302,10 @@ def parse_items(
             items.append(item)
         elif WebVTTCommentBlock.is_valid(block_lines):
             comments.append(WebVTTCommentBlock.from_lines(block_lines))
+        elif strict and any('-->' in line for line in block_lines):
+            raise MalformedCaptionError(
+                f'Invalid cue block {block_lines!r}'
+                )
 
     if items:
         header_comments, items[0].comments = items[0].comments, header_comments

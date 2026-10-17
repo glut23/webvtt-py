@@ -435,3 +435,22 @@ module:
         vtt.save()
     except MissingFilenameError:
         vtt.save('captions.vtt')
+
+Strict parsing
+--------------
+
+By default the WebVTT parser ignores blocks it cannot parse, so a cue
+with malformed timings such as ``00:00:00.-004 --> 00:00:04.300`` is
+skipped. To validate the content, pass ``strict=True`` to ``read``,
+``from_buffer`` or ``from_string`` and a ``MalformedCaptionError`` is
+raised instead:
+
+.. code-block:: python
+
+    import webvtt
+    from webvtt.errors import MalformedCaptionError
+
+    try:
+        vtt = webvtt.read('captions.vtt', strict=True)
+    except MalformedCaptionError as e:
+        print(f'captions.vtt has a malformed cue: {e}')

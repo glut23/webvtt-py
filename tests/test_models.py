@@ -62,6 +62,11 @@ class TestTimestamp(unittest.TestCase):
         with self.assertRaises(MalformedCaptionError):
             Timestamp.from_string('01:24:11:670')
 
+    def test_from_string_trailing_characters(self):
+        for value in ('01:24:11.6705', '01:24:11.670abc', '01:24:11.670 '):
+            with self.assertRaises(MalformedCaptionError):
+                Timestamp.from_string(value)
+
     def test_to_tuple(self):
         self.assertEqual(
             Timestamp(
