@@ -297,23 +297,18 @@ def iter_blocks_of_lines(
     in_header = True
 
     for line in lines:
-        if not line:
+        if not line or _starts_new_block(block, line, in_header):
+            if strict and line and not in_header:
+                raise MalformedCaptionError(
+                    f'Invalid cue block {[*block, line]!r}'
+                    )
             if block:
                 yield block
                 block = []
                 in_header = False
-            continue
 
-        if _starts_new_block(block, line, in_header):
-            if strict and not in_header:
-                raise MalformedCaptionError(
-                    f'Invalid cue block {[*block, line]!r}'
-                    )
-            yield block
-            block = []
-            in_header = False
-
-        block.append(line)
+        if line:
+            block.append(line)
 
     if block:
         yield block
