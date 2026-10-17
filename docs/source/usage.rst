@@ -455,11 +455,18 @@ module:
 Strict parsing
 --------------
 
-By default the WebVTT parser ignores blocks it cannot parse, so a cue
-with malformed timings such as ``00:00:00.-004 --> 00:00:04.300`` is
-skipped. To validate the content, pass ``strict=True`` to ``read``,
+The WebVTT parser follows the parsing rules of the WebVTT specification:
+blocks are separated by empty lines, so lines containing only whitespace
+are part of the cue text, and a line containing ``-->`` starts a new
+block when it is not the timings line of the current one. Cues without
+text are kept as captions with empty text.
+
+By default the parser ignores blocks it cannot parse, so a cue with
+malformed timings such as ``00:00:00.-004 --> 00:00:04.300`` is skipped.
+To validate the content, pass ``strict=True`` to ``read``,
 ``from_buffer`` or ``from_string`` and a ``MalformedCaptionError`` is
-raised instead:
+raised instead. Strict parsing also raises the error when a cue is not
+separated from the previous cue, comment or style by an empty line:
 
 .. code-block:: python
 

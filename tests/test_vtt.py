@@ -49,8 +49,15 @@ class TestWebVTTCueBlock(unittest.TestCase):
             ''').strip().split('\n'))
             )
 
-        self.assertFalse(
+        self.assertTrue(
             vtt.WebVTTCueBlock.is_valid(textwrap.dedent('''
+            00:00:00.500 --> 00:00:07.000
+            ''').strip().split('\n'))
+            )
+
+        self.assertTrue(
+            vtt.WebVTTCueBlock.is_valid(textwrap.dedent('''
+            identifier
             00:00:00.500 --> 00:00:07.000
             ''').strip().split('\n'))
             )
@@ -615,3 +622,127 @@ class TestVTTModule(unittest.TestCase):
             )
         self.assertEqual(len(output.captions), 1)
         self.assertEqual(len(output.styles), 1)
+
+    def test_parse_whitespace_line_is_cue_text(self):
+        output = vtt.parse([
+            'WEBVTT',
+            '',
+            '00:00:01.879 --> 00:00:05.660 align:start position:0%',
+            ' ',
+            'are you done with your chunk yet almost',
+            '',
+            '00:00:05.660 --> 00:00:05.670 align:start position:0%',
+            'are you done with your chunk yet almost',
+            ' ',
+            ])
+        self.assertEqual(len(output.captions), 2)
+        self.assertEqual(output.captions[0].start, '00:00:01.879')
+        self.assertListEqual(
+            output.captions[0].lines,
+            [' ', 'are you done with your chunk yet almost']
+            )
+        self.assertListEqual(
+            output.captions[1].lines,
+            ['are you done with your chunk yet almost', ' ']
+            )
+
+    def test_parse_empty_line_ends_cue(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            00:02:36.420 --> 00:02:42.699
+
+            congratulations
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(output.captions), 1)
+        self.assertEqual(output.captions[0].start, '00:02:36.420')
+        self.assertEqual(output.captions[0].text, '')
+
+    def test_parse_cue_without_text(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            identifier
+            00:00:00.500 --> 00:00:04.300
+
+            00:00:04.300 --> 00:00:07.000
+            Caption text #2
+            ''').strip().split('\n'),
+            strict=True
+            )
+        self.assertEqual(len(output.captions), 2)
+        self.assertEqual(output.captions[0].identifier, 'identifier')
+        self.assertEqual(output.captions[0].text, '')
+        self.assertEqual(output.captions[1].text, 'Caption text #2')
+
+    def test_parse_cue_timings_line_starts_new_block(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+            00:00:00.500 --> 00:00:04.300
+            Caption text #1
+            00:00:04.300 --> 00:00:07.000
+            Caption text #2
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(output.captions), 2)
+        self.assertIsNone(output.captions[0].identifier)
+        self.assertEqual(output.captions[0].end, '00:00:04.300')
+        self.assertEqual(output.captions[0].text, 'Caption text #1')
+        self.assertEqual(output.captions[1].start, '00:00:04.300')
+        self.assertEqual(output.captions[1].text, 'Caption text #2')
+
+    def test_parse_whitespace_lines_between_cues(self):
+        output = vtt.parse([
+            'WEBVTT',
+            '',
+            '00:00:00.500 --> 00:00:04.300',
+            'Caption text #1',
+            '  ',
+            '00:00:04.300 --> 00:00:07.000',
+            'Caption text #2',
+            ])
+        self.assertEqual(len(output.captions), 2)
+        self.assertListEqual(
+            output.captions[0].lines,
+            ['Caption text #1', '  ']
+            )
+        self.assertEqual(output.captions[1].start, '00:00:04.300')
+        self.assertEqual(output.captions[1].text, 'Caption text #2')
+
+    def test_parse_strict_cue_timings_line_without_empty_line(self):
+        with self.assertRaises(MalformedCaptionError) as cm:
+            vtt.parse(
+                textwrap.dedent('''
+                WEBVTT
+
+                00:00:00.500 --> 00:00:04.300
+                Caption text #1
+                00:00:04.300 --> 00:00:07.000
+                Caption text #2
+                ''').strip().split('\n'),
+                strict=True
+                )
+        self.assertIn('00:00:04.300 --> 00:00:07.000', str(cm.exception))
+
+    def test_parse_style_with_whitespace_line(self):
+        output = vtt.parse([
+            'WEBVTT',
+            '',
+            'STYLE',
+            '::cue {',
+            '  color: papayawhip;',
+            '}',
+            ' ',
+            '::cue(b) {',
+            '  color: peachpuff;',
+            '}',
+            '',
+            '00:00:00.500 --> 00:00:07.000',
+            'Caption text #1',
+            ])
+        self.assertEqual(len(output.styles), 1)
+        self.assertIn('peachpuff', output.styles[0].text)

@@ -6,7 +6,6 @@ from dataclasses import dataclass
 
 from .errors import MalformedFileError, MalformedCaptionError
 from .models import Caption, Style
-from . import utils
 
 
 @dataclass
@@ -79,15 +78,15 @@ class WebVTTCueBlock:
         """
         return bool(
             (
-              len(lines) >= 2 and
+              len(lines) >= 1 and
               re.match(cls.CUE_TIMINGS_PATTERN, lines[0]) and
-              "-->" not in lines[1]
+              (len(lines) < 2 or "-->" not in lines[1])
               ) or
             (
-              len(lines) >= 3 and
+              len(lines) >= 2 and
               "-->" not in lines[0] and
               re.match(cls.CUE_TIMINGS_PATTERN, lines[1]) and
-              "-->" not in lines[2]
+              (len(lines) < 3 or "-->" not in lines[2])
               )
         )
 
@@ -217,7 +216,7 @@ class WebVTTStyleBlock:
         """
         return (len(lines) >= 2 and
                 lines[0] == 'STYLE' and
-                not any(line.strip() == '' or '-->' in line for line in lines)
+                not any(not line or '-->' in line for line in lines)
                 )
 
     @classmethod
@@ -276,6 +275,68 @@ def is_valid_content(lines: typing.Sequence[str]) -> bool:
     return bool(lines and lines[0].startswith('WEBVTT'))
 
 
+def iter_blocks_of_lines(
+        lines: typing.Iterable[str],
+        strict: bool = False
+        ) -> typing.Generator[typing.List[str], None, None]:
+    """
+    Iterate blocks of text following the WebVTT parsing rules.
+
+    A block ends at an empty line, so lines containing only whitespace are
+    part of the block. A line containing "-->" that cannot be the cue
+    timings line of the current block starts a new block.
+
+    :param lines: lines of text
+    :param strict: raise an error when a block is not ended by an empty line
+        before a cue timings line
+
+    :raises MalformedCaptionError: if strict and a cue timings line follows
+        a block without an empty line in between
+    """
+    block: typing.List[str] = []
+    in_header = True
+
+    for line in lines:
+        if not line or _starts_new_block(block, line, in_header):
+            if strict and line and not in_header:
+                raise MalformedCaptionError(
+                    f'Invalid cue block {[*block, line]!r}'
+                    )
+            if block:
+                yield block
+                block = []
+                in_header = False
+
+        if line:
+            block.append(line)
+
+    if block:
+        yield block
+
+
+def _starts_new_block(
+        block: typing.Sequence[str],
+        line: str,
+        in_header: bool
+        ) -> bool:
+    """
+    Return whether a line containing "-->" starts a new block.
+
+    The line can only be the cue timings line of the current block when it
+    is the block's first line, or the second one following an identifier.
+
+    :param block: lines of the current block
+    :param line: the next line of text
+    :param in_header: true if the current block is the file header
+    :returns: true if the line starts a new block
+    """
+    return bool(
+        block and
+        '-->' in line and
+        (in_header or len(block) > 1 or '-->' in block[0])
+        )
+
+
 def parse_items(
         lines: typing.Sequence[str],
         strict: bool = False
@@ -294,7 +355,7 @@ def parse_items(
     items: typing.List[typing.Union[Caption, Style]] = []
     comments: typing.List[WebVTTCommentBlock] = []
 
-    for block_lines in utils.iter_blocks_of_lines(lines):
+    for block_lines in iter_blocks_of_lines(lines, strict):
         item = parse_item(block_lines)
         if item:
             item.comments = [comment.text for comment in comments]
