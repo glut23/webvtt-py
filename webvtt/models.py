@@ -70,7 +70,14 @@ class Timestamp:
 
     @classmethod
     def from_string(cls, value: str) -> 'Timestamp':
-        """Return a `Timestamp` instance from a string value."""
+        """
+        Return a `Timestamp` instance from a string value.
+
+        :param value: the timestamp in ``[hh:]mm:ss.mmm`` format
+        :returns: a `Timestamp` instance
+
+        :raises MalformedCaptionError: if the timestamp is not valid
+        """
         if type(value) is not str:
             raise MalformedCaptionError(f'Invalid timestamp {value!r}')
 
@@ -142,6 +149,8 @@ class Caption:
         :param end: end time of the caption
         :param text: the text of the caption
         :param identifier: optional identifier
+
+        :raises MalformedCaptionError: if start or end are not valid
         """
         text = text or []
         self.start = start or '00:00:00.000'

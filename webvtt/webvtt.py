@@ -84,6 +84,9 @@ class WebVTT:
         :param file: the file path
         :param encoding: encoding of the file
         :returns: a `WebVTT` instance
+
+        :raises MalformedFileError: if the file is not in the right format
+        :raises MalformedCaptionError: if a caption has an invalid timestamp
         """
         with utils.FileWrapper.open(file, encoding=encoding) as fw:
             instance = cls.from_buffer(fw.file)
@@ -129,6 +132,10 @@ class WebVTT:
         :param buffer: the file-like object to read captions from
         :param format: the format of the data (vtt, srt or sbv)
         :returns: a `WebVTT` instance
+
+        :raises MalformedFileError: if the data is not in the right format
+        :raises MalformedCaptionError: if a caption has an invalid timestamp
+        :raises ValueError: if the format is not supported
         """
         if isinstance(buffer, io.BytesIO):
             buffer = (line.decode('utf-8') for line in buffer)
@@ -169,6 +176,9 @@ class WebVTT:
         :param file: the file path
         :param encoding: encoding of the file
         :returns: a `WebVTT` instance
+
+        :raises MalformedFileError: if the file is not in the right format
+        :raises MalformedCaptionError: if a caption has an invalid timestamp
         """
         with utils.FileWrapper.open(file, encoding=encoding) as fw:
             return cls(
@@ -188,6 +198,9 @@ class WebVTT:
         :param file: the file path
         :param encoding: encoding of the file
         :returns: a `WebVTT` instance
+
+        :raises MalformedFileError: if the file is not in the right format
+        :raises MalformedCaptionError: if a caption has an invalid timestamp
         """
         with utils.FileWrapper.open(file, encoding=encoding) as fw:
             return cls(
@@ -202,6 +215,9 @@ class WebVTT:
 
         :param string: the captions in a string
         :returns: a `WebVTT` instance
+
+        :raises MalformedFileError: if the string is not in the right format
+        :raises MalformedCaptionError: if a caption has an invalid timestamp
         """
         output = vtt.parse(cls._get_lines(string.splitlines()))
         return cls(
@@ -325,7 +341,7 @@ class WebVTT:
         :param f: destination file-like object
         :param format: the format to use (`vtt` or `srt`)
 
-        :raises MissingFilenameError: if output cannot be determined
+        :raises ValueError: if the format is not supported
         """
         if format == 'vtt':
             return vtt.write(f,

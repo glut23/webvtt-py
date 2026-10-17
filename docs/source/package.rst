@@ -7,6 +7,12 @@ webvtt.webvtt
 .. automodule:: webvtt.webvtt
     :members:
 
+webvtt.models
+-------------
+
+.. automodule:: webvtt.models
+    :members:
+
 webvtt.segmenter
 ----------------
 
@@ -19,28 +25,39 @@ webvtt.cli
 .. automodule:: webvtt.cli
     :members:
 
-webvtt.generic
---------------
+Formats
+-------
 
-.. automodule:: webvtt.structures
+Each supported format has its own module that takes care of parsing
+and, when supported, writing captions.
+
+webvtt.vtt
+~~~~~~~~~~
+
+.. automodule:: webvtt.vtt
     :members:
 
-webvtt.parsers
---------------
+webvtt.srt
+~~~~~~~~~~
 
-.. automodule:: webvtt.parsers
+.. automodule:: webvtt.srt
+    :members:
+
+webvtt.sbv
+~~~~~~~~~~
+
+.. automodule:: webvtt.sbv
+    :members:
+
+webvtt.utils
+------------
+
+.. automodule:: webvtt.utils
+    :members:
+
+webvtt.errors
+-------------
+
+.. automodule:: webvtt.errors
     :members:
     :show-inheritance:
-
-webvtt.writers
---------------
-
-.. automodule:: webvtt.writers
-    :members:
-    :show-inheritance:
-
-webvtt.exceptions
------------------
-
-.. automodule:: webvtt.exceptions
-    :members:

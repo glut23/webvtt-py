@@ -251,6 +251,8 @@ def parse(
 
     :param lines: lines of text
     :returns: object `ParserOutput` with all parsed items
+
+    :raises MalformedFileError: if the content is not in WebVTT format
     """
     if not is_valid_content(lines):
         raise MalformedFileError('Invalid format')
