@@ -295,7 +295,6 @@ def iter_blocks_of_lines(
     """
     block: typing.List[str] = []
     in_header = True
-    seen_arrow = False
 
     for line in lines:
         if not line:
@@ -303,29 +302,44 @@ def iter_blocks_of_lines(
                 yield block
                 block = []
                 in_header = False
-                seen_arrow = False
             continue
 
-        if '-->' in line:
-            if not in_header and (
-                    not block or (len(block) == 1 and not seen_arrow)
-                    ):
-                seen_arrow = True
-            else:
-                if strict and not in_header:
-                    raise MalformedCaptionError(
-                        f'Invalid cue block {[*block, line]!r}'
-                        )
-                if block:
-                    yield block
-                block = []
-                in_header = False
-                seen_arrow = True
+        if _starts_new_block(block, line, in_header):
+            if strict and not in_header:
+                raise MalformedCaptionError(
+                    f'Invalid cue block {[*block, line]!r}'
+                    )
+            yield block
+            block = []
+            in_header = False
 
         block.append(line)
 
     if block:
         yield block
+
+
+def _starts_new_block(
+        block: typing.Sequence[str],
+        line: str,
+        in_header: bool
+        ) -> bool:
+    """
+    Return whether a line containing "-->" starts a new block.
+
+    The line can only be the cue timings line of the current block when it
+    is the block's first line, or the second one following an identifier.
+
+    :param block: lines of the current block
+    :param line: the next line of text
+    :param in_header: true if the current block is the file header
+    :returns: true if the line starts a new block
+    """
+    return bool(
+        block and
+        '-->' in line and
+        (in_header or len(block) > 1 or '-->' in block[0])
+        )
 
 
 def parse_items(

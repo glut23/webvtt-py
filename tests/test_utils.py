@@ -1,7 +1,7 @@
 import unittest
 import tempfile
 
-from webvtt.utils import FileWrapper, CODEC_BOMS
+from webvtt.utils import FileWrapper, CODEC_BOMS, iter_blocks_of_lines
 
 
 class TestUtils(unittest.TestCase):
@@ -24,3 +24,11 @@ class TestUtils(unittest.TestCase):
                 with FileWrapper.open(f.name) as fw:
                     self.assertEqual(fw.file.read(), 'Hello test')
                     self.assertEqual(fw.file.encoding, encoding)
+
+    def test_iter_blocks_of_lines(self):
+        self.assertListEqual(
+            list(iter_blocks_of_lines(
+                ['', 'block 1', 'line 2', ' ', '', 'block 2', '']
+                )),
+            [['block 1', 'line 2'], ['block 2']]
+            )
