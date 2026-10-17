@@ -1,5 +1,6 @@
 include LICENSE
 include README.rst
+include webvtt/py.typed
 
 graft tests
 
