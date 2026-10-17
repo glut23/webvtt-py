@@ -158,3 +158,33 @@ class TestSRTModule(unittest.TestCase):
                 Caption #2 line 2
             ''').strip()
             )
+
+    def test_write_skips_whitespace_lines(self):
+        out = io.StringIO()
+        captions = [
+            Caption(start='00:00:01.879',
+                    end='00:00:05.660',
+                    text=[' ', 'Caption #1']
+                    ),
+            Caption(start='00:00:05.660',
+                    end='00:00:05.670',
+                    text=['Caption #1', ' ']
+                    )
+            ]
+
+        srt.write(out, captions)
+
+        out.seek(0)
+
+        self.assertEqual(
+            out.read(),
+            textwrap.dedent('''
+                1
+                00:00:01,879 --> 00:00:05,660
+                Caption #1
+
+                2
+                00:00:05,660 --> 00:00:05,670
+                Caption #1
+            ''').strip()
+            )
