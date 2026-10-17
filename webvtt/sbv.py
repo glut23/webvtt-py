@@ -74,6 +74,8 @@ def parse(lines: typing.Sequence[str]) -> typing.List[Caption]:
 
     :param lines: lines of text
     :returns: list of `Caption` objects
+
+    :raises MalformedFileError: if the content is not in SBV format
     """
     if not _is_valid_content(lines):
         raise MalformedFileError('Invalid format')

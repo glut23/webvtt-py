@@ -395,3 +395,37 @@ Comments can be added or retrieved from different items:
     # comments are just a list of strings
     vtt.captions[5].comments.append('caption for review')
 
+Handling errors
+---------------
+
+The errors raised by webvtt-py are available in the ``webvtt.errors``
+module:
+
+* ``MalformedFileError``: the content is not valid for the expected
+  format (WebVTT, SRT or SBV).
+* ``MalformedCaptionError``: a caption has an invalid timestamp.
+* ``MissingFilenameError``: captions are saved without an output path
+  and there is no file to derive it from.
+
+.. code-block:: python
+
+    import webvtt
+    from webvtt.errors import (
+        MalformedFileError,
+        MalformedCaptionError,
+        MissingFilenameError
+    )
+
+    try:
+        vtt = webvtt.read('captions.vtt')
+    except MalformedFileError:
+        print('captions.vtt is not a valid WebVTT file')
+    except MalformedCaptionError as e:
+        print(f'captions.vtt has an invalid caption: {e}')
+
+    # an instance not read from a file needs an output path
+    vtt = webvtt.WebVTT()
+    try:
+        vtt.save()
+    except MissingFilenameError:
+        vtt.save('captions.vtt')

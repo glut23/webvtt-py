@@ -78,6 +78,8 @@ def parse(lines: typing.Sequence[str]) -> typing.List[Caption]:
 
     :param lines: lines of text
     :returns: list of `Caption` objects
+
+    :raises MalformedFileError: if the content is not in SRT format
     """
     if not is_valid_content(lines):
         raise MalformedFileError('Invalid format')
@@ -87,7 +89,7 @@ def parse(lines: typing.Sequence[str]) -> typing.List[Caption]:
 
 def is_valid_content(lines: typing.Sequence[str]) -> bool:
     """
-    Validate lines of text for valid SBV content.
+    Validate lines of text for valid SRT content.
 
     :param lines: lines of text
     :returns: true for a valid SRT content
