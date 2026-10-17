@@ -81,7 +81,7 @@ class Timestamp:
         if type(value) is not str:
             raise MalformedCaptionError(f'Invalid timestamp {value!r}')
 
-        match = re.match(cls.PATTERN, value)
+        match = cls.PATTERN.fullmatch(value)
         if not match:
             raise MalformedCaptionError(f'Invalid timestamp {value!r}')
 

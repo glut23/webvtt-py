@@ -9,7 +9,7 @@ import pathlib
 import webvtt
 from webvtt.models import Caption, Style
 from webvtt.utils import CODEC_BOMS
-from webvtt.errors import MalformedFileError
+from webvtt.errors import MalformedFileError, MalformedCaptionError
 
 PATH_TO_SAMPLES = pathlib.Path(__file__).resolve().parent / 'samples'
 
@@ -329,6 +329,34 @@ class TestWebVTT(unittest.TestCase):
             buffer = io.StringIO(payload)
             with self.assertRaises(MalformedFileError):
                 webvtt.from_buffer(buffer)
+
+    def test_from_buffer_strict(self):
+        content = textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.-004 --> 00:00:04.300
+            Caption text #1
+            ''').strip()
+
+        self.assertEqual(
+            len(webvtt.from_buffer(io.StringIO(content)).captions),
+            0
+            )
+        with self.assertRaises(MalformedCaptionError):
+            webvtt.from_buffer(io.StringIO(content), strict=True)
+
+    def test_from_string_strict(self):
+        """https://github.com/glut23/webvtt-py/issues/76"""
+        content = textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.-004 --> 00:00:04.300
+            This is a test with a malformed timestamp.
+            ''').strip()
+
+        self.assertEqual(len(webvtt.from_string(content).captions), 0)
+        with self.assertRaises(MalformedCaptionError):
+            webvtt.from_string(content, strict=True)
 
     def test_read_buffer_for_vtt_content(self):
         buffer = io.StringIO(textwrap.dedent('''\
@@ -701,6 +729,26 @@ class TestWebVTT(unittest.TestCase):
             )
         self.assertEqual(2, len(vtt.captions))
         self.assertEqual('Caption text #3', vtt.captions[1].text)
+
+    def test_parse_invalid_timeframe_line_strict(self):
+        self.assertRaises(
+            MalformedCaptionError,
+            webvtt.read,
+            PATH_TO_SAMPLES / 'invalid_timeframe.vtt',
+            strict=True
+            )
+
+    def test_parse_invalid_timeframe_in_cue_text_strict(self):
+        self.assertRaises(
+            MalformedCaptionError,
+            webvtt.read,
+            PATH_TO_SAMPLES / 'invalid_timeframe_in_cue_text.vtt',
+            strict=True
+            )
+
+    def test_parse_valid_file_strict(self):
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'sample.vtt', strict=True)
+        self.assertEqual(len(vtt.captions), 16)
 
     def test_parse_get_caption_data(self):
         vtt = webvtt.read(PATH_TO_SAMPLES / 'one_caption.vtt')

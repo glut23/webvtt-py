@@ -3,7 +3,7 @@ import textwrap
 import io
 
 from webvtt import vtt
-from webvtt.errors import MalformedFileError
+from webvtt.errors import MalformedFileError, MalformedCaptionError
 from webvtt.models import Caption, Style
 
 
@@ -54,6 +54,16 @@ class TestWebVTTCueBlock(unittest.TestCase):
             00:00:00.500 --> 00:00:07.000
             ''').strip().split('\n'))
             )
+
+        for timings in (
+                '00:00:00,500 --> 00:00:07.000',
+                '00:00:00:500 --> 00:00:07.000',
+                '00:00:00.-500 --> 00:00:07.000',
+                '00:00:00.500 --> 00:00:07,000',
+                ):
+            self.assertFalse(
+                vtt.WebVTTCueBlock.is_valid([timings, 'Caption #1'])
+                )
 
     def test_from_lines(self):
         cue_block = vtt.WebVTTCueBlock.from_lines(textwrap.dedent('''
@@ -554,3 +564,54 @@ class TestVTTModule(unittest.TestCase):
                 NOTE end of file
             ''').strip()
             )
+
+    def test_parse_ignores_malformed_cue_block(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.-004 --> 00:00:04.300
+            Caption text #1
+
+            00:00:04.300 --> 00:00:07.000
+            Caption text #2
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(output.captions), 1)
+        self.assertEqual(output.captions[0].text, 'Caption text #2')
+
+    def test_parse_strict_malformed_cue_block(self):
+        with self.assertRaises(MalformedCaptionError) as cm:
+            vtt.parse(
+                textwrap.dedent('''
+                WEBVTT
+
+                00:00:00.500 --> 00:00:04.300
+                Caption text #1
+
+                00:00:04.300 --> 00:00:07.-004
+                Caption text #2
+                ''').strip().split('\n'),
+                strict=True
+                )
+        self.assertIn('00:00:04.300 --> 00:00:07.-004', str(cm.exception))
+
+    def test_parse_strict_valid_content(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            NOTE a comment
+
+            STYLE
+            ::cue {
+              color: papayawhip;
+            }
+
+            00:00:00.500 --> 00:00:07.000
+            Caption text #1
+            ''').strip().split('\n'),
+            strict=True
+            )
+        self.assertEqual(len(output.captions), 1)
+        self.assertEqual(len(output.styles), 1)
