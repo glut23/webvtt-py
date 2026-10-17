@@ -16,3 +16,6 @@ dist/
 
 # Documentation
 docs/_build/
+
+# Virtual environments
+.venv/
