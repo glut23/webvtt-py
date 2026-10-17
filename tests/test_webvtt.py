@@ -723,12 +723,15 @@ class TestWebVTT(unittest.TestCase):
             )
         self.assertEqual(good_captions, 6)
 
-    def test_parse_invalid_timeframe_in_cue_text(self):
+    def test_parse_cue_timings_in_cue_text_start_new_cue(self):
         vtt = webvtt.read(
             PATH_TO_SAMPLES / 'invalid_timeframe_in_cue_text.vtt'
             )
-        self.assertEqual(2, len(vtt.captions))
-        self.assertEqual('Caption text #3', vtt.captions[1].text)
+        self.assertEqual(4, len(vtt.captions))
+        self.assertEqual('', vtt.captions[1].text)
+        self.assertEqual('00:00:07.000', vtt.captions[2].start)
+        self.assertEqual('Caption text #2', vtt.captions[2].text)
+        self.assertEqual('Caption text #3', vtt.captions[3].text)
 
     def test_parse_invalid_timeframe_line_strict(self):
         self.assertRaises(
@@ -765,7 +768,9 @@ class TestWebVTT(unittest.TestCase):
 
     def test_caption_without_cue_text(self):
         vtt = webvtt.read(PATH_TO_SAMPLES / 'missing_caption_text.vtt')
-        self.assertEqual(len(vtt.captions), 4)
+        self.assertEqual(len(vtt.captions), 5)
+        self.assertEqual(vtt.captions[1].start, '00:00:07.000')
+        self.assertEqual(vtt.captions[1].text, '')
 
     def test_timestamps_format(self):
         vtt = webvtt.read(PATH_TO_SAMPLES / 'sample.vtt')
@@ -1073,9 +1078,16 @@ class TestWebVTT(unittest.TestCase):
 
     def test_can_parse_youtube_dl_files(self):
         vtt = webvtt.read(PATH_TO_SAMPLES / 'youtube_dl.vtt')
+        self.assertEqual(len(vtt.captions), 4)
+        self.assertEqual('00:04:46.470', vtt.captions[1].start)
+        self.assertEqual('yeah\nwhat', vtt.captions[1].text)
+        self.assertEqual(
+            "this will happen is I'm telling",
+            vtt.captions[2].text
+            )
         self.assertEqual(
             "this will happen is I'm telling\n ",
-            vtt.captions[2].text
+            vtt.captions[3].text
             )
 
     def test_parse_voice_spans(self):
