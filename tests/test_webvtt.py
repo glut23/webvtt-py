@@ -7,7 +7,7 @@ import tempfile
 import pathlib
 
 import webvtt
-from webvtt.models import Caption, Style
+from webvtt.models import Caption, Style, Timestamp
 from webvtt.utils import CODEC_BOMS
 from webvtt.errors import MalformedFileError, MalformedCaptionError
 
@@ -660,6 +660,53 @@ class TestWebVTT(unittest.TestCase):
             repr(webvtt.read(test_file)),
             f"<WebVTT file='{test_file}' encoding='utf-8'>"
             )
+
+    def test_timestamp_map_round_trip(self):
+        source = textwrap.dedent('''
+            WEBVTT
+            X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:900000
+
+            1088:42:00.500 --> 1088:42:07.000
+            Caption #1
+            ''').strip()
+
+        vtt = webvtt.from_string(source)
+
+        self.assertIsNotNone(vtt.timestamp_map)
+        self.assertEqual(vtt.timestamp_map.local, Timestamp(0, 0, 0, 0))
+        self.assertEqual(vtt.timestamp_map.mpegts, 900000)
+
+        out = io.StringIO()
+        vtt.write(out)
+
+        self.assertEqual(
+            out.getvalue(),
+            'WEBVTT\n'
+            'X-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000\n'
+            '\n'
+            '1088:42:00.500 --> 1088:42:07.000\n'
+            'Caption #1\n'
+            )
+
+    def test_no_timestamp_map(self):
+        vtt = webvtt.from_string(textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.500 --> 00:00:07.000
+            Caption #1
+            ''').strip())
+
+        self.assertIsNone(vtt.timestamp_map)
+
+    def test_malformed_timestamp_map(self):
+        with self.assertRaises(MalformedFileError):
+            webvtt.from_string(textwrap.dedent('''
+                WEBVTT
+                X-TIMESTAMP-MAP=LOCAL:not-a-time,MPEGTS:900000
+
+                00:00:00.500 --> 00:00:07.000
+                Caption #1
+                ''').strip())
 
     def test_str(self):
         self.assertEqual(
