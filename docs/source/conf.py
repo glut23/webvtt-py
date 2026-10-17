@@ -43,3 +43,7 @@ html_theme = 'sphinx_rtd_theme'
 
 # -- Options for EPUB output
 epub_show_urls = 'footnote'
+# -- Options for manual page output
+man_pages = [
+    ('cli', 'webvtt', 'segment WebVTT captions for HLS', [author], 1),
+]

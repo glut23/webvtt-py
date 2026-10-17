@@ -1,4 +1,6 @@
 import unittest
+import contextlib
+import io
 import tempfile
 import os
 import pathlib
@@ -180,3 +182,19 @@ class CLITestCase(unittest.TestCase):
                     Caption text #16
                     '''
                 ).lstrip())
+
+    def test_cli_requires_output(self):
+        vtt_file = (
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'sample.vtt'
+            )
+
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as cm:
+                main(['segment', str(vtt_file)])
+
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn(
+            'the following arguments are required: -o/--output',
+            stderr.getvalue()
+            )

@@ -8,6 +8,7 @@ Contents:
 
    quickstart
    usage
+   cli
    package
    history
 
