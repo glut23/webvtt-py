@@ -81,11 +81,63 @@ Supported formats:
 
 CLI
 ---
-Caption segmentation is also available from the command line:
+Caption segmentation is also available from the command line with the
+``webvtt`` executable. Given ``captions.vtt``:
+
+.. code-block:: text
+
+  WEBVTT
+
+  00:00:01.000 --> 00:00:04.000
+  Hello and welcome.
+
+  00:00:06.000 --> 00:00:12.000
+  This caption spans two segments.
+
+  00:00:14.500 --> 00:00:18.000
+  Thanks for watching!
+
+Segment it into 10 second segments:
 
 ::
 
-    $ webvtt segment captions.vtt --output output/path
+    $ webvtt segment captions.vtt --output out
+    $ ls out
+    fileSequence0.webvtt  fileSequence1.webvtt  prog_index.m3u8
+
+The playlist ``out/prog_index.m3u8`` lists the segments:
+
+.. code-block:: text
+
+  #EXTM3U
+  #EXT-X-TARGETDURATION:10
+  #EXT-X-VERSION:3
+  #EXT-X-PLAYLIST-TYPE:VOD
+  #EXTINF:10.00000,
+  fileSequence0.webvtt
+  #EXTINF:10.00000,
+  fileSequence1.webvtt
+  #EXT-X-ENDLIST
+
+A caption crossing a segment boundary is included in every segment it
+overlaps, ``out/fileSequence1.webvtt``:
+
+.. code-block:: text
+
+  WEBVTT
+  X-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000
+
+  00:00:06.000 --> 00:00:12.000
+  This caption spans two segments.
+
+  00:00:14.500 --> 00:00:18.000
+  Thanks for watching!
+
+Use ``-d`` to change the segment duration and ``-m`` to change the MPEG-TS
+value. Run ``webvtt --help``, ``man webvtt`` or see the `CLI documentation`_
+for all options.
+
+.. _`CLI documentation`: https://webvtt-py.readthedocs.io/en/latest/cli.html
 
 License
 -------

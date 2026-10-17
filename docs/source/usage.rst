@@ -270,6 +270,22 @@ Convert WebVTT captions to other formats:
         vtt.write(f, format='srt')
 
 
+Segmenting captions for HLS
+---------------------------
+
+.. code-block:: python
+
+    import webvtt
+
+    # write 10 second segments and a prog_index.m3u8 playlist to output/path
+    webvtt.segment('captions.vtt', 'output/path')
+
+    # use 6 second segments and a different MPEG-TS value
+    webvtt.segment('captions.vtt', 'output/path', seconds=6, mpegts=0)
+
+Segmentation is also available from the command line, see :doc:`cli`.
+
+
 WebVTT files with Byte Order Mark (BOM)
 ---------------------------------------
 

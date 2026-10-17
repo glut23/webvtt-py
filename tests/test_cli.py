@@ -1,4 +1,7 @@
 import unittest
+import errno
+import contextlib
+import io
 import tempfile
 import os
 import pathlib
@@ -180,3 +183,76 @@ class CLITestCase(unittest.TestCase):
                     Caption text #16
                     '''
                 ).lstrip())
+
+    def test_cli_requires_output(self):
+        vtt_file = (
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'sample.vtt'
+            )
+
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as cm:
+                main(['segment', str(vtt_file)])
+
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn(
+            'the following arguments are required: -o/--output',
+            stderr.getvalue()
+            )
+
+    def assert_cli_error(self, argv, expected_message):
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as cm:
+                main(argv)
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(
+            stderr.getvalue(),
+            f'webvtt: error: {expected_message}\n'
+            )
+
+    def test_cli_missing_file(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            vtt_file = os.path.join(temp_dir, 'missing.vtt')
+
+            self.assert_cli_error(
+                ['segment', vtt_file, '-o', temp_dir],
+                f'{vtt_file}: {os.strerror(errno.ENOENT)}'
+                )
+
+    def test_cli_invalid_file(self):
+        vtt_file = str(
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'invalid.vtt'
+            )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self.assert_cli_error(
+                ['segment', vtt_file, '-o', temp_dir],
+                f'{vtt_file}: not a valid WebVTT file'
+                )
+
+    def test_cli_file_not_utf8(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            vtt_file = os.path.join(temp_dir, 'captions.vtt')
+            pathlib.Path(vtt_file).write_bytes(b'WEBVTT\n\n\xff\xfe\xfd')
+
+            self.assert_cli_error(
+                ['segment', vtt_file, '-o', temp_dir],
+                f'{vtt_file}: cannot be decoded as utf-8'
+                )
+
+    def test_cli_output_is_a_file(self):
+        vtt_file = str(
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'sample.vtt'
+            )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = os.path.join(temp_dir, 'output')
+            pathlib.Path(output).touch()
+
+            self.assert_cli_error(
+                ['segment', vtt_file, '-o', output],
+                f'{output}: {os.strerror(errno.EEXIST)}'
+                )

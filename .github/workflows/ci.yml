@@ -37,6 +37,13 @@ jobs:
     - name: Run tox
       run: tox
 
+    - name: Check manpage is up to date
+      if: matrix.python-version == '3.12'
+      run: |
+        pip install -r docs/requirements.txt
+        make man
+        git diff --exit-code -I '^\.TH' man/webvtt.1
+
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v4.0.1
       with:
