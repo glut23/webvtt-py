@@ -4,7 +4,7 @@ import io
 
 from webvtt import vtt
 from webvtt.errors import MalformedFileError, MalformedCaptionError
-from webvtt.models import Caption, Style
+from webvtt.models import Caption, Region, Style
 
 
 class TestWebVTTCueBlock(unittest.TestCase):
@@ -291,6 +291,42 @@ class TestWebVTTStyleBlock(unittest.TestCase):
               color: peachpuff;
             }
             ''').strip()
+            )
+
+
+class TestWebVTTRegionBlock(unittest.TestCase):
+
+    def test_is_valid(self):
+        for lines in (['REGION', 'id:fred width:40%'],
+                      ['REGION', 'id:fred', 'width:40%'],
+                      ['REGION  \t', 'id:fred'],
+                      ['REGION'],
+                      ):
+            with self.subTest(lines=lines):
+                self.assertTrue(vtt.WebVTTRegionBlock.is_valid(lines))
+
+    def test_is_not_valid(self):
+        for lines in ([],
+                      ['REGIONS', 'id:fred'],
+                      ['REGION id:fred'],
+                      ['region', 'id:fred'],
+                      ['REGION\xa0', 'id:fred'],
+                      ['REGION', 'id:fred-->bill'],
+                      ['id:fred', 'REGION'],
+                      ):
+            with self.subTest(lines=lines):
+                self.assertFalse(vtt.WebVTTRegionBlock.is_valid(lines))
+
+    def test_format_lines(self):
+        self.assertListEqual(
+            vtt.WebVTTRegionBlock.format_lines(
+                Region.from_string('id:fred width:40% foo')
+                ),
+            ['REGION', 'id:fred', 'width:40%', 'foo']
+            )
+        self.assertListEqual(
+            vtt.WebVTTRegionBlock.format_lines(Region()),
+            ['REGION']
             )
 
 
@@ -1060,6 +1096,253 @@ class TestVTTModule(unittest.TestCase):
                 strict=True
                 )
         self.assertIn('00:00:04.300 --> 00:00:07.000', str(cm.exception))
+
+    def test_parse_regions(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            REGION
+            id:fred width:40%
+            lines:3 regionanchor:0%,100%
+            viewportanchor:10%,90% scroll:up
+
+            REGION
+            id:bill
+
+            00:00:00.500 --> 00:00:04.300 region:fred
+            Caption text #1
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(output.regions), 2)
+        self.assertEqual(output.regions[0].id, 'fred')
+        self.assertEqual(output.regions[0].width, '40%')
+        self.assertEqual(output.regions[0].lines, '3')
+        self.assertEqual(output.regions[0].regionanchor, '0%,100%')
+        self.assertEqual(output.regions[0].viewportanchor, '10%,90%')
+        self.assertEqual(output.regions[0].scroll, 'up')
+        self.assertEqual(output.regions[1].id, 'bill')
+        self.assertEqual(len(output.captions), 1)
+        self.assertEqual(output.captions[0].settings.region, 'fred')
+
+    def test_parse_regions_and_styles(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            STYLE
+            ::cue { color: red; }
+
+            REGION
+            id:fred
+
+            00:00:00.500 --> 00:00:04.300 region:fred
+            Caption text #1
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(output.styles), 1)
+        self.assertEqual(len(output.regions), 1)
+        self.assertEqual(len(output.captions), 1)
+
+    def test_parse_keeps_invalid_and_unknown_region_settings(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            REGION
+            id:fred scroll:down
+            foo:bar
+            ''').strip().split('\n')
+            )
+        self.assertIsNone(output.regions[0].scroll)
+        self.assertListEqual(
+            list(output.regions[0]),
+            ['id:fred', 'scroll:down', 'foo:bar']
+            )
+
+    def test_parse_region_comments(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            NOTE header comment
+
+            REGION
+            id:fred
+
+            NOTE comment for bill
+
+            REGION
+            id:bill
+
+            00:00:00.500 --> 00:00:04.300
+            Caption text #1
+            ''').strip().split('\n')
+            )
+        self.assertListEqual(output.header_comments, ['header comment'])
+        self.assertListEqual(output.regions[0].comments, [])
+        self.assertListEqual(output.regions[1].comments, ['comment for bill'])
+
+    def test_parse_ignores_regions_after_a_cue(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            REGION
+            id:fred
+
+            00:00:00.500 --> 00:00:04.300
+            Caption text #1
+
+            REGION
+            id:bill
+            ''').strip().split('\n')
+            )
+        self.assertListEqual(
+            [region.id for region in output.regions],
+            ['fred']
+            )
+        self.assertEqual(len(output.captions), 1)
+
+    def test_parse_strict_region_after_a_cue(self):
+        with self.assertRaises(MalformedCaptionError) as cm:
+            vtt.parse(
+                textwrap.dedent('''
+                WEBVTT
+
+                00:00:00.500 --> 00:00:04.300
+                Caption text #1
+
+                REGION
+                id:fred
+                ''').strip().split('\n'),
+                strict=True
+                )
+        self.assertIn('Region block after a cue', str(cm.exception))
+
+    def test_parse_ignores_regions_after_a_malformed_cue(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.-004 --> 00:00:04.300
+            Caption text #1
+
+            REGION
+            id:fred
+            ''').strip().split('\n')
+            )
+        self.assertListEqual(output.regions, [])
+        self.assertListEqual(output.captions, [])
+
+    def test_parse_strict_regions(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            REGION
+            id:fred
+            width:40%
+            ''').strip().split('\n'),
+            strict=True
+            )
+        self.assertEqual(output.regions[0].width, '40%')
+
+    def test_parse_strict_invalid_region_settings(self):
+        for settings in ('id:fred scroll:down', 'id:fred foo:bar',
+                         'id:fred id:bill', 'id:fred width'):
+            with self.subTest(settings=settings):
+                with self.assertRaises(MalformedCaptionError) as cm:
+                    vtt.parse(
+                        ['WEBVTT', '', 'REGION', settings],
+                        strict=True
+                        )
+                self.assertIn('region setting', str(cm.exception))
+
+    def test_parse_strict_region_line_with_cue_timings(self):
+        with self.assertRaises(MalformedCaptionError):
+            vtt.parse(
+                ['WEBVTT', '', 'REGION', '0:0:0.5 --> 0:0:4.3', 'text'],
+                strict=True
+                )
+
+    def test_to_str_regions(self):
+        output = vtt.to_str(
+            [Caption('00:00:00.500', '00:00:04.300', 'Caption text',
+                     settings='region:fred')],
+            [],
+            ['header comment'],
+            [],
+            regions=[Region(id='fred', width='40%'), Region(id='bill')]
+            )
+        self.assertEqual(
+            output,
+            textwrap.dedent('''
+            WEBVTT
+
+            NOTE header comment
+
+            REGION
+            id:fred
+            width:40%
+
+            REGION
+            id:bill
+
+            00:00:00.500 --> 00:00:04.300 region:fred
+            Caption text
+            ''').lstrip()
+            )
+
+    def test_regions_round_trip(self):
+        content = textwrap.dedent('''
+            WEBVTT
+
+            NOTE header comment
+
+            REGION
+            id:fred
+            width:40%
+            scroll:down
+
+            NOTE comment for bill
+
+            REGION
+            id:bill
+
+            STYLE
+            ::cue { color: red; }
+
+            00:00:00.500 --> 00:00:04.300 region:fred
+            Caption text #1
+            ''').lstrip()
+        output = vtt.parse(content.splitlines())
+        self.assertEqual(
+            vtt.to_str(
+                output.captions,
+                output.styles,
+                output.header_comments,
+                output.footer_comments,
+                regions=output.regions
+                ),
+            content
+            )
+
+    def test_write_regions(self):
+        f = io.StringIO()
+        vtt.write(
+            f,
+            [Caption('00:00:00.500', '00:00:04.300', 'Caption text')],
+            [],
+            [],
+            [],
+            regions=[Region(id='fred')]
+            )
+        self.assertEqual(
+            f.getvalue(),
+            'WEBVTT\n\nREGION\nid:fred\n\n'
+            '00:00:00.500 --> 00:00:04.300\nCaption text\n'
+            )
 
     def test_parse_style_with_whitespace_line(self):
         output = vtt.parse([

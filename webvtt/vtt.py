@@ -5,7 +5,7 @@ import typing
 from dataclasses import dataclass, field
 
 from .errors import MalformedFileError, MalformedCaptionError
-from .models import Caption, CueSettings, Style
+from .models import Caption, CueSettings, Region, Style
 from .utils import split_lines
 
 TIMESTAMP = r'(?:\d+:)?\d{1,2}:\d{1,2}\.\d{1,3}'
@@ -22,6 +22,7 @@ class ParserOutput:
     footer_comments: typing.List[str]
     header_text: str = ''
     metadata: typing.List[str] = field(default_factory=list)
+    regions: typing.List[Region] = field(default_factory=list)
 
     @classmethod
     def from_data(
@@ -38,6 +39,7 @@ class ParserOutput:
         return cls(
             captions=[it for it in items if isinstance(it, Caption)],
             styles=[it for it in items if isinstance(it, Style)],
+            regions=[it for it in items if isinstance(it, Region)],
             header_comments=data.get('header_comments', []),
             footer_comments=data.get('footer_comments', [])
             )
@@ -292,6 +294,38 @@ class WebVTTStyleBlock:
         return ['STYLE', *lines]
 
 
+class WebVTTRegionBlock:
+    """Representation of a region block."""
+
+    @staticmethod
+    def is_valid(lines: typing.Sequence[str]) -> bool:
+        """
+        Validate the lines for a match of a region block.
+
+        The first line is ``REGION``, optionally followed by whitespace,
+        and the settings of the region follow in the next lines.
+
+        :param lines: the lines to be validated
+        :returns: true for a matching region block
+        """
+        return bool(
+            lines and
+            lines[0].startswith('REGION') and
+            not lines[0][len('REGION'):].strip(' \t\x0c') and
+            not _has_arrow(lines)
+            )
+
+    @staticmethod
+    def format_lines(region: Region) -> typing.List[str]:
+        """
+        Return the lines for a region block.
+
+        :param region: the `Region` instance
+        :returns: list of lines for a region block, with a setting per line
+        """
+        return ['REGION', *region]
+
+
 def parse(
         lines: typing.Sequence[str],
         strict: bool = False
@@ -389,6 +423,11 @@ def _starts_new_block(
         )
 
 
+def _has_arrow(lines: typing.Iterable[str]) -> bool:
+    """Return whether a line contains the cue timings arrow ``-->``."""
+    return any('-->' in line for line in lines)
+
+
 def parse_items(
         lines: typing.Sequence[str],
         strict: bool = False
@@ -404,18 +443,21 @@ def parse_items(
     :raises MalformedCaptionError: if strict and a cue block is malformed
     """
     header_comments: typing.List[str] = []
-    items: typing.List[typing.Union[Caption, Style]] = []
+    items: typing.List[typing.Union[Caption, Style, Region]] = []
     comments: typing.List[WebVTTCommentBlock] = []
+    seen_cue = False
 
     for block_lines in iter_blocks_of_lines(lines, strict):
-        item = parse_item(block_lines, strict)
+        item = parse_item(block_lines, strict, seen_cue)
+        if not seen_cue:
+            seen_cue = _has_arrow(block_lines)
         if item:
             item.comments = [comment.text for comment in comments]
             comments = []
             items.append(item)
         elif WebVTTCommentBlock.is_valid(block_lines):
             comments.append(WebVTTCommentBlock.from_lines(block_lines))
-        elif strict and any('-->' in line for line in block_lines):
+        elif strict and _has_arrow(block_lines):
             raise MalformedCaptionError(
                 f'Invalid cue block {block_lines!r}'
                 )
@@ -483,19 +525,24 @@ def _has_line_break(text: str) -> bool:
 
 def parse_item(
         lines: typing.Sequence[str],
-        strict: bool = False
-        ) -> typing.Union[Caption, Style, None]:
+        strict: bool = False,
+        seen_cue: bool = False
+        ) -> typing.Union[Caption, Style, Region, None]:
     """
     Parse an item from lines of text.
 
     :param lines: lines of text
     :param strict: only accept cue timestamps in the WebVTT format and
-        raise an error for cues with an invalid timestamp or cue setting
-    :returns: An item (Caption or Style) if found, otherwise None
+        raise an error for cues with an invalid timestamp or cue setting,
+        and for regions with an invalid region setting
+    :param seen_cue: true if a cue came before, so the lines cannot be a
+        region as regions are only defined before the first cue
+    :returns: An item (Caption, Style or Region) if found, otherwise None
 
     :raises MalformedCaptionError: if strict and a cue has an invalid
         timestamp or a cue setting that is not known, not valid or
-        repeated
+        repeated, or a region has a region setting that is not known, not
+        valid or repeated, or a region comes after a cue
     """
     if WebVTTCueBlock.is_valid(lines, strict):
         cue_block = WebVTTCueBlock.from_lines(lines)
@@ -511,6 +558,13 @@ def parse_item(
                 raise
             return None
 
+    if WebVTTRegionBlock.is_valid(lines):
+        if not seen_cue:
+            return Region.from_string(' '.join(lines[1:]), strict)
+        if strict:
+            raise MalformedCaptionError(f'Region block after a cue {lines!r}')
+        return None
+
     if WebVTTStyleBlock.is_valid(lines):
         return Style(WebVTTStyleBlock.from_lines(lines).text)
 
@@ -524,7 +578,8 @@ def write(
         header_comments: typing.Iterable[str],
         footer_comments: typing.Iterable[str],
         header_text: str = '',
-        metadata: typing.Iterable[str] = ()
+        metadata: typing.Iterable[str] = (),
+        regions: typing.Iterable[Region] = ()
         ):
     """
     Write captions to an output.
@@ -536,6 +591,7 @@ def write(
     :param footer_comments: the comments for the footer
     :param header_text: the text following "WEBVTT" in the first line
     :param metadata: the metadata lines of the header
+    :param regions: Iterable of `Region` objects
 
     :raises ValueError: if the header text or metadata are not valid
     """
@@ -545,7 +601,8 @@ def write(
                header_comments,
                footer_comments,
                header_text,
-               metadata
+               metadata,
+               regions
                )
         )
 
@@ -556,7 +613,8 @@ def to_str(
         header_comments: typing.Iterable[str],
         footer_comments: typing.Iterable[str],
         header_text: str = '',
-        metadata: typing.Iterable[str] = ()
+        metadata: typing.Iterable[str] = (),
+        regions: typing.Iterable[Region] = ()
         ) -> str:
     """
     Convert captions to a string with webvtt format.
@@ -567,6 +625,7 @@ def to_str(
     :param footer_comments: the comments for the footer
     :param header_text: the text following "WEBVTT" in the first line
     :param metadata: the metadata lines of the header
+    :param regions: the iterable of `Region` objects
     :returns: String of the content in WebVTT format.
 
     :raises ValueError: if the header text or metadata are not valid
@@ -578,38 +637,37 @@ def to_str(
               *metadata
               ]
 
-    for comment in header_comments:
-        output.extend([
-            '',
-            *WebVTTCommentBlock.format_lines(comment)
-        ])
+    output.extend(_format_comments(header_comments))
+
+    for region in regions:
+        output.extend(_format_comments(region.comments))
+        output.extend(['', *WebVTTRegionBlock.format_lines(region)])
 
     for style in styles:
-        for comment in style.comments:
-            output.extend([
-                '',
-                *WebVTTCommentBlock.format_lines(comment)
-            ])
-        output.extend([
-            '',
-            *WebVTTStyleBlock.format_lines(style.lines)
-            ])
+        output.extend(_format_comments(style.comments))
+        output.extend(['', *WebVTTStyleBlock.format_lines(style.lines)])
 
     for caption in captions:
-        for comment in caption.comments:
-            output.extend([
-                '',
-                *WebVTTCommentBlock.format_lines(comment)
-            ])
+        output.extend(_format_comments(caption.comments))
         output.extend(WebVTTCueBlock.format_lines(caption))
 
     if not footer_comments:
         output.append('')
 
-    for comment in footer_comments:
-        output.extend([
-            '',
-            *WebVTTCommentBlock.format_lines(comment)
-        ])
+    output.extend(_format_comments(footer_comments))
 
     return '\n'.join(output)
+
+
+def _format_comments(comments: typing.Iterable[str]) -> typing.List[str]:
+    """
+    Return the lines for comment blocks, each preceded by an empty line.
+
+    :param comments: the text of the comments
+    :returns: list of lines for the comment blocks
+    """
+    return [
+        line
+        for comment in comments
+        for line in ['', *WebVTTCommentBlock.format_lines(comment)]
+        ]

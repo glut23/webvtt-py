@@ -3,7 +3,7 @@ import re
 import time
 import unittest
 
-from webvtt.models import Timestamp, Caption, CueSettings, Style
+from webvtt.models import Timestamp, Caption, CueSettings, Region, Style
 from webvtt.errors import MalformedCaptionError
 
 
@@ -1112,4 +1112,187 @@ class TestCueSettings(unittest.TestCase):
         self.assertEqual(
             repr(CueSettings.from_string('line:0 align:start')),
             "<CueSettings text='line:0 align:start'>"
+            )
+
+    def test_iterate_settings(self):
+        settings = CueSettings.from_string('line:0 foo align:middle')
+        self.assertListEqual(list(settings), ['line:0', 'foo', 'align:middle'])
+        self.assertListEqual(list(CueSettings()), [])
+
+
+class TestRegion(unittest.TestCase):
+
+    def test_instantiation_without_settings(self):
+        region = Region()
+        self.assertFalse(region)
+        self.assertEqual(str(region), '')
+        self.assertIsNone(region.id)
+        self.assertIsNone(region.width)
+        self.assertIsNone(region.lines)
+        self.assertIsNone(region.regionanchor)
+        self.assertIsNone(region.viewportanchor)
+        self.assertIsNone(region.scroll)
+        self.assertListEqual(region.comments, [])
+
+    def test_instantiation(self):
+        region = Region(
+            id='fred',
+            width='40%',
+            lines='3',
+            regionanchor='0%,100%',
+            viewportanchor='10%,90%',
+            scroll='up'
+            )
+        self.assertEqual(region.id, 'fred')
+        self.assertEqual(region.width, '40%')
+        self.assertEqual(region.lines, '3')
+        self.assertEqual(region.regionanchor, '0%,100%')
+        self.assertEqual(region.viewportanchor, '10%,90%')
+        self.assertEqual(region.scroll, 'up')
+        self.assertListEqual(
+            list(region),
+            ['id:fred', 'width:40%', 'lines:3', 'regionanchor:0%,100%',
+             'viewportanchor:10%,90%', 'scroll:up']
+            )
+
+    def test_instantiation_only_keyword_arguments(self):
+        with self.assertRaises(TypeError):
+            Region('fred')
+
+    def test_instantiation_invalid_value(self):
+        with self.assertRaises(MalformedCaptionError) as cm:
+            Region(scroll='down')
+        self.assertIn('scroll region setting', str(cm.exception))
+
+    def test_from_string_multiple_lines(self):
+        region = Region.from_string(
+            'id:fred width:40%\nlines:3\r\nscroll:up'
+            )
+        self.assertEqual(region.id, 'fred')
+        self.assertEqual(region.lines, '3')
+        self.assertListEqual(
+            list(region),
+            ['id:fred', 'width:40%', 'lines:3', 'scroll:up']
+            )
+        self.assertListEqual(region.comments, [])
+
+    def test_from_string_keeps_invalid_and_unknown_settings(self):
+        region = Region.from_string('id:fred lines:2.5 foo:bar id:bill')
+        self.assertEqual(region.id, 'bill')
+        self.assertIsNone(region.lines)
+        self.assertListEqual(
+            list(region),
+            ['id:fred', 'lines:2.5', 'foo:bar', 'id:bill']
+            )
+
+    def test_from_string_strict(self):
+        region = Region.from_string(
+            'id:fred width:40% lines:3 regionanchor:0%,100% '
+            'viewportanchor:10%,90% scroll:up',
+            strict=True
+            )
+        self.assertEqual(region.viewportanchor, '10%,90%')
+
+    def test_from_string_strict_invalid_settings(self):
+        for value, message in (('id:fred scroll:down', 'Invalid'),
+                               ('id:fred foo:bar', 'Invalid'),
+                               ('id:fred id:bill', 'Repeated'),
+                               ):
+            with self.subTest(value=value):
+                with self.assertRaises(MalformedCaptionError) as cm:
+                    Region.from_string(value, strict=True)
+                self.assertIn(f'{message} region setting', str(cm.exception))
+
+    def test_from_string_wrong_type(self):
+        with self.assertRaises(MalformedCaptionError) as cm:
+            Region.from_string(None)
+        self.assertIn('Invalid region settings', str(cm.exception))
+
+    def test_valid_values(self):
+        valid_values = {
+            'id': ('fred', 'a:b', 'région-1'),
+            'width': ('0%', '40%', '100%', '33.3%'),
+            'lines': ('0', '3', '12'),
+            'regionanchor': ('0%,100%', '50.5%,0%'),
+            'viewportanchor': ('10%,90%', '100%,100%'),
+            'scroll': ('up',),
+            }
+        for name, values in valid_values.items():
+            for value in values:
+                with self.subTest(name=name, value=value):
+                    region = Region()
+                    setattr(region, name, value)
+                    self.assertEqual(getattr(region, name), value)
+                    self.assertEqual(
+                        getattr(Region.from_string(str(region)), name),
+                        value
+                        )
+
+    def test_invalid_values(self):
+        invalid_values = {
+            'id': ('',),
+            'width': ('', '40', '101%', '-1%'),
+            'lines': ('', '-1', '2.5', '+3', '\u0663'),
+            'regionanchor': ('', '0%', '0%,', ',100%', '0%,100%,0%',
+                             '0,100', '101%,0%'),
+            'viewportanchor': ('', '10%;90%', '10%,-90%'),
+            'scroll': ('', 'down', 'Up', 'none'),
+            }
+        for name, values in invalid_values.items():
+            for value in values:
+                with self.subTest(name=name, value=value):
+                    with self.assertRaises(MalformedCaptionError):
+                        setattr(Region(), name, value)
+                    self.assertIsNone(
+                        getattr(Region.from_string(f'{name}:{value}'), name)
+                        )
+
+    def test_set_value_with_arrow(self):
+        with self.assertRaises(MalformedCaptionError):
+            Region().id = 'a-->b'
+
+    def test_from_string_with_arrow(self):
+        for value in ('id:a-->b', 'id:fred -->', 'id:fred\n-->'):
+            with self.subTest(value=value):
+                with self.assertRaises(MalformedCaptionError) as cm:
+                    Region.from_string(value)
+                self.assertIn('Invalid region settings', str(cm.exception))
+
+    def test_set_value_with_spaces(self):
+        for value in ('fred bill', 'fred\nbill'):
+            with self.subTest(value=value):
+                with self.assertRaises(MalformedCaptionError):
+                    Region().id = value
+
+    def test_update_settings(self):
+        region = Region.from_string('id:fred width:40% scroll:down')
+        region.width = '50%'
+        region.scroll = 'up'
+        region.lines = None
+        region.regionanchor = '0%,100%'
+        self.assertListEqual(
+            list(region),
+            ['id:fred', 'width:50%', 'scroll:up', 'regionanchor:0%,100%']
+            )
+
+    def test_accept_comments(self):
+        region = Region(id='fred')
+        region.comments.append('One comment')
+        self.assertListEqual(region.comments, ['One comment'])
+
+    def test_equality(self):
+        region = Region.from_string('id:fred width:40%')
+        other = Region(id='fred', width='40%')
+        other.comments.append('Comments are not compared')
+        self.assertEqual(region, other)
+        self.assertNotEqual(region, Region(id='fred'))
+        self.assertNotEqual(
+            Region.from_string('id:fred'),
+            CueSettings.from_string('id:fred')
+            )
+
+    def test_repr(self):
+        self.assertEqual(
+            repr(Region(id='fred', width='40%')),
+            "<Region text='id:fred width:40%'>"
             )

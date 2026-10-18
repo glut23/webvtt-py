@@ -12,6 +12,7 @@ from . import srt
 from . import sbv
 from .models import (
     Caption,
+    Region,
     Style,
     Timestamp,
     _FrameRate,
@@ -48,6 +49,7 @@ class WebVTT:
             footer_comments: typing.Optional[typing.List[str]] = None,
             header_text: typing.Optional[str] = None,
             metadata: typing.Optional[typing.List[str]] = None,
+            regions: typing.Optional[typing.List[Region]] = None
             ):
         """
         Initialize.
@@ -60,6 +62,7 @@ class WebVTT:
         :param header_text: the text following "WEBVTT" in the first line
         :param metadata: list of metadata lines following the "WEBVTT"
             line, e.g. ``X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:0``
+        :param regions: the list of regions
         """
         self.file = file
         self.captions = captions or []
@@ -68,6 +71,7 @@ class WebVTT:
         self.footer_comments = footer_comments or []
         self.header_text = header_text or ''
         self.metadata = metadata or []
+        self.regions = regions or []
         self._has_bom = False
         self.encoding = DEFAULT_ENCODING
 
@@ -176,7 +180,8 @@ class WebVTT:
                 header_comments=output.header_comments,
                 footer_comments=output.footer_comments,
                 header_text=output.header_text,
-                metadata=output.metadata
+                metadata=output.metadata,
+                regions=output.regions
                 )
 
         if format == 'srt':
@@ -256,7 +261,8 @@ class WebVTT:
             header_comments=output.header_comments,
             footer_comments=output.footer_comments,
             header_text=output.header_text,
-            metadata=output.metadata
+            metadata=output.metadata,
+            regions=output.regions
         )
 
     @staticmethod
@@ -388,7 +394,8 @@ class WebVTT:
                              self.header_comments,
                              self.footer_comments,
                              self.header_text,
-                             self.metadata
+                             self.metadata,
+                             self.regions
                              )
         if format == 'srt':
             return srt.write(f, self.captions)
@@ -524,5 +531,6 @@ class WebVTT:
             self.header_comments,
             self.footer_comments,
             self.header_text,
-            self.metadata
+            self.metadata,
+            self.regions
             )

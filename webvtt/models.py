@@ -406,10 +406,11 @@ def _strip_cue_text_tags(line: str) -> str:
     return ''.join(parts)
 
 
-# the characters WebVTT treats as spaces when splitting the cue settings
-_CUE_SETTINGS_SEPARATOR = re.compile('[ \t\n\f\r]+')
+# the characters WebVTT treats as spaces when splitting settings
+_SETTINGS_SEPARATOR = re.compile('[ \t\n\f\r]+')
 _PERCENTAGE = re.compile(r'[0-9]+(?:\.[0-9]+)?%')
 _LINE_NUMBER = re.compile(r'-?[0-9]+')
+_NUMBER_OF_LINES = re.compile(r'[0-9]+')
 
 
 def _is_percentage(value: str) -> bool:
@@ -436,22 +437,26 @@ def _is_valid_position(value: str) -> bool:
         )
 
 
-def _is_valid_region(value: str) -> bool:
+def _is_valid_anchor(value: str) -> bool:
+    """Return whether the value is two percentages separated by a comma."""
+    x, separator, y = value.partition(',')
+    return bool(separator) and _is_percentage(x) and _is_percentage(y)
+
+
+def _is_valid_identifier(value: str) -> bool:
     """Return whether the value is a valid region identifier."""
     return (
         bool(value) and
         '-->' not in value and
-        not _CUE_SETTINGS_SEPARATOR.search(value)
+        not _SETTINGS_SEPARATOR.search(value)
         )
 
 
-def _split_cue_setting(
-        setting: str
-        ) -> typing.Optional[typing.Tuple[str, str]]:
+def _split_setting(setting: str) -> typing.Optional[typing.Tuple[str, str]]:
     """
-    Split a cue setting in name and value at its first colon.
+    Split a setting in name and value at its first colon.
 
-    :param setting: a cue setting as written in a cue timings line
+    :param setting: a setting as written, e.g. ``line:0``
     :returns: the name and value, or None when there is no colon or it is
         the first or last character
     """
@@ -461,14 +466,14 @@ def _split_cue_setting(
     return name, value
 
 
-def _cue_setting_name(setting: str) -> typing.Optional[str]:
-    """Return the name of a cue setting, or None when it has no name."""
-    parts = _split_cue_setting(setting)
+def _setting_name(setting: str) -> typing.Optional[str]:
+    """Return the name of a setting, or None when it has no name."""
+    parts = _split_setting(setting)
     return parts[0] if parts else None
 
 
-def _cue_setting_property(name: str, doc: str) -> property:
-    """Return a property to get and set the cue setting with that name."""
+def _setting_property(name: str, doc: str) -> property:
+    """Return a property to get and set the setting with that name."""
     return property(
         lambda self: self._get(name),
         lambda self, value: self._set(name, value),
@@ -476,7 +481,141 @@ def _cue_setting_property(name: str, doc: str) -> property:
         )
 
 
-class CueSettings:
+_SettingsT = typing.TypeVar('_SettingsT', bound='_Settings')
+
+
+class _Settings:
+    """
+    Base for settings written as ``name:value`` and separated by spaces.
+
+    The settings are kept as written and in their original order, so they
+    are written back the same, including those that are not valid or not
+    known. A property returns the value of its setting when it is valid,
+    the last valid one when it is repeated, and validates a new value.
+    """
+
+    VALIDATORS: typing.ClassVar[
+        typing.Dict[str, typing.Callable[[str], bool]]
+        ] = {}
+
+    # what a setting is called in error messages
+    _KIND = 'setting'
+
+    def __init__(self):
+        """Initialize without settings."""
+        self._settings: typing.List[str] = []
+
+    @classmethod
+    def from_string(
+            cls: typing.Type[_SettingsT],
+            value: str,
+            strict: bool = False
+            ) -> _SettingsT:
+        """
+        Return an instance from settings separated by spaces.
+
+        :param value: the settings, e.g. ``line:0 align:start``
+        :param strict: raise an error on settings that are not known, not
+            valid or repeated instead of keeping them
+        :returns: an instance with the settings
+
+        :raises MalformedCaptionError: if the value is not a string, or if
+            strict and a setting is not known, not valid or repeated
+        """
+        if type(value) is not str:
+            raise MalformedCaptionError(f'Invalid {cls._KIND}s {value!r}')
+
+        settings = cls()
+        settings._settings = [
+            setting
+            for setting in _SETTINGS_SEPARATOR.split(value)
+            if setting
+            ]
+
+        if strict:
+            names: typing.Set[str] = set()
+            for setting in settings._settings:
+                parts = _split_setting(setting)
+                if (not parts or
+                        parts[0] not in cls.VALIDATORS or
+                        not cls.VALIDATORS[parts[0]](parts[1])):
+                    raise MalformedCaptionError(
+                        f'Invalid {cls._KIND} {setting!r}'
+                        )
+                if parts[0] in names:
+                    raise MalformedCaptionError(
+                        f'Repeated {cls._KIND} {setting!r}'
+                        )
+                names.add(parts[0])
+
+        return settings
+
+    def __str__(self):
+        """Return the settings separated by a space."""
+        return ' '.join(self._settings)
+
+    def __repr__(self):
+        """Return the string representation of the settings."""
+        return f'<{self.__class__.__name__} text={str(self)!r}>'
+
+    def __bool__(self):
+        """Return whether there is any setting."""
+        return bool(self._settings)
+
+    def __iter__(self) -> typing.Iterator[str]:
+        """Iterate the settings as written, e.g. ``line:0``."""
+        return iter(self._settings)
+
+    def __eq__(self, other):
+        """Compare equality with another object."""
+        if not isinstance(other, type(self)):
+            return False
+
+        return self._settings == other._settings
+
+    def _get(self, name: str) -> typing.Optional[str]:
+        """Return the value of the last valid setting with that name."""
+        value = None
+        for setting in self._settings:
+            parts = _split_setting(setting)
+            if (parts and
+                    parts[0] == name and
+                    self.VALIDATORS[name](parts[1])):
+                value = parts[1]
+        return value
+
+    def _set(self, name: str, value: typing.Optional[str]):
+        """
+        Set the setting with that name, or remove it when the value is None.
+
+        Every setting with that name is replaced by a single one where the
+        first of them was, or added at the end when there is none.
+
+        :raises MalformedCaptionError: if the value is not valid
+        """
+        if value is not None and (
+                type(value) is not str or
+                not self.VALIDATORS[name](value)
+                ):
+            raise MalformedCaptionError(
+                f'Invalid {name} {self._KIND} {value!r}'
+                )
+
+        indexes = [
+            index
+            for index, setting in enumerate(self._settings)
+            if _setting_name(setting) == name
+            ]
+        for index in reversed(indexes):
+            del self._settings[index]
+        if value is not None:
+            self._settings.insert(
+                indexes[0] if indexes else len(self._settings),
+                f'{name}:{value}'
+                )
+
+
+class CueSettings(_Settings):
     """
     Representation of the cue settings of a caption.
 
@@ -486,7 +625,7 @@ class CueSettings:
     the last valid one when it is repeated, and validates a new value.
     """
 
-    VALIDATORS: typing.Dict[str, typing.Callable[[str], bool]] = {
+    VALIDATORS = {
         'vertical': lambda value: value in ('rl', 'lr'),
         'line': _is_valid_line,
         'position': _is_valid_position,
@@ -494,8 +633,10 @@ class CueSettings:
         'align': lambda value: value in (
             'start', 'center', 'end', 'left', 'right'
             ),
-        'region': _is_valid_region,
+        'region': _is_valid_identifier,
         }
+
+    _KIND = 'cue setting'
 
     def __init__(self,
                  *,
@@ -521,7 +662,7 @@ class CueSettings:
 
         :raises MalformedCaptionError: if a value is not valid
         """
-        self._settings: typing.List[str] = []
+        super().__init__()
         self.vertical = vertical
         self.line = line
         self.position = position
@@ -542,114 +683,28 @@ class CueSettings:
         :raises MalformedCaptionError: if the value is not a string, or if
             strict and a setting is not known, not valid or repeated
         """
-        if type(value) is not str:
-            raise MalformedCaptionError(f'Invalid cue settings {value!r}')
+        return super().from_string(value, strict)
 
-        settings = cls()
-        settings._settings = [
-            setting
-            for setting in _CUE_SETTINGS_SEPARATOR.split(value)
-            if setting
-            ]
-
-        if strict:
-            names: typing.Set[str] = set()
-            for setting in settings._settings:
-                parts = _split_cue_setting(setting)
-                if (not parts or
-                        parts[0] not in cls.VALIDATORS or
-                        not cls.VALIDATORS[parts[0]](parts[1])):
-                    raise MalformedCaptionError(
-                        f'Invalid cue setting {setting!r}'
-                        )
-                if parts[0] in names:
-                    raise MalformedCaptionError(
-                        f'Repeated cue setting {setting!r}'
-                        )
-                names.add(parts[0])
-
-        return settings
-
-    def __str__(self):
-        """Return the settings as written in a cue timings line."""
-        return ' '.join(self._settings)
-
-    def __repr__(self):
-        """Return the string representation of the cue settings."""
-        return f'<{self.__class__.__name__} text={str(self)!r}>'
-
-    def __bool__(self):
-        """Return whether there is any setting."""
-        return bool(self._settings)
-
-    def __eq__(self, other):
-        """Compare equality with another object."""
-        if not isinstance(other, type(self)):
-            return False
-
-        return self._settings == other._settings
-
-    def _get(self, name: str) -> typing.Optional[str]:
-        """Return the value of the last valid setting with that name."""
-        value = None
-        for setting in self._settings:
-            parts = _split_cue_setting(setting)
-            if (parts and
-                    parts[0] == name and
-                    self.VALIDATORS[name](parts[1])):
-                value = parts[1]
-        return value
-
-    def _set(self, name: str, value: typing.Optional[str]):
-        """
-        Set the setting with that name, or remove it when the value is None.
-
-        Every setting with that name is replaced by a single one where the
-        first of them was, or added at the end when there is none.
-
-        :raises MalformedCaptionError: if the value is not valid
-        """
-        if value is not None and (
-                type(value) is not str or
-                not self.VALIDATORS[name](value)
-                ):
-            raise MalformedCaptionError(
-                f'Invalid {name} cue setting {value!r}'
-                )
-
-        indexes = [
-            index
-            for index, setting in enumerate(self._settings)
-            if _cue_setting_name(setting) == name
-            ]
-        for index in reversed(indexes):
-            del self._settings[index]
-        if value is not None:
-            self._settings.insert(
-                indexes[0] if indexes else len(self._settings),
-                f'{name}:{value}'
-                )
-
-    vertical = _cue_setting_property(
+    vertical = _setting_property(
         'vertical',
         'Writing direction, ``rl`` or ``lr``.'
         )
-    line = _cue_setting_property(
+    line = _setting_property(
         'line',
         'Line position, as a line number or a percentage with an optional '
         'alignment.'
         )
-    position = _cue_setting_property(
+    position = _setting_property(
         'position',
         'Position as a percentage with an optional alignment.'
         )
-    size = _cue_setting_property('size', 'Size as a percentage.')
-    align = _cue_setting_property(
+    size = _setting_property('size', 'Size as a percentage.')
+    align = _setting_property(
         'align',
         'Text alignment, ``start``, ``center``, ``end``, ``left`` or '
         '``right``.'
         )
-    region = _cue_setting_property('region', 'Identifier of a region.')
+    region = _setting_property('region', 'Identifier of a region.')
 
 
 def _to_cue_settings(
@@ -872,3 +927,96 @@ class Style:
     def text(self):
         """Return the text of the style."""
         return '\n'.join(self.lines)
+
+
+class Region(_Settings):
+    """
+    Representation of a region.
+
+    A region is an area of the video where captions are rendered, defined
+    in a REGION block of the header and referred to by its identifier in
+    the ``region`` cue setting of the captions.
+
+    The settings are kept as written and in their original order, so they
+    are written back the same, including those that are not valid or not
+    known. A property returns the value of its setting when it is valid,
+    the last valid one when it is repeated, and validates a new value.
+    """
+
+    VALIDATORS = {
+        'id': _is_valid_identifier,
+        'width': _is_percentage,
+        'lines': lambda value: bool(_NUMBER_OF_LINES.fullmatch(value)),
+        'regionanchor': _is_valid_anchor,
+        'viewportanchor': _is_valid_anchor,
+        'scroll': lambda value: value == 'up',
+        }
+
+    _KIND = 'region setting'
+
+    def __init__(self,
+                 *,
+                 id: typing.Optional[str] = None,
+                 width: typing.Optional[str] = None,
+                 lines: typing.Optional[str] = None,
+                 regionanchor: typing.Optional[str] = None,
+                 viewportanchor: typing.Optional[str] = None,
+                 scroll: typing.Optional[str] = None
+                 ):
+        """
+        Initialize.
+
+        :param id: identifier of the region
+        :param width: width as a percentage of the video, e.g. ``40%``
+        :param lines: number of lines of text, e.g. ``3``
+        :param regionanchor: point of the region anchored to the video, as
+            two percentages of the region, e.g. ``0%,100%``
+        :param viewportanchor: point of the video the region is anchored
+            to, as two percentages of the video, e.g. ``10%,90%``
+        :param scroll: ``up`` for the lines to scroll up
+
+        :raises MalformedCaptionError: if a value is not valid
+        """
+        super().__init__()
+        self.id = id
+        self.width = width
+        self.lines = lines
+        self.regionanchor = regionanchor
+        self.viewportanchor = viewportanchor
+        self.scroll = scroll
+        self.comments: typing.List[str] = []
+
+    @classmethod
+    def from_string(cls, value: str, strict: bool = False) -> 'Region':
+        """
+        Return a `Region` instance from the settings of a region block.
+
+        :param value: the region settings separated by spaces or line
+            breaks, e.g. ``id:fred width:40%``
+        :param strict: raise an error on settings that are not known, not
+            valid or repeated instead of keeping them
+        :returns: a `Region` instance
+
+        :raises MalformedCaptionError: if the value is not a string or
+            contains ``-->``, which cannot be in a region block, or if strict
+            and a setting is not known, not valid or repeated
+        """
+        if type(value) is str and '-->' in value:
+            raise MalformedCaptionError(f'Invalid region settings {value!r}')
+        return super().from_string(value, strict)
+
+    id = _setting_property('id', 'Identifier of the region.')
+    width = _setting_property(
+        'width',
+        'Width as a percentage of the video.'
+        )
+    lines = _setting_property('lines', 'Number of lines of text.')
+    regionanchor = _setting_property(
+        'regionanchor',
+        'Point of the region anchored to the video, as two percentages.'
+        )
+    viewportanchor = _setting_property(
+        'viewportanchor',
+        'Point of the video the region is anchored to, as two percentages.'
+        )
+    scroll = _setting_property('scroll', '``up`` if the lines scroll up.')

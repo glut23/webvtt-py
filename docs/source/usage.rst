@@ -557,6 +557,54 @@ Updating styles:
     vtt.styles[0].lines[1] = '  color: papayawhip;'
 
 
+WebVTT Regions
+--------------
+
+Regions are areas of the video where captions are rendered, defined in
+``REGION`` blocks before the first cue and used by the captions through
+the ``region`` cue setting. They are available in the ``regions`` list as
+``Region`` objects, with a property for each setting that returns its
+value or ``None`` when it is not set:
+
+.. code-block:: python
+
+    import webvtt
+    from webvtt import Region
+
+    vtt = webvtt.read('captions.vtt')
+
+    for region in vtt.regions:
+        print(region.id, region.width, region.lines)
+
+    # change a region
+    vtt.regions[0].width = '50%'
+    vtt.regions[0].scroll = None
+
+    # add a region and use it in a caption
+    vtt.regions.append(
+        Region(
+            id='fred',
+            width='40%',
+            lines='3',
+            regionanchor='0%,100%',
+            viewportanchor='10%,90%',
+            scroll='up'
+        )
+    )
+    vtt.captions[0].settings.region = 'fred'
+
+The supported settings are ``id``, ``width``, ``lines``, ``regionanchor``,
+``viewportanchor`` and ``scroll``. As for cue settings, setting a value
+that is not valid raises ``MalformedCaptionError``, and the settings are
+saved as they were read, including the ones that are not valid or not
+known, with a setting per line. ``REGION`` blocks after the first cue are
+not regions as per the WebVTT specification and are ignored, or raise
+``MalformedCaptionError`` with strict parsing. When
+converting to SRT or SBV, the regions are not included.
+
+Removing or renaming a region does not update the captions that use it.
+
+
 WebVTT header
 -------------
 
@@ -675,9 +723,9 @@ range ones such as ``00:00:61.000 --> 00:00:62.000`` is skipped.
 To validate the content, pass ``strict=True`` to ``read``,
 ``from_buffer`` or ``from_string`` and a ``MalformedCaptionError`` is
 raised instead. Strict parsing also raises the error for timestamps that
-are not in the WebVTT format, for cue settings that are not known, not
-valid or repeated, and when a cue is not separated from the previous cue,
-comment or style by an empty line:
+are not in the WebVTT format, for cue and region settings that are not
+known, not valid or repeated, and when a cue is not separated from the
+previous cue, comment or style by an empty line:
 
 .. code-block:: python
 

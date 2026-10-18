@@ -12,6 +12,7 @@ webvtt.models
 
 .. automodule:: webvtt.models
     :members:
+    :inherited-members:
 
 webvtt.segmenter
 ----------------
