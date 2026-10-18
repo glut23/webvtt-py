@@ -81,8 +81,8 @@ Supported formats:
 
 CLI
 ---
-Caption segmentation and shifting are also available from the command line
-with the ``webvtt`` executable. Given ``captions.vtt``:
+Caption segmentation, shifting and synchronizing are also available from the
+command line with the ``webvtt`` executable. Given ``captions.vtt``:
 
 .. code-block:: text
 
@@ -145,8 +145,17 @@ Show the captions 1.5 seconds earlier, writing them to a new file:
 Without ``--output`` the shifted captions are written to standard output.
 Use ``--start`` to only shift the captions starting at or after a timestamp.
 
-For all the options, run ``webvtt segment --help``, ``webvtt shift --help`` or
-``man webvtt``, or see the `CLI documentation`_.
+Fix captions that drift out of sync by moving two or more points, here the
+caption at 00:14.500 to 00:15.850 keeping the first one in place, or by
+changing the frame rate they are timed for:
+
+::
+
+    $ webvtt sync captions.vtt -p 00:01.000 00:01.000 -p 00:14.500 00:15.850
+    $ webvtt sync captions.vtt --fps 25 23.976 -o captions.vtt
+
+For all the options, run ``webvtt segment --help``, ``webvtt shift --help``,
+``webvtt sync --help`` or ``man webvtt``, or see the `CLI documentation`_.
 
 .. _`CLI documentation`: https://webvtt-py.readthedocs.io/en/latest/cli.html
 
