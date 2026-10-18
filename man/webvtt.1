@@ -29,7 +29,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 .TH "WEBVTT" "1" "Oct 18, 2026" "0.5.1" "webvtt-py"
 .SH NAME
-webvtt \- segment and shift WebVTT captions
+webvtt \- segment, shift and sync WebVTT captions
 .SH SYNOPSIS
 .INDENT 0.0
 .INDENT 3.5
@@ -38,6 +38,7 @@ webvtt \- segment and shift WebVTT captions
 .ft C
 webvtt segment PATH \-o OUTPUT [\-d NUMBER] [\-m NUMBER]
 webvtt shift PATH OFFSET [\-o OUTPUT] [\-s TIMESTAMP]
+webvtt sync PATH (\-p FROM TO \-p FROM TO ... | \-\-fps FROM TO) [\-o OUTPUT]
 webvtt \-h
 .ft P
 .fi
@@ -46,7 +47,7 @@ webvtt \-h
 .SH DESCRIPTION
 .sp
 \fBwebvtt\fP segments a WebVTT caption file for \X'tty: link https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis'\fI\%HTTP Live Streaming\fP\X'tty: link' (HLS)
-and shifts the timestamps of its captions.
+and shifts or synchronizes the timestamps of its captions.
 .sp
 \fBsegment\fP splits the captions in \fBPATH\fP into segments of a target duration. Each
 segment is written to \fBOUTPUT\fP as \fBfileSequenceN.webvtt\fP, where \fBN\fP is
@@ -68,6 +69,14 @@ that would fall before zero is set to \fB00:00:00.000\fP, so a caption moved
 entirely before the start is kept with \fB00:00:00.000 \-\-> 00:00:00.000\fP
 timings. The shifted captions are written to standard output in UTF\-8, or to
 \fBOUTPUT\fP when given.
+.sp
+\fBsync\fP fixes captions that drift further out of sync along the video. With
+\fB\-p\fP, each point moves the time \fBFROM\fP in the captions to \fBTO\fP; times
+between two points are moved along the line between them, and times before
+the first or after the last point along the line of the outermost points.
+With \fB\-\-fps\fP, the timing is changed from one frame rate to another. Times
+are rounded and set to zero like with \fBshift\fP, and the output is written
+the same way.
 .SH COMMANDS
 .INDENT 0.0
 .TP
@@ -76,6 +85,9 @@ Segment the WebVTT file at \fBPATH\fP\&.
 .TP
 .B \fBshift\fP
 Shift the timestamps of the WebVTT file at \fBPATH\fP\&.
+.TP
+.B \fBsync\fP
+Synchronize the timestamps of the WebVTT file at \fBPATH\fP\&.
 .UNINDENT
 .SH OPTIONS
 .INDENT 0.0
@@ -119,6 +131,27 @@ Default: standard output.
 Only shift the captions starting at or after \fBTIMESTAMP\fP, in
 \fB[hh:]mm:ss.mmm\fP format. Default: shift all the captions.
 .UNINDENT
+.SS Sync options
+.INDENT 0.0
+.TP
+.B \fB\-p FROM TO\fP, \fB\-\-point FROM TO\fP
+Move the time \fBFROM\fP in the captions to \fBTO\fP\&. Each time is a
+timestamp in \fB[hh:]mm:ss.mmm\fP format or a number of seconds. Give it
+two or more times, in any order. Two points cannot have the same
+\fBFROM\fP, and the \fBTO\fP times must be in the same order as the
+\fBFROM\fP times.
+.TP
+.B \fB\-\-fps FROM TO\fP
+Change the timing from the frame rate \fBFROM\fP the captions are timed
+for to the frame rate \fBTO\fP of the video, such as \fB25 23.976\fP\&. A frame
+rate can also be a ratio, such as \fB24000/1001\fP for the exact NTSC
+rate. Times are multiplied by \fBFROM / TO\fP\&. Cannot be used with
+\fB\-p\fP\&.
+.TP
+.B \fB\-o OUTPUT\fP, \fB\-\-output OUTPUT\fP
+File where the synchronized captions are written, as with \fBshift\fP\&.
+Default: standard output.
+.UNINDENT
 .SH EXIT STATUS
 .INDENT 0.0
 .TP
@@ -141,8 +174,8 @@ webvtt: error: captions.vtt: not a valid WebVTT file
 .UNINDENT
 .TP
 .B \fB2\fP
-Invalid command line arguments, such as an offset that is not a number
-or an invalid \fB\-\-start\fP timestamp.
+Invalid command line arguments, such as an offset that is not a number,
+an invalid \fB\-\-start\fP timestamp or sync points that cannot be used.
 .UNINDENT
 .SH EXAMPLES
 .sp
@@ -284,10 +317,47 @@ $ webvtt shift captions.vtt 2 \-\-start 00:14.500 \-o captions.vtt
 .fi
 .UNINDENT
 .UNINDENT
+.sp
+Keep the first caption in place and move the last one from 00:14.500 to
+00:15.850, synchronizing the captions in between:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ webvtt sync captions.vtt \-p 00:01.000 00:01.000 \-p 00:14.500 00:15.850
+WEBVTT
+
+00:00:01.000 \-\-> 00:00:04.300
+Hello and welcome.
+
+00:00:06.500 \-\-> 00:00:13.100
+This caption spans two segments.
+
+00:00:15.850 \-\-> 00:00:19.700
+Thanks for watching!
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Fix captions timed for a 25 fps video played with a 23.976 fps one,
+updating the file in place:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ webvtt sync captions.vtt \-\-fps 25 23.976 \-o captions.vtt
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SH SEE ALSO
 .sp
-The same segmentation and shifting are available from Python with
-\fBwebvtt.segment()\fP and \fBWebVTT.shift()\fP\&.
+The same segmentation, shifting and synchronizing are available from Python
+with \fBwebvtt.segment()\fP, \fBWebVTT.shift()\fP, \fBWebVTT.sync()\fP and
+\fBWebVTT.change_framerate()\fP\&.
 .SH AUTHOR
 Alejandro Mendez
 .SH COPYRIGHT

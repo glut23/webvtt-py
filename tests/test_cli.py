@@ -269,7 +269,7 @@ class CLITestCase(unittest.TestCase):
             )
 
 
-class CLIShiftTestCase(unittest.TestCase):
+class CLICommandTestCase(unittest.TestCase):
 
     CAPTIONS = textwrap.dedent(
         '''
@@ -304,6 +304,9 @@ class CLIShiftTestCase(unittest.TestCase):
 
         self.assertEqual(cm.exception.code, 2)
         self.assertIn(expected_message, stderr.getvalue())
+
+
+class CLIShiftTestCase(CLICommandTestCase):
 
     def test_shift_to_stdout(self):
         self.assertEqual(
@@ -520,4 +523,129 @@ class CLIShiftTestCase(unittest.TestCase):
         self.assertEqual(
             stderr.getvalue(),
             f'webvtt: error: {vtt_file}: not a valid WebVTT file\n'
+            )
+
+
+class CLISyncTestCase(CLICommandTestCase):
+
+    def test_sync_points_to_stdout(self):
+        self.assertEqual(
+            self.run_cli(['sync', self.vtt_file,
+                          '-p', '00:00:00.500', '1',
+                          '--point', '00:00:07.000', '13']),
+            textwrap.dedent(
+                '''
+                WEBVTT
+
+                00:00:01.000 --> 00:00:01.923
+                Credits
+
+                00:00:02.846 --> 00:00:07.462
+                Caption #1
+
+                00:00:07.462 --> 00:00:13.000
+                Caption #2
+                '''
+                ).lstrip()
+            )
+        self.assertEqual(
+            pathlib.Path(self.vtt_file).read_text(),
+            self.CAPTIONS
+            )
+
+    def test_sync_fps(self):
+        self.assertEqual(
+            self.run_cli(['sync', self.vtt_file, '--fps', '25', '24']),
+            textwrap.dedent(
+                '''
+                WEBVTT
+
+                00:00:00.521 --> 00:00:01.042
+                Credits
+
+                00:00:01.563 --> 00:00:04.167
+                Caption #1
+
+                00:00:04.167 --> 00:00:07.292
+                Caption #2
+                '''
+                ).lstrip()
+            )
+
+    def test_sync_fps_ratio(self):
+        self.assertIn(
+            '00:00:04.171 --> 00:00:07.299\nCaption #2',
+            self.run_cli(['sync', self.vtt_file, '--fps', '25', '24000/1001'])
+            )
+
+    def test_sync_to_output_file(self):
+        output = os.path.join(self.temp_dir.name, 'synced.vtt')
+
+        self.assertEqual(
+            self.run_cli(['sync', self.vtt_file, '-p', '0', '0',
+                          '-p', '4', '8', '-o', output]),
+            ''
+            )
+        self.assertIn(
+            '00:00:03.000 --> 00:00:08.000\nCaption #1',
+            pathlib.Path(output).read_text()
+            )
+        self.assertEqual(
+            pathlib.Path(self.vtt_file).read_text(),
+            self.CAPTIONS
+            )
+
+    def test_sync_in_place(self):
+        self.run_cli(['sync', self.vtt_file, '--fps', '24', '24',
+                      '-o', self.vtt_file])
+
+        self.assertEqual(
+            pathlib.Path(self.vtt_file).read_text(),
+            self.CAPTIONS
+            )
+
+    def test_sync_invalid_arguments(self):
+        for argv, expected_message in (
+                (['-p', '1', '2'],
+                 'At least two sync points are required'),
+                (['-p', '1', '2', '-p', '1', '3'],
+                 'Two sync points have the same time 00:00:01.000'),
+                (['-p', '1', '5', '-p', '2', '4'],
+                 'Sync points must keep the order of the captions'),
+                (['-p', '1', '2', '-p', '-5', '3'],
+                 "argument -p/--point: invalid timestamp: '-5'"),
+                (['-p', '1', '2', '-p', 'x', '3'],
+                 "argument -p/--point: invalid timestamp: 'x'"),
+                (['-p', '1', '2', '-p', 'nan', '3'],
+                 "argument -p/--point: invalid timestamp: 'nan'"),
+                (['-p', '1'],
+                 'argument -p/--point: expected 2 arguments'),
+                (['--fps', '0', '25'],
+                 "argument --fps: invalid frame rate: '0'"),
+                (['--fps', '25', 'inf'],
+                 "argument --fps: invalid frame rate: 'inf'"),
+                (['--fps', '25', '1/0'],
+                 "argument --fps: invalid frame rate: '1/0'"),
+                (['--fps', '25', '-24'],
+                 "argument --fps: invalid frame rate: '-24'"),
+                (['-p', '1', '2', '-p', '3', '4', '--fps', '25', '24'],
+                 'argument --fps: not allowed with argument -p/--point'),
+                ([], 'one of the arguments -p/--point --fps is required')):
+            with self.subTest(argv=argv):
+                self.assert_usage_error(
+                    ['sync', self.vtt_file] + argv,
+                    expected_message
+                    )
+
+    def test_sync_missing_file(self):
+        vtt_file = os.path.join(self.temp_dir.name, 'missing.vtt')
+
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as cm:
+                main(['sync', vtt_file, '--fps', '25', '24'])
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(
+            stderr.getvalue(),
+            f'webvtt: error: {vtt_file}: {os.strerror(errno.ENOENT)}\n'
             )

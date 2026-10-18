@@ -1,7 +1,9 @@
 """Models module."""
 
+import bisect
 import datetime
 import decimal
+import fractions
 import math
 import re
 import typing
@@ -161,19 +163,6 @@ class Timestamp:
         """Return the timestamp in milliseconds."""
         return self.in_seconds() * 1000 + self.milliseconds
 
-    def _shifted(self, offset_ms: int) -> 'Timestamp':
-        """
-        Return a new `Timestamp` moved by a number of milliseconds.
-
-        A result before zero is clamped to ``00:00:00.000``.
-
-        :param offset_ms: the milliseconds to move the timestamp by
-        :returns: a `Timestamp` instance
-        """
-        return self._from_milliseconds(
-            max(self.in_milliseconds() + offset_ms, 0)
-            )
-
 
 def _in_milliseconds(value: typing.Union[float, datetime.timedelta]) -> int:
     """
@@ -205,12 +194,14 @@ def _in_milliseconds(value: typing.Union[float, datetime.timedelta]) -> int:
 
 
 def _offset_in_milliseconds(
-        offset: typing.Union[float, datetime.timedelta]
+        offset: typing.Union[float, datetime.timedelta],
+        name: str = 'offset'
         ) -> int:
     """
     Return a shift offset in milliseconds.
 
     :param offset: a number of seconds or a ``timedelta``
+    :param name: what the value is, for the error messages
     :returns: the offset rounded to the nearest millisecond, halves away
         from zero
 
@@ -221,12 +212,172 @@ def _offset_in_milliseconds(
         return _in_milliseconds(offset)
 
     if type(offset) is bool or not isinstance(offset, (int, float)):
-        raise TypeError(f'Invalid offset {offset!r}')
+        raise TypeError(f'Invalid {name} {offset!r}')
 
     if not math.isfinite(offset):
-        raise ValueError(f'Invalid offset {offset!r}')
+        raise ValueError(f'Invalid {name} {offset!r}')
 
     return _in_milliseconds(offset)
+
+
+_Position = typing.Union[str, Timestamp, float, datetime.timedelta]
+
+
+def _position_in_milliseconds(value: _Position) -> int:
+    """
+    Return a position in the captions in milliseconds.
+
+    :param value: a timestamp, as a string or a `Timestamp`, a number of
+        seconds or a ``timedelta``
+    :returns: the position rounded to the nearest millisecond, halves away
+        from zero
+
+    :raises MalformedCaptionError: if the timestamp string is not valid
+    :raises TypeError: if the value is not of a supported type
+    :raises ValueError: if the value is not finite or is before zero
+    """
+    if isinstance(value, str):
+        return Timestamp.from_string(value).in_milliseconds()
+
+    if isinstance(value, Timestamp):
+        return value.in_milliseconds()
+
+    milliseconds = _offset_in_milliseconds(value, name='timestamp')
+    if milliseconds < 0:
+        raise ValueError(f'Invalid timestamp {value!r}')
+
+    return milliseconds
+
+
+def _divide_rounded(numerator: int, denominator: int) -> int:
+    """
+    Divide two integers rounding to the nearest integer, halves away from zero.
+
+    :param numerator: the dividend
+    :param denominator: the divisor, greater than zero
+    :returns: the rounded quotient
+    """
+    quotient, remainder = divmod(abs(numerator), denominator)
+    quotient += 2 * remainder >= denominator
+    return quotient if numerator >= 0 else -quotient
+
+
+def _sync_mapping(
+        points: typing.Sequence[typing.Sequence[_Position]]
+        ) -> typing.Callable[[int], int]:
+    """
+    Return the function mapping times in milliseconds for sync points.
+
+    Times are mapped along the line between the two neighbouring points,
+    and before the first or after the last point along the line of the
+    outermost points.
+
+    :param points: two or more ``(from, to)`` pairs
+    :returns: the mapping of milliseconds to milliseconds
+
+    :raises MalformedCaptionError: if a timestamp string is not valid
+    :raises TypeError: if a point is not a pair of supported values
+    :raises ValueError: if there are fewer than two points, two points have
+        the same ``from`` time, or the points would change the order of the
+        captions
+    """
+    if len(points) < 2:
+        raise ValueError('At least two sync points are required')
+
+    pairs = sorted(_sync_point(point) for point in points)
+    for (from_1, to_1), (from_2, to_2) in zip(pairs, pairs[1:]):
+        if from_1 == from_2:
+            raise ValueError(
+                'Two sync points have the same time '
+                f'{Timestamp._from_milliseconds(from_1)}'
+                )
+        if to_1 >= to_2:
+            raise ValueError(
+                'Sync points must keep the order of the captions, '
+                f'{Timestamp._from_milliseconds(from_1)} is moved to '
+                f'{Timestamp._from_milliseconds(to_1)} but '
+                f'{Timestamp._from_milliseconds(from_2)} to '
+                f'{Timestamp._from_milliseconds(to_2)}'
+                )
+
+    from_times = [from_time for from_time, _ in pairs]
+
+    def mapping(milliseconds: int) -> int:
+        index = bisect.bisect_right(from_times, milliseconds) - 1
+        index = min(max(index, 0), len(pairs) - 2)
+        (from_1, to_1), (from_2, to_2) = pairs[index], pairs[index + 1]
+        return _divide_rounded(
+            to_1 * (from_2 - from_1) + (milliseconds - from_1) * (to_2 - to_1),
+            from_2 - from_1
+            )
+
+    return mapping
+
+
+def _sync_point(point: typing.Sequence[_Position]) -> typing.Tuple[int, int]:
+    """
+    Return a ``(from, to)`` sync point in milliseconds.
+
+    :param point: a pair of positions
+    :returns: the pair in milliseconds
+
+    :raises TypeError: if the point is not a pair
+    """
+    if not isinstance(point, (tuple, list)) or len(point) != 2:
+        raise TypeError(f'Invalid sync point {point!r}')
+
+    return (_position_in_milliseconds(point[0]),
+            _position_in_milliseconds(point[1]))
+
+
+_FrameRate = typing.Union[float, fractions.Fraction]
+
+
+def _framerate_mapping(
+        from_fps: _FrameRate,
+        to_fps: _FrameRate
+        ) -> typing.Callable[[int], int]:
+    """
+    Return the function mapping times in milliseconds between frame rates.
+
+    :param from_fps: the frame rate the captions are timed for
+    :param to_fps: the frame rate of the video
+    :returns: the mapping of milliseconds to milliseconds
+
+    :raises TypeError: if a frame rate is not a number
+    :raises ValueError: if a frame rate is not finite or not above zero
+    """
+    ratio = _frame_rate(from_fps) / _frame_rate(to_fps)
+    return lambda milliseconds: _divide_rounded(
+        milliseconds * ratio.numerator,
+        ratio.denominator
+        )
+
+
+def _frame_rate(value: _FrameRate) -> fractions.Fraction:
+    """
+    Return a frame rate as an exact fraction, as written.
+
+    :param value: the frame rate, e.g. ``25``, ``23.976`` or
+        ``Fraction(24000, 1001)``
+    :returns: the frame rate as a fraction
+
+    :raises TypeError: if the frame rate is not a number
+    :raises ValueError: if the frame rate is not finite or not above zero
+    """
+    if (
+            type(value) is bool or
+            not isinstance(value, (int, float, fractions.Fraction))
+            ):
+        raise TypeError(f'Invalid frame rate {value!r}')
+
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f'Invalid frame rate {value!r}')
+
+    if isinstance(value, float):
+        return fractions.Fraction(decimal.Decimal(float.__repr__(value)))
+
+    return fractions.Fraction(value)
 
 
 def _strip_cue_text_tags(line: str) -> str:
@@ -359,16 +510,24 @@ class Caption:
         :raises TypeError: if the offset is not a number or a ``timedelta``
         :raises ValueError: if the offset is not finite
         """
-        self._shift_milliseconds(_offset_in_milliseconds(offset))
+        offset_ms = _offset_in_milliseconds(offset)
+        self._retime(lambda milliseconds: milliseconds + offset_ms)
 
-    def _shift_milliseconds(self, offset_ms: int):
+    def _retime(self, mapping: typing.Callable[[int], int]):
         """
-        Shift the start and end time of the caption by milliseconds.
+        Change the start and end time of the caption with a mapping.
 
-        :param offset_ms: the milliseconds to shift the caption by
+        A time mapped before zero is set to ``00:00:00.000``.
+
+        :param mapping: the function mapping a time in milliseconds to the
+            new time in milliseconds
         """
-        self.start_time = self.start_time._shifted(offset_ms)
-        self.end_time = self.end_time._shifted(offset_ms)
+        self.start_time = Timestamp._from_milliseconds(
+            max(mapping(self.start_time.in_milliseconds()), 0)
+            )
+        self.end_time = Timestamp._from_milliseconds(
+            max(mapping(self.end_time.in_milliseconds()), 0)
+            )
 
     @property
     def raw_text(self) -> str:
