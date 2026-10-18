@@ -1,5 +1,6 @@
 """Utils module."""
 
+import re
 import typing
 import codecs
 
@@ -10,6 +11,26 @@ CODEC_BOMS = {
     'utf-16-le': codecs.BOM_UTF16_LE,
     'utf-16-be': codecs.BOM_UTF16_BE
 }
+
+# the line terminators of WebVTT, characters like U+2028 do not break lines
+LINE_TERMINATOR = re.compile(r'\r\n|\r|\n')
+
+
+def split_lines(text: str) -> typing.List[str]:
+    """
+    Split text into lines on CR, LF and CRLF.
+
+    Works like ``str.splitlines`` but only breaks lines on the WebVTT line
+    terminators, other characters like U+2028 or form feed stay in the line.
+
+    :param text: the text to split
+    :returns: the list of lines, without a final empty line when the text
+        ends with a line terminator
+    """
+    lines = LINE_TERMINATOR.split(text)
+    if not lines[-1]:
+        lines.pop()
+    return lines
 
 
 class FileWrapper:

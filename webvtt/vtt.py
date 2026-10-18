@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from .errors import MalformedFileError, MalformedCaptionError
 from .models import Caption, Style
+from .utils import split_lines
 
 TIMESTAMP = r'(?:\d+:)?\d{1,2}:\d{1,2}\.\d{1,3}'
 STRICT_TIMESTAMP = r'(?:\d{2,}:)?\d{2}:\d{2}\.\d{3}'
@@ -197,10 +198,10 @@ class WebVTTCommentBlock:
         :param lines: comment lines
         :returns: list of lines for a comment block
         """
-        list_of_lines = lines.split('\n')
+        list_of_lines = split_lines(lines) or ['']
 
         if len(list_of_lines) == 1:
-            return [f'NOTE {lines}']
+            return [f'NOTE {list_of_lines[0]}']
 
         return ['NOTE', *list_of_lines]
 

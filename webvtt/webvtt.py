@@ -3,7 +3,6 @@
 import datetime
 import os
 import io
-import re
 import typing
 import warnings
 from functools import partial
@@ -24,9 +23,6 @@ from .models import (
 from .errors import MissingFilenameError
 
 DEFAULT_ENCODING = 'utf-8'
-
-# the line terminators of WebVTT, characters like U+2028 do not break lines
-LINE_TERMINATOR = re.compile(r'\r\n|\r|\n')
 
 
 class WebVTT:
@@ -277,11 +273,8 @@ class WebVTT:
         """
         cleaned_lines: typing.List[str] = []
         for item in lines:
-            item_lines = LINE_TERMINATOR.split(item)
-            if len(item_lines) > 1 and not item_lines[-1]:
-                # drop the empty text after the terminator ending the item
-                item_lines.pop()
-            cleaned_lines.extend(item_lines)
+            # an empty item is an empty line
+            cleaned_lines.extend(utils.split_lines(item) or [''])
         if cleaned_lines and cleaned_lines[0].startswith('\ufeff'):
             cleaned_lines[0] = cleaned_lines[0][1:]
         return cleaned_lines
