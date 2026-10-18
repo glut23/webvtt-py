@@ -1230,7 +1230,7 @@ class TestRegion(unittest.TestCase):
 
     def test_invalid_values(self):
         invalid_values = {
-            'id': ('', 'a-->b'),
+            'id': ('',),
             'width': ('', '40', '101%', '-1%'),
             'lines': ('', '-1', '2.5', '+3', '\u0663'),
             'regionanchor': ('', '0%', '0%,', ',100%', '0%,100%,0%',
@@ -1246,6 +1246,17 @@ class TestRegion(unittest.TestCase):
                     self.assertIsNone(
                         getattr(Region.from_string(f'{name}:{value}'), name)
                         )
+
+    def test_set_value_with_arrow(self):
+        with self.assertRaises(MalformedCaptionError):
+            Region().id = 'a-->b'
+
+    def test_from_string_with_arrow(self):
+        for value in ('id:a-->b', 'id:fred -->', 'id:fred\n-->'):
+            with self.subTest(value=value):
+                with self.assertRaises(MalformedCaptionError) as cm:
+                    Region.from_string(value)
+                self.assertIn('Invalid region settings', str(cm.exception))
 
     def test_set_value_with_spaces(self):
         for value in ('fred bill', 'fred\nbill'):

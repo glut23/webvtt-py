@@ -1196,14 +1196,29 @@ class TestVTTModule(unittest.TestCase):
 
             REGION
             id:bill
-            ''').strip().split('\n'),
-            strict=True
+            ''').strip().split('\n')
             )
         self.assertListEqual(
             [region.id for region in output.regions],
             ['fred']
             )
         self.assertEqual(len(output.captions), 1)
+
+    def test_parse_strict_region_after_a_cue(self):
+        with self.assertRaises(MalformedCaptionError) as cm:
+            vtt.parse(
+                textwrap.dedent('''
+                WEBVTT
+
+                00:00:00.500 --> 00:00:04.300
+                Caption text #1
+
+                REGION
+                id:fred
+                ''').strip().split('\n'),
+                strict=True
+                )
+        self.assertIn('Region block after a cue', str(cm.exception))
 
     def test_parse_ignores_regions_after_a_malformed_cue(self):
         output = vtt.parse(

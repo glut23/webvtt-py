@@ -449,7 +449,8 @@ def parse_items(
 
     for block_lines in iter_blocks_of_lines(lines, strict):
         item = parse_item(block_lines, strict, seen_cue)
-        seen_cue |= _has_arrow(block_lines)
+        if not seen_cue:
+            seen_cue = _has_arrow(block_lines)
         if item:
             item.comments = [comment.text for comment in comments]
             comments = []
@@ -541,7 +542,7 @@ def parse_item(
     :raises MalformedCaptionError: if strict and a cue has an invalid
         timestamp or a cue setting that is not known, not valid or
         repeated, or a region has a region setting that is not known, not
-        valid or repeated
+        valid or repeated, or a region comes after a cue
     """
     if WebVTTCueBlock.is_valid(lines, strict):
         cue_block = WebVTTCueBlock.from_lines(lines)
@@ -557,8 +558,12 @@ def parse_item(
                 raise
             return None
 
-    if not seen_cue and WebVTTRegionBlock.is_valid(lines):
-        return Region.from_string(' '.join(lines[1:]), strict)
+    if WebVTTRegionBlock.is_valid(lines):
+        if not seen_cue:
+            return Region.from_string(' '.join(lines[1:]), strict)
+        if strict:
+            raise MalformedCaptionError(f'Region block after a cue {lines!r}')
+        return None
 
     if WebVTTStyleBlock.is_valid(lines):
         return Style(WebVTTStyleBlock.from_lines(lines).text)

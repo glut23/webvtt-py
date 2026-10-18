@@ -598,7 +598,8 @@ The supported settings are ``id``, ``width``, ``lines``, ``regionanchor``,
 that is not valid raises ``MalformedCaptionError``, and the settings are
 saved as they were read, including the ones that are not valid or not
 known, with a setting per line. ``REGION`` blocks after the first cue are
-not regions as per the WebVTT specification and are ignored. When
+not regions as per the WebVTT specification and are ignored, or raise
+``MalformedCaptionError`` with strict parsing. When
 converting to SRT or SBV, the regions are not included.
 
 Removing or renaming a region does not update the captions that use it.

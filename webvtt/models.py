@@ -670,6 +670,21 @@ class CueSettings(_Settings):
         self.align = align
         self.region = region
 
+    @classmethod
+    def from_string(cls, value: str, strict: bool = False) -> 'CueSettings':
+        """
+        Return a `CueSettings` instance from the settings of a cue.
+
+        :param value: the cue settings, e.g. ``line:0 align:start``
+        :param strict: raise an error on settings that are not known, not
+            valid or repeated instead of keeping them
+        :returns: a `CueSettings` instance
+
+        :raises MalformedCaptionError: if the value is not a string, or if
+            strict and a setting is not known, not valid or repeated
+        """
+        return super().from_string(value, strict)
+
     vertical = _setting_property(
         'vertical',
         'Writing direction, ``rl`` or ``lr``.'
@@ -970,6 +985,25 @@ class Region(_Settings):
         self.viewportanchor = viewportanchor
         self.scroll = scroll
         self.comments: typing.List[str] = []
+
+    @classmethod
+    def from_string(cls, value: str, strict: bool = False) -> 'Region':
+        """
+        Return a `Region` instance from the settings of a region block.
+
+        :param value: the region settings separated by spaces or line
+            breaks, e.g. ``id:fred width:40%``
+        :param strict: raise an error on settings that are not known, not
+            valid or repeated instead of keeping them
+        :returns: a `Region` instance
+
+        :raises MalformedCaptionError: if the value is not a string or
+            contains ``-->``, which cannot be in a region block, or if strict
+            and a setting is not known, not valid or repeated
+        """
+        if type(value) is str and '-->' in value:
+            raise MalformedCaptionError(f'Invalid region settings {value!r}')
+        return super().from_string(value, strict)
 
     id = _setting_property('id', 'Identifier of the region.')
     width = _setting_property(
