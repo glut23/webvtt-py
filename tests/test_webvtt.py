@@ -1,4 +1,5 @@
 import datetime
+import fractions
 import unittest
 import os
 import io
@@ -887,6 +888,20 @@ class TestWebVTT(unittest.TestCase):
         self.assertEqual(self.timings(vtt),
                          [('00:00:00.002', '00:00:00.005')])
 
+    def test_sync_rounds_times_before_the_first_point(self):
+        vtt = webvtt.from_string(textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.009 --> 00:00:00.011
+            Caption
+            ''').strip())
+
+        # 9 ms is mapped to 8.5 ms and 11 ms to 11.5 ms
+        vtt.sync((0.010, 0.010), (0.012, 0.013))
+
+        self.assertEqual(self.timings(vtt),
+                         [('00:00:00.009', '00:00:00.012')])
+
     def test_sync_invalid_points(self):
         for points, error in (
                 ((), ValueError),
@@ -939,6 +954,24 @@ class TestWebVTT(unittest.TestCase):
              ('00:01:35.904', '00:01:36.863')]
             )
 
+    def test_change_framerate_exact(self):
+        captions = textwrap.dedent('''
+            WEBVTT
+
+            01:30:00.000 --> 01:30:01.000
+            Caption
+            ''').strip()
+
+        vtt = webvtt.from_string(captions)
+        vtt.change_framerate(25, fractions.Fraction(24000, 1001))
+        self.assertEqual(self.timings(vtt),
+                         [('01:33:50.625', '01:33:51.668')])
+
+        vtt = webvtt.from_string(captions)
+        vtt.change_framerate(25, 23.976)
+        self.assertEqual(self.timings(vtt),
+                         [('01:33:50.631', '01:33:51.673')])
+
     def test_change_framerate_same(self):
         vtt = webvtt.from_string(self.SYNC_CAPTIONS)
         before = self.timings(vtt)
@@ -950,6 +983,8 @@ class TestWebVTT(unittest.TestCase):
     def test_change_framerate_invalid(self):
         for fps, error in ((0, ValueError),
                            (-25, ValueError),
+                           (fractions.Fraction(0), ValueError),
+                           (fractions.Fraction(-24000, 1001), ValueError),
                            (float('nan'), ValueError),
                            (float('inf'), ValueError),
                            ('25', TypeError),

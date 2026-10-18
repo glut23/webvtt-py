@@ -117,8 +117,10 @@ Sync options
 
 ``--fps FROM TO``
     Change the timing from the frame rate ``FROM`` the captions are timed
-    for to the frame rate ``TO`` of the video, such as ``25 23.976``. Times
-    are multiplied by ``FROM / TO``. Cannot be used with ``-p``.
+    for to the frame rate ``TO`` of the video, such as ``25 23.976``. A frame
+    rate can also be a ratio, such as ``24000/1001`` for the exact NTSC
+    rate. Times are multiplied by ``FROM / TO``. Cannot be used with
+    ``-p``.
 
 ``-o OUTPUT``, ``--output OUTPUT``
     File where the synchronized captions are written, as with ``shift``.

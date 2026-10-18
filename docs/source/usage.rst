@@ -256,6 +256,10 @@ the captions is moved to ``to``:
     # captions timed for a 25 fps video played with a 23.976 fps one
     vtt.change_framerate(25, 23.976)
 
+    # exact frame rates, like the NTSC 24000/1001, can be given as fractions
+    from fractions import Fraction
+    vtt.change_framerate(25, Fraction(24000, 1001))
+
     vtt.save()
 
 The times of the points can be timestamp strings, ``Timestamp`` objects,

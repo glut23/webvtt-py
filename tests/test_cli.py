@@ -572,6 +572,12 @@ class CLISyncTestCase(CLICommandTestCase):
                 ).lstrip()
             )
 
+    def test_sync_fps_ratio(self):
+        self.assertIn(
+            '00:00:04.171 --> 00:00:07.299\nCaption #2',
+            self.run_cli(['sync', self.vtt_file, '--fps', '25', '24000/1001'])
+            )
+
     def test_sync_to_output_file(self):
         output = os.path.join(self.temp_dir.name, 'synced.vtt')
 
@@ -607,7 +613,7 @@ class CLISyncTestCase(CLICommandTestCase):
                 (['-p', '1', '5', '-p', '2', '4'],
                  'Sync points must keep the order of the captions'),
                 (['-p', '1', '2', '-p', '-5', '3'],
-                 'Invalid timestamp -5.0'),
+                 "argument -p/--point: invalid timestamp: '-5'"),
                 (['-p', '1', '2', '-p', 'x', '3'],
                  "argument -p/--point: invalid timestamp: 'x'"),
                 (['-p', '1', '2', '-p', 'nan', '3'],
@@ -618,6 +624,10 @@ class CLISyncTestCase(CLICommandTestCase):
                  "argument --fps: invalid frame rate: '0'"),
                 (['--fps', '25', 'inf'],
                  "argument --fps: invalid frame rate: 'inf'"),
+                (['--fps', '25', '1/0'],
+                 "argument --fps: invalid frame rate: '1/0'"),
+                (['--fps', '25', '-24'],
+                 "argument --fps: invalid frame rate: '-24'"),
                 (['-p', '1', '2', '-p', '3', '4', '--fps', '25', '24'],
                  'argument --fps: not allowed with argument -p/--point'),
                 ([], 'one of the arguments -p/--point --fps is required')):

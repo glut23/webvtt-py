@@ -14,6 +14,7 @@ from .models import (
     Caption,
     Style,
     Timestamp,
+    _FrameRate,
     _Position,
     _offset_in_milliseconds,
     _sync_mapping,
@@ -420,8 +421,11 @@ class WebVTT:
         """
         offset_ms = _offset_in_milliseconds(offset)
 
+        def mapping(milliseconds: int) -> int:
+            return milliseconds + offset_ms
+
         for caption in self.iter_slice(start=start):
-            caption._retime(lambda milliseconds: milliseconds + offset_ms)
+            caption._retime(mapping)
 
     def sync(self, *points: typing.Sequence[_Position]):
         """
@@ -450,7 +454,7 @@ class WebVTT:
         for caption in self.captions:
             caption._retime(mapping)
 
-    def change_framerate(self, from_fps: float, to_fps: float):
+    def change_framerate(self, from_fps: _FrameRate, to_fps: _FrameRate):
         """
         Change the timing of the captions from one frame rate to another.
 
@@ -458,10 +462,14 @@ class WebVTT:
         frame rate, e.g. ``change_framerate(25, 23.976)`` for captions of a
         25 fps video played with a 23.976 fps one. Times are multiplied by
         ``from_fps / to_fps`` and rounded to the nearest millisecond, halves
-        away from zero.
+        away from zero. Frame rates are read as written, and exact rates
+        such as ``Fraction(24000, 1001)`` for NTSC can be given as a
+        ``fractions.Fraction``.
 
-        :param from_fps: the frame rate the captions are timed for
-        :param to_fps: the frame rate of the video
+        :param from_fps: the frame rate the captions are timed for, a number
+            or a ``fractions.Fraction``
+        :param to_fps: the frame rate of the video, a number or a
+            ``fractions.Fraction``
 
         :raises TypeError: if a frame rate is not a number
         :raises ValueError: if a frame rate is not finite or not above zero

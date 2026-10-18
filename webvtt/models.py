@@ -306,8 +306,8 @@ def _sync_mapping(
         index = bisect.bisect_right(from_times, milliseconds) - 1
         index = min(max(index, 0), len(pairs) - 2)
         (from_1, to_1), (from_2, to_2) = pairs[index], pairs[index + 1]
-        return to_1 + _divide_rounded(
-            (milliseconds - from_1) * (to_2 - to_1),
+        return _divide_rounded(
+            to_1 * (from_2 - from_1) + (milliseconds - from_1) * (to_2 - to_1),
             from_2 - from_1
             )
 
@@ -330,9 +330,12 @@ def _sync_point(point: typing.Sequence[_Position]) -> typing.Tuple[int, int]:
             _position_in_milliseconds(point[1]))
 
 
+_FrameRate = typing.Union[float, fractions.Fraction]
+
+
 def _framerate_mapping(
-        from_fps: float,
-        to_fps: float
+        from_fps: _FrameRate,
+        to_fps: _FrameRate
         ) -> typing.Callable[[int], int]:
     """
     Return the function mapping times in milliseconds between frame rates.
@@ -351,17 +354,21 @@ def _framerate_mapping(
         )
 
 
-def _frame_rate(value: float) -> fractions.Fraction:
+def _frame_rate(value: _FrameRate) -> fractions.Fraction:
     """
     Return a frame rate as an exact fraction, as written.
 
-    :param value: the frame rate, e.g. ``25`` or ``23.976``
+    :param value: the frame rate, e.g. ``25``, ``23.976`` or
+        ``Fraction(24000, 1001)``
     :returns: the frame rate as a fraction
 
     :raises TypeError: if the frame rate is not a number
     :raises ValueError: if the frame rate is not finite or not above zero
     """
-    if type(value) is bool or not isinstance(value, (int, float)):
+    if (
+            type(value) is bool or
+            not isinstance(value, (int, float, fractions.Fraction))
+            ):
         raise TypeError(f'Invalid frame rate {value!r}')
 
     if not math.isfinite(value) or value <= 0:

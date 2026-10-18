@@ -1,6 +1,7 @@
 """CLI module."""
 
 import argparse
+import fractions
 import math
 import os
 import sys
@@ -142,7 +143,7 @@ def main(argv: typing.Optional[typing.Sequence] = None):
         nargs=2,
         type=_fps,
         help=('change the timing from the frame rate FROM to TO, '
-              'e.g. 25 23.976')
+              'e.g. 25 23.976 or 25 24000/1001')
         )
     sync_command.add_argument(
         '-o', '--output',
@@ -259,16 +260,25 @@ def _position(value: str) -> typing.Union[str, float]:
     except argparse.ArgumentTypeError:
         seconds = _number(value)
 
-    if not math.isfinite(seconds):
+    if not math.isfinite(seconds) or seconds < 0:
         raise argparse.ArgumentTypeError(f'invalid timestamp: {value!r}')
 
     return seconds
 
 
-def _fps(value: str) -> float:
-    """Return the frame rate of a command line argument."""
-    fps = _number(value)
-    if not math.isfinite(fps) or fps <= 0:
+def _fps(value: str) -> fractions.Fraction:
+    """
+    Return the frame rate of a command line argument.
+
+    The frame rate is read exactly as written, as a number such as
+    ``23.976`` or a ratio such as ``24000/1001``.
+    """
+    try:
+        fps = fractions.Fraction(value)
+    except (ValueError, ZeroDivisionError):
+        fps = fractions.Fraction(0)
+
+    if fps <= 0:
         raise argparse.ArgumentTypeError(f'invalid frame rate: {value!r}')
 
     return fps

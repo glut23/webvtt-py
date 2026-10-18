@@ -143,8 +143,10 @@ two or more times, in any order. Two points cannot have the same
 .TP
 .B \fB\-\-fps FROM TO\fP
 Change the timing from the frame rate \fBFROM\fP the captions are timed
-for to the frame rate \fBTO\fP of the video, such as \fB25 23.976\fP\&. Times
-are multiplied by \fBFROM / TO\fP\&. Cannot be used with \fB\-p\fP\&.
+for to the frame rate \fBTO\fP of the video, such as \fB25 23.976\fP\&. A frame
+rate can also be a ratio, such as \fB24000/1001\fP for the exact NTSC
+rate. Times are multiplied by \fBFROM / TO\fP\&. Cannot be used with
+\fB\-p\fP\&.
 .TP
 .B \fB\-o OUTPUT\fP, \fB\-\-output OUTPUT\fP
 File where the synchronized captions are written, as with \fBshift\fP\&.
