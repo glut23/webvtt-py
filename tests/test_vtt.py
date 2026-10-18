@@ -850,3 +850,152 @@ class TestVTTModule(unittest.TestCase):
             ])
         self.assertEqual(len(output.styles), 1)
         self.assertIn('peachpuff', output.styles[0].text)
+
+    def test_parse_header(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT - Sample title
+            X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:126000
+            Kind: captions
+
+            NOTE header comment
+
+            00:00:00.500 --> 00:00:07.000
+            Caption text #1
+            ''').strip().split('\n')
+            )
+        self.assertEqual(output.header_text, '- Sample title')
+        self.assertListEqual(
+            output.metadata,
+            ['X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:126000',
+             'Kind: captions'
+             ]
+            )
+        self.assertListEqual(output.header_comments, ['header comment'])
+        self.assertEqual(len(output.captions), 1)
+
+    def test_parse_no_header(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.500 --> 00:00:07.000
+            Caption text #1
+            ''').strip().split('\n')
+            )
+        self.assertEqual(output.header_text, '')
+        self.assertListEqual(output.metadata, [])
+
+    def test_parse_header_text_separated_by_tab(self):
+        output = vtt.parse(['WEBVTT\t Sample title'])
+        self.assertEqual(output.header_text, ' Sample title')
+
+    def test_parse_metadata_followed_by_cue(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+            X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:126000
+            00:00:00.500 --> 00:00:07.000
+            Caption text #1
+            ''').strip().split('\n'),
+            strict=True
+            )
+        self.assertListEqual(
+            output.metadata,
+            ['X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:126000']
+            )
+        self.assertEqual(len(output.captions), 1)
+
+    def test_write_header(self):
+        out = io.StringIO()
+        captions = [
+            Caption(start='00:00:00.500',
+                    end='00:00:07.000',
+                    text='Caption #1'
+                    )
+            ]
+
+        vtt.write(
+            out,
+            captions,
+            [],
+            ['header comment'],
+            [],
+            '- Sample title',
+            ['X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:126000',
+             'Kind: captions'
+             ]
+            )
+
+        out.seek(0)
+
+        self.assertEqual(
+            out.read(),
+            textwrap.dedent('''
+                WEBVTT - Sample title
+                X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:126000
+                Kind: captions
+
+                NOTE header comment
+
+                00:00:00.500 --> 00:00:07.000
+                Caption #1
+            ''').lstrip()
+            )
+
+    def test_to_str_header_round_trip(self):
+        lines = textwrap.dedent('''
+            WEBVTT\tSample title
+            X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:126000
+              indented line
+
+            00:00:00.500 --> 00:00:07.000
+            Caption text #1
+            ''').lstrip().split('\n')
+        output = vtt.parse(lines)
+
+        content = vtt.to_str(
+            output.captions,
+            output.styles,
+            output.header_comments,
+            output.footer_comments,
+            output.header_text,
+            output.metadata
+            )
+
+        self.assertEqual(content, '\n'.join(lines).replace('\t', ' '))
+        self.assertEqual(vtt.parse(content.split('\n')), output)
+
+    def test_to_str_invalid_header_text(self):
+        for header_text in ('title\nmore', 'title\r', 'title\r\nmore'):
+            with self.subTest(header_text=header_text):
+                with self.assertRaises(ValueError):
+                    vtt.to_str([], [], [], [], header_text)
+
+    def test_to_str_header_with_other_unicode_line_separators(self):
+        content = vtt.to_str(
+            [], [], [], [], 'title\u2028more', ['Kind: a\x0cb', 'Lang\x85en']
+            )
+        self.assertEqual(
+            content,
+            'WEBVTT title\u2028more\nKind: a\x0cb\nLang\x85en\n'
+            )
+
+    def test_parse_items_without_header(self):
+        output = vtt.parse_items(['00:00:00.500 --> 00:00:07.000',
+                                  'Caption text #1'
+                                  ])
+        self.assertEqual(output.header_text, '')
+        self.assertListEqual(output.metadata, [])
+        self.assertEqual(len(output.captions), 1)
+
+    def test_to_str_invalid_metadata(self):
+        for line in ('',
+                     'Kind: captions\nLanguage: en',
+                     'Language: en\r',
+                     'X-TIMESTAMP-MAP --> 0',
+                     ):
+            with self.subTest(line=line):
+                with self.assertRaises(ValueError) as cm:
+                    vtt.to_str([], [], [], [], '', ['Kind: captions', line])
+                self.assertIn(repr(line), str(cm.exception))

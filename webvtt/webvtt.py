@@ -46,6 +46,8 @@ class WebVTT:
             styles: typing.Optional[typing.List[Style]] = None,
             header_comments: typing.Optional[typing.List[str]] = None,
             footer_comments: typing.Optional[typing.List[str]] = None,
+            header_text: typing.Optional[str] = None,
+            metadata: typing.Optional[typing.List[str]] = None,
             ):
         """
         Initialize.
@@ -55,12 +57,17 @@ class WebVTT:
         :param styles: the list of styles
         :param header_comments: list of comments for the start of the file
         :param footer_comments: list of comments for the bottom of the file
+        :param header_text: the text following "WEBVTT" in the first line
+        :param metadata: list of metadata lines following the "WEBVTT"
+            line, e.g. ``X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:0``
         """
         self.file = file
         self.captions = captions or []
         self.styles = styles or []
         self.header_comments = header_comments or []
         self.footer_comments = footer_comments or []
+        self.header_text = header_text or ''
+        self.metadata = metadata or []
         self._has_bom = False
         self.encoding = DEFAULT_ENCODING
 
@@ -167,7 +174,9 @@ class WebVTT:
                 captions=output.captions,
                 styles=output.styles,
                 header_comments=output.header_comments,
-                footer_comments=output.footer_comments
+                footer_comments=output.footer_comments,
+                header_text=output.header_text,
+                metadata=output.metadata
                 )
 
         if format == 'srt':
@@ -245,7 +254,9 @@ class WebVTT:
             captions=output.captions,
             styles=output.styles,
             header_comments=output.header_comments,
-            footer_comments=output.footer_comments
+            footer_comments=output.footer_comments,
+            header_text=output.header_text,
+            metadata=output.metadata
         )
 
     @staticmethod
@@ -315,8 +326,12 @@ class WebVTT:
         :param add_bom: save the file with Byte Order Mark
 
         :raises MissingFilenameError: if output cannot be determined
+        :raises ValueError: if the header text or metadata are not valid
         """
-        self.file = self._get_destination_file(output)
+        destination = self._get_destination_file(output)
+        # build the content first so an invalid header leaves no file behind
+        content = self.content
+        self.file = destination
         encoding = encoding or self.encoding
 
         if add_bom is None and self._has_bom:
@@ -326,13 +341,7 @@ class WebVTT:
             if add_bom and encoding in utils.CODEC_BOMS:
                 f.write(utils.CODEC_BOMS[encoding].decode(encoding))
 
-            vtt.write(
-                f,
-                self.captions,
-                self.styles,
-                self.header_comments,
-                self.footer_comments
-                )
+            f.write(content)
 
     def save_as_srt(
             self,
@@ -362,14 +371,17 @@ class WebVTT:
         :param f: destination file-like object
         :param format: the format to use (`vtt` or `srt`)
 
-        :raises ValueError: if the format is not supported
+        :raises ValueError: if the format is not supported, or the header
+            text or metadata are not valid
         """
         if format == 'vtt':
             return vtt.write(f,
                              self.captions,
                              self.styles,
                              self.header_comments,
-                             self.footer_comments
+                             self.footer_comments,
+                             self.header_text,
+                             self.metadata
                              )
         if format == 'srt':
             return srt.write(f, self.captions)
@@ -496,10 +508,14 @@ class WebVTT:
 
         This property is useful in cases where the webvtt content is needed
         but no file-like destination is required. Storage in DB for instance.
+
+        :raises ValueError: if the header text or metadata are not valid
         """
         return vtt.to_str(
             self.captions,
             self.styles,
             self.header_comments,
-            self.footer_comments
+            self.footer_comments,
+            self.header_text,
+            self.metadata
             )

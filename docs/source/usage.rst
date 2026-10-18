@@ -504,6 +504,42 @@ Updating styles:
     vtt.styles[0].lines[1] = '  color: papayawhip;'
 
 
+WebVTT header
+-------------
+
+The text following ``WEBVTT`` in the first line and the metadata lines
+after it, such as the ``X-TIMESTAMP-MAP`` used by HLS, are kept when
+reading and written back when saving:
+
+.. code-block:: text
+
+    WEBVTT - Sample title
+    X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:126000
+    Kind: captions
+
+    00:00:00.500 --> 00:00:07.000
+    Caption text #1
+
+.. code-block:: python
+
+    import webvtt
+
+    vtt = webvtt.read('captions.vtt')
+
+    print(vtt.header_text)
+    # - Sample title
+
+    print(vtt.metadata)
+    # ['X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:126000', 'Kind: captions']
+
+    vtt.metadata.append('Language: en')
+
+Metadata lines are kept as they are, in order. Shifting or synchronizing the
+captions does not change them, so ``X-TIMESTAMP-MAP`` keeps mapping the file
+to the same media time. Saving, writing or getting the ``content`` raises
+``ValueError`` if the header text has a line break, or if a metadata line is
+empty, has a line break or contains ``-->``, since that would break the file.
+
 WebVTT Comments
 ---------------
 
