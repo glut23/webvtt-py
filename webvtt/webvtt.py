@@ -3,6 +3,7 @@
 import datetime
 import os
 import io
+import re
 import typing
 import warnings
 from functools import partial
@@ -23,6 +24,9 @@ from .models import (
 from .errors import MissingFilenameError
 
 DEFAULT_ENCODING = 'utf-8'
+
+# the line terminators of WebVTT, characters like U+2028 do not break lines
+LINE_TERMINATOR = re.compile(r'\r\n|\r|\n')
 
 
 class WebVTT:
@@ -240,7 +244,7 @@ class WebVTT:
         :raises MalformedCaptionError: if a caption has an invalid timestamp,
             or if strict and a cue block is malformed
         """
-        output = vtt.parse(cls._get_lines(string.splitlines()), strict)
+        output = vtt.parse(cls._get_lines([string]), strict)
         return cls(
             captions=output.captions,
             styles=output.styles,
@@ -253,10 +257,20 @@ class WebVTT:
         """
         Return cleaned lines from an iterable of lines.
 
+        Each item is split on CR, LF and CRLF, so an item holding several
+        lines, like CR terminated lines read from a buffer that only splits
+        on LF, is also handled.
+
         :param lines: iterable of lines
         :returns: a list of cleaned lines
         """
-        cleaned_lines = [line.rstrip('\n\r') for line in lines]
+        cleaned_lines: typing.List[str] = []
+        for item in lines:
+            item_lines = LINE_TERMINATOR.split(item)
+            if len(item_lines) > 1 and not item_lines[-1]:
+                # drop the empty text after the terminator ending the item
+                item_lines.pop()
+            cleaned_lines.extend(item_lines)
         if cleaned_lines and cleaned_lines[0].startswith('\ufeff'):
             cleaned_lines[0] = cleaned_lines[0][1:]
         return cleaned_lines
