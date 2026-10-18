@@ -1,5 +1,6 @@
 """Models module."""
 
+import math
 import re
 import typing
 
@@ -99,12 +100,49 @@ class Timestamp:
 
         return cls(hours, minutes, seconds, milliseconds)
 
+    @classmethod
+    def from_seconds(cls, value: float) -> 'Timestamp':
+        """
+        Return a `Timestamp` instance from a number of seconds.
+
+        The value is rounded to the nearest millisecond, so ``1.9996`` is
+        read as ``00:00:02.000``.
+
+        :param value: the timestamp in seconds
+        :returns: a `Timestamp` instance
+
+        :raises MalformedCaptionError: if the value is not a finite number
+            of seconds greater than or equal to zero
+        """
+        if (
+                type(value) is bool or
+                not isinstance(value, (int, float)) or
+                not math.isfinite(value) or
+                value < 0
+                ):
+            raise MalformedCaptionError(f'Invalid timestamp {value!r}')
+
+        hours, remainder = divmod(round(value * 1000), 3_600_000)
+        minutes, remainder = divmod(remainder, 60_000)
+        seconds, milliseconds = divmod(remainder, 1000)
+
+        return cls(hours, minutes, seconds, milliseconds)
+
     def in_seconds(self) -> int:
-        """Return the timestamp in seconds."""
+        """
+        Return the timestamp in seconds.
+
+        The milliseconds are left out, use `in_milliseconds` for the exact
+        value.
+        """
         return (self.hours * 3600 +
                 self.minutes * 60 +
                 self.seconds
                 )
+
+    def in_milliseconds(self) -> int:
+        """Return the timestamp in milliseconds."""
+        return self.in_seconds() * 1000 + self.milliseconds
 
 
 def _strip_cue_text_tags(line: str) -> str:
