@@ -35,7 +35,8 @@ captions are kept in sync with the video stream.
 .. _`HTTP Live Streaming`: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis
 
 ``shift`` moves the captions in ``PATH`` earlier or later by ``OFFSET``
-seconds. The offset is rounded to the nearest millisecond and a timestamp
+seconds. The offset is rounded to the nearest millisecond as written, with
+halves rounded away from zero, so ``1.0005`` is 1001 milliseconds. A timestamp
 that would fall before zero is set to ``00:00:00.000``, so a caption moved
 entirely before the start is kept with ``00:00:00.000 --> 00:00:00.000``
 timings. The shifted captions are written to standard output in UTF-8, or to

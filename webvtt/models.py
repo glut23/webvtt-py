@@ -1,6 +1,7 @@
 """Models module."""
 
 import datetime
+import fractions
 import math
 import re
 import typing
@@ -106,8 +107,8 @@ class Timestamp:
         """
         Return a `Timestamp` instance from a number of seconds.
 
-        The value is rounded to the nearest millisecond, so ``1.9996`` is
-        read as ``00:00:02.000``.
+        The value is rounded to the nearest millisecond with halves rounded
+        up, so ``1.9996`` and ``1.9995`` are read as ``00:00:02.000``.
 
         :param value: the timestamp in seconds
         :returns: a `Timestamp` instance
@@ -123,7 +124,7 @@ class Timestamp:
                 ):
             raise MalformedCaptionError(f'Invalid timestamp {value!r}')
 
-        return cls._from_milliseconds(round(value * 1000))
+        return cls._from_milliseconds(_round_half_away_from_zero(value * 1000))
 
     @classmethod
     def _from_milliseconds(cls, value: int) -> 'Timestamp':
@@ -169,6 +170,24 @@ class Timestamp:
             )
 
 
+def _round_half_away_from_zero(
+        value: typing.Union[float, fractions.Fraction]
+        ) -> int:
+    """
+    Round a number to the nearest integer, halves away from zero.
+
+    Unlike ``round``, which rounds halves to the even integer, ``0.5`` is
+    rounded to ``1`` and ``-0.5`` to ``-1``.
+
+    :param value: the number to round
+    :returns: the rounded number
+    """
+    magnitude = abs(fractions.Fraction(value))
+    integer = math.floor(magnitude)
+    rounded = integer + (magnitude - integer >= fractions.Fraction(1, 2))
+    return -rounded if value < 0 else rounded
+
+
 def _offset_in_milliseconds(
         offset: typing.Union[float, datetime.timedelta]
         ) -> int:
@@ -176,13 +195,17 @@ def _offset_in_milliseconds(
     Return a shift offset in milliseconds.
 
     :param offset: a number of seconds or a ``timedelta``
-    :returns: the offset rounded to the nearest millisecond
+    :returns: the offset rounded to the nearest millisecond, halves away
+        from zero
 
     :raises TypeError: if the offset is not a number or a ``timedelta``
     :raises ValueError: if the offset is not finite
     """
     if isinstance(offset, datetime.timedelta):
-        return round(offset.total_seconds() * 1000)
+        return _round_half_away_from_zero(
+            fractions.Fraction(offset // datetime.timedelta(microseconds=1),
+                               1000)
+            )
 
     if type(offset) is bool or not isinstance(offset, (int, float)):
         raise TypeError(f'Invalid offset {offset!r}')
@@ -190,7 +213,7 @@ def _offset_in_milliseconds(
     if not math.isfinite(offset):
         raise ValueError(f'Invalid offset {offset!r}')
 
-    return round(offset * 1000)
+    return _round_half_away_from_zero(offset * 1000)
 
 
 def _strip_cue_text_tags(line: str) -> str:
@@ -313,8 +336,9 @@ class Caption:
         """
         Shift the start and end time of the caption.
 
-        The offset is rounded to the nearest millisecond and a timestamp
-        that would fall before zero is set to ``00:00:00.000``.
+        The offset is rounded to the nearest millisecond, halves away from
+        zero, and a timestamp that would fall before zero is set to
+        ``00:00:00.000``.
 
         :param offset: a number of seconds or a ``timedelta``, negative
             values move the caption earlier

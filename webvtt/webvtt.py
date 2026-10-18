@@ -397,8 +397,9 @@ class WebVTT:
         """
         Shift the start and end time of the captions.
 
-        The offset is rounded to the nearest millisecond and a timestamp
-        that would fall before zero is set to ``00:00:00.000``.
+        The offset is rounded to the nearest millisecond, halves away from
+        zero, and a timestamp that would fall before zero is set to
+        ``00:00:00.000``.
 
         :param offset: a number of seconds or a ``timedelta``, negative
             values move the captions earlier

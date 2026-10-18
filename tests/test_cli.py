@@ -368,6 +368,19 @@ class CLIShiftTestCase(unittest.TestCase):
                 ).lstrip()
             )
 
+    def test_shift_rounds_offset_as_written(self):
+        for offset, expected in (('1.0005', '00:00:01.501 --> 00:00:02.001'),
+                                 ('-0.0005', '00:00:00.499 --> 00:00:00.999'),
+                                 ('0.0025', '00:00:00.503 --> 00:00:01.003'),
+                                 ('0.0004999',
+                                  '00:00:00.500 --> 00:00:01.000'),
+                                 ('2e-3', '00:00:00.502 --> 00:00:01.002')):
+            with self.subTest(offset=offset):
+                self.assertIn(
+                    expected,
+                    self.run_cli(['shift', self.vtt_file, offset])
+                    )
+
     def test_shift_to_output_file(self):
         output = os.path.join(self.temp_dir.name, 'shifted.vtt')
 
@@ -459,7 +472,7 @@ class CLIShiftTestCase(unittest.TestCase):
         self.assertEqual(stderr.getvalue(), '')
 
     def test_shift_invalid_offset(self):
-        for value in ('abc', 'nan', 'inf', '1e400', ''):
+        for value in ('abc', 'nan', 'sNaN', 'inf', '1e400', '1e15', ''):
             with self.subTest(value=value):
                 self.assert_usage_error(
                     ['shift', self.vtt_file, value],

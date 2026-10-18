@@ -1,7 +1,8 @@
 """CLI module."""
 
 import argparse
-import math
+import datetime
+import decimal
 import os
 import sys
 import typing
@@ -72,8 +73,9 @@ def main(argv: typing.Optional[typing.Sequence] = None):
         help='shift the timestamps of a WebVTT file',
         description='Shift the timestamps of the captions in a WebVTT file.',
         epilog=(
-            'The offset is rounded to the nearest millisecond and a '
-            'timestamp that would fall before zero is set to 00:00:00.000. '
+            'The offset is rounded to the nearest millisecond, halves away '
+            'from zero, and a timestamp that would fall before zero is set '
+            'to 00:00:00.000. '
             'The captions are written to standard output unless an output '
             'file is given.'
             )
@@ -162,17 +164,25 @@ def _write_stdout(content: str):
         sys.exit(1)
 
 
-def _offset(value: str) -> float:
-    """Return the offset in seconds of a command line argument."""
+def _offset(value: str) -> datetime.timedelta:
+    """
+    Return the offset of a command line argument in seconds.
+
+    The value is read as a decimal number, so it is rounded to the nearest
+    millisecond exactly as written, e.g. ``1.0005`` is 1001 milliseconds.
+    """
     try:
-        offset = float(value)
-    except ValueError:
-        offset = math.nan
+        offset = decimal.Decimal(value)
+        if not offset.is_finite():
+            raise ValueError
 
-    if not math.isfinite(offset):
+        milliseconds = offset.quantize(
+            decimal.Decimal('0.001'),
+            rounding=decimal.ROUND_HALF_UP
+            ).scaleb(3)
+        return datetime.timedelta(milliseconds=int(milliseconds))
+    except (ArithmeticError, ValueError):
         raise argparse.ArgumentTypeError(f'invalid offset: {value!r}')
-
-    return offset
 
 
 def _timestamp(value: str) -> str:

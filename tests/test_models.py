@@ -185,6 +185,16 @@ class TestTimestamp(unittest.TestCase):
             '01:00:00.000'
             )
 
+    def test_from_seconds_rounds_halves_up(self):
+        for value, expected in ((0.0005, '00:00:00.001'),
+                                (0.0015, '00:00:00.002'),
+                                (0.0025, '00:00:00.003'),
+                                (1.0005, '00:00:01.001'),
+                                (1.9995, '00:00:02.000'),
+                                (0.0004999, '00:00:00.000')):
+            with self.subTest(value=value):
+                self.assertEqual(str(Timestamp.from_seconds(value)), expected)
+
     def test_from_seconds_invalid(self):
         for value in (-0.001, -1, float('nan'), float('inf'), '12', None,
                       True):
@@ -342,6 +352,36 @@ class TestCaption(unittest.TestCase):
         caption.shift(datetime.timedelta(microseconds=-1600))
         self.assertEqual(caption.start, '00:00:07.000')
         self.assertEqual(caption.end, '00:00:11.890')
+
+    def test_shift_rounds_halves_away_from_zero(self):
+        for offset, expected in ((0.0005, '00:00:10.001'),
+                                 (-0.0005, '00:00:09.999'),
+                                 (0.0025, '00:00:10.003'),
+                                 (-0.0025, '00:00:09.997'),
+                                 (0.0004999, '00:00:10.000'),
+                                 (datetime.timedelta(microseconds=500),
+                                  '00:00:10.001'),
+                                 (datetime.timedelta(microseconds=-500),
+                                  '00:00:09.999'),
+                                 (datetime.timedelta(microseconds=2500),
+                                  '00:00:10.003'),
+                                 (datetime.timedelta(microseconds=-2500),
+                                  '00:00:09.997'),
+                                 (datetime.timedelta(microseconds=499),
+                                  '00:00:10.000')):
+            with self.subTest(offset=offset):
+                caption = Caption('00:00:10.000', '00:00:11.000')
+                caption.shift(offset)
+                self.assertEqual(caption.start, expected)
+
+    def test_shift_and_back(self):
+        caption = Caption('00:00:10.000', '00:00:11.000')
+        for offset in (0.0005, 0.0025, 1.0005, -3.7775):
+            with self.subTest(offset=offset):
+                caption.shift(offset)
+                caption.shift(-offset)
+                self.assertEqual(caption.start, '00:00:10.000')
+                self.assertEqual(caption.end, '00:00:11.000')
 
     def test_shift_clamps_start_to_zero(self):
         caption = Caption('00:00:00.500', '00:00:04.000')

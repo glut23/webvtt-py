@@ -215,9 +215,11 @@ seconds or a ``timedelta``:
 
     vtt.save()
 
-The offset is rounded to the nearest millisecond. A timestamp that would
-fall before zero is set to ``00:00:00.000``, so a caption moved entirely
-before the start is kept with ``00:00:00.000 --> 00:00:00.000`` timings.
+The offset is rounded to the nearest millisecond, with halves rounded away
+from zero, so ``0.0005`` is 1 millisecond and ``-0.0005`` is -1 millisecond.
+A timestamp that would fall before zero is set to ``00:00:00.000``, so a
+caption moved entirely before the start is kept with
+``00:00:00.000 --> 00:00:00.000`` timings.
 
 Shifting is also available from the command line, see :doc:`cli`.
 
@@ -230,7 +232,7 @@ Timestamps
     from webvtt.models import Timestamp
 
     # create a timestamp from a number of seconds,
-    # rounded to the nearest millisecond
+    # rounded to the nearest millisecond, halves rounded up
     >>> str(Timestamp.from_seconds(5051.67))
     '01:24:11.670'
 

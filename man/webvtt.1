@@ -62,7 +62,8 @@ caption time \fB00:00:00.000\fP to an MPEG\-TS presentation timestamp, so the
 captions are kept in sync with the video stream.
 .sp
 \fBshift\fP moves the captions in \fBPATH\fP earlier or later by \fBOFFSET\fP
-seconds. The offset is rounded to the nearest millisecond and a timestamp
+seconds. The offset is rounded to the nearest millisecond as written, with
+halves rounded away from zero, so \fB1.0005\fP is 1001 milliseconds. A timestamp
 that would fall before zero is set to \fB00:00:00.000\fP, so a caption moved
 entirely before the start is kept with \fB00:00:00.000 \-\-> 00:00:00.000\fP
 timings. The shifted captions are written to standard output in UTF\-8, or to
