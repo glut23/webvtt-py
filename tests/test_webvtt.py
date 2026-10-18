@@ -1,3 +1,4 @@
+import datetime
 import unittest
 import os
 import io
@@ -709,6 +710,96 @@ class TestWebVTT(unittest.TestCase):
             webvtt.WebVTT().total_length,
             0
             )
+
+    def test_shift(self):
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'sample.vtt')
+        durations = [
+            c.end_time.in_milliseconds() - c.start_time.in_milliseconds()
+            for c in vtt
+            ]
+
+        vtt.shift(1.25)
+
+        self.assertEqual(vtt[0].start, '00:00:01.750')
+        self.assertEqual(vtt[0].end, '00:00:08.250')
+        self.assertEqual(vtt[-1].start, '00:01:02.600')
+        self.assertEqual(vtt[-1].end, '00:01:05.550')
+        self.assertEqual(
+            [c.end_time.in_milliseconds() - c.start_time.in_milliseconds()
+             for c in vtt],
+            durations
+            )
+
+    def test_shift_negative_clamps_to_zero(self):
+        vtt = webvtt.from_string(textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.500 --> 00:00:01.000
+            Credits
+
+            00:00:01.500 --> 00:00:04.000
+            Caption #1
+
+            00:00:04.000 --> 00:00:07.000
+            Caption #2
+            ''').strip())
+
+        vtt.shift(-2)
+
+        self.assertEqual(
+            [(c.start, c.end) for c in vtt],
+            [('00:00:00.000', '00:00:00.000'),
+             ('00:00:00.000', '00:00:02.000'),
+             ('00:00:02.000', '00:00:05.000')]
+            )
+        self.assertEqual(len(vtt), 3)
+        self.assertEqual(vtt[0].text, 'Credits')
+
+    def test_shift_timedelta(self):
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'sample.vtt')
+        vtt.shift(datetime.timedelta(minutes=-1, seconds=30))
+        self.assertEqual(vtt[0].start, '00:00:00.000')
+        self.assertEqual(vtt[0].end, '00:00:00.000')
+        self.assertEqual(vtt[-1].start, '00:00:31.350')
+        self.assertEqual(vtt[-1].end, '00:00:34.300')
+
+    def test_shift_from_start(self):
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'sample.vtt')
+        before = [(c.start, c.end) for c in vtt]
+
+        vtt.shift(3, start='00:00:47.000')
+
+        after = [(c.start, c.end) for c in vtt]
+        self.assertEqual(after[:11], before[:11])
+        self.assertEqual(after[11], ('00:00:50.000', '00:00:53.970'))
+        self.assertEqual(after[-1], ('00:01:04.350', '00:01:07.300'))
+
+    def test_shift_from_start_invalid(self):
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'sample.vtt')
+        before = [(c.start, c.end) for c in vtt]
+
+        with self.assertRaises(MalformedCaptionError):
+            vtt.shift(3, start='47 seconds')
+
+        self.assertEqual([(c.start, c.end) for c in vtt], before)
+
+    def test_shift_invalid_offset(self):
+        for value in ('1.5', None, True):
+            with self.subTest(value=value):
+                with self.assertRaises(TypeError):
+                    webvtt.WebVTT().shift(value)
+
+        with self.assertRaises(ValueError):
+            webvtt.WebVTT().shift(float('nan'))
+
+    def test_shift_invalid_offset_unchanged(self):
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'sample.vtt')
+        before = [(c.start, c.end) for c in vtt]
+
+        with self.assertRaises(TypeError):
+            vtt.shift('1.5')
+
+        self.assertEqual([(c.start, c.end) for c in vtt], before)
 
     def test_parse_empty_file(self):
         self.assertRaises(

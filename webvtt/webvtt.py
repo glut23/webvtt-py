@@ -1,5 +1,6 @@
 """WebVTT module."""
 
+import datetime
 import os
 import io
 import typing
@@ -9,7 +10,7 @@ from functools import partial
 from . import vtt, utils
 from . import srt
 from . import sbv
-from .models import Caption, Style, Timestamp
+from .models import Caption, Style, Timestamp, _offset_in_milliseconds
 from .errors import MissingFilenameError
 
 DEFAULT_ENCODING = 'utf-8'
@@ -387,6 +388,32 @@ class WebVTT:
                     (not end_time or caption.end_time <= end_time)
                     ):
                 yield caption
+
+    def shift(
+            self,
+            offset: typing.Union[float, datetime.timedelta],
+            start: typing.Optional[str] = None
+            ):
+        """
+        Shift the start and end time of the captions.
+
+        The offset is rounded to the nearest millisecond and a timestamp
+        that would fall before zero is set to ``00:00:00.000``.
+
+        :param offset: a number of seconds or a ``timedelta``, negative
+            values move the captions earlier
+        :param start: only shift the captions starting at or after this
+            timestamp
+
+        :raises TypeError: if the offset is not a number or a ``timedelta``
+        :raises ValueError: if the offset is not finite
+        :raises MalformedCaptionError: if the start timestamp is not valid
+        """
+        # validate the offset even when there are no captions to shift
+        _offset_in_milliseconds(offset)
+
+        for caption in self.iter_slice(start=start):
+            caption.shift(offset)
 
     @property
     def total_length(self):

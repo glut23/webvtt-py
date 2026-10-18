@@ -1,3 +1,4 @@
+import datetime
 import re
 import time
 import unittest
@@ -302,6 +303,75 @@ class TestCaption(unittest.TestCase):
             )
         self.assertEqual(caption.start_in_seconds, 7)
         self.assertEqual(caption.end_in_seconds, 11)
+
+    def test_shift(self):
+        caption = Caption('00:00:07.000', '00:00:11.890', 'Hello test!')
+        caption.shift(1.5)
+        self.assertEqual(caption.start, '00:00:08.500')
+        self.assertEqual(caption.end, '00:00:13.390')
+        self.assertEqual(caption.text, 'Hello test!')
+
+    def test_shift_int(self):
+        caption = Caption('00:00:07.000', '00:00:11.890')
+        caption.shift(3600)
+        self.assertEqual(caption.start, '01:00:07.000')
+        self.assertEqual(caption.end, '01:00:11.890')
+
+    def test_shift_negative(self):
+        caption = Caption('00:01:07.000', '00:01:11.890')
+        caption.shift(-62.25)
+        self.assertEqual(caption.start, '00:00:04.750')
+        self.assertEqual(caption.end, '00:00:09.640')
+
+    def test_shift_timedelta(self):
+        caption = Caption('00:00:07.000', '00:00:11.890')
+        caption.shift(datetime.timedelta(minutes=1, milliseconds=10))
+        self.assertEqual(caption.start, '00:01:07.010')
+        self.assertEqual(caption.end, '00:01:11.900')
+
+        caption.shift(datetime.timedelta(seconds=-60))
+        self.assertEqual(caption.start, '00:00:07.010')
+        self.assertEqual(caption.end, '00:00:11.900')
+
+    def test_shift_rounds_to_milliseconds(self):
+        caption = Caption('00:00:07.000', '00:00:11.890')
+        caption.shift(0.0016)
+        self.assertEqual(caption.start, '00:00:07.002')
+        self.assertEqual(caption.end, '00:00:11.892')
+
+        caption.shift(datetime.timedelta(microseconds=-1600))
+        self.assertEqual(caption.start, '00:00:07.000')
+        self.assertEqual(caption.end, '00:00:11.890')
+
+    def test_shift_clamps_start_to_zero(self):
+        caption = Caption('00:00:00.500', '00:00:04.000')
+        caption.shift(-2)
+        self.assertEqual(caption.start, '00:00:00.000')
+        self.assertEqual(caption.end, '00:00:02.000')
+
+    def test_shift_clamps_start_and_end_to_zero(self):
+        caption = Caption('00:00:00.500', '00:00:04.000')
+        caption.shift(-10)
+        self.assertEqual(caption.start, '00:00:00.000')
+        self.assertEqual(caption.end, '00:00:00.000')
+
+    def test_shift_invalid_type(self):
+        for value in ('1.5', None, True, [1]):
+            with self.subTest(value=value):
+                caption = Caption('00:00:07.000', '00:00:11.890')
+                with self.assertRaises(TypeError):
+                    caption.shift(value)
+                self.assertEqual(caption.start, '00:00:07.000')
+                self.assertEqual(caption.end, '00:00:11.890')
+
+    def test_shift_not_finite(self):
+        for value in (float('nan'), float('inf'), float('-inf')):
+            with self.subTest(value=value):
+                caption = Caption('00:00:07.000', '00:00:11.890')
+                with self.assertRaises(ValueError):
+                    caption.shift(value)
+                self.assertEqual(caption.start, '00:00:07.000')
+                self.assertEqual(caption.end, '00:00:11.890')
 
     def test_wrong_start_timestamp(self):
         self.assertRaises(

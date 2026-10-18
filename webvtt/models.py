@@ -1,5 +1,6 @@
 """Models module."""
 
+import datetime
 import math
 import re
 import typing
@@ -144,6 +145,43 @@ class Timestamp:
         """Return the timestamp in milliseconds."""
         return self.in_seconds() * 1000 + self.milliseconds
 
+    def _shifted(self, offset_ms: int) -> 'Timestamp':
+        """
+        Return a new `Timestamp` moved by a number of milliseconds.
+
+        A result before zero is clamped to ``00:00:00.000``.
+
+        :param offset_ms: the milliseconds to move the timestamp by
+        :returns: a `Timestamp` instance
+        """
+        return self.from_seconds(
+            max(self.in_milliseconds() + offset_ms, 0) / 1000
+            )
+
+
+def _offset_in_milliseconds(
+        offset: typing.Union[float, datetime.timedelta]
+        ) -> int:
+    """
+    Return a shift offset in milliseconds.
+
+    :param offset: a number of seconds or a ``timedelta``
+    :returns: the offset rounded to the nearest millisecond
+
+    :raises TypeError: if the offset is not a number or a ``timedelta``
+    :raises ValueError: if the offset is not finite
+    """
+    if isinstance(offset, datetime.timedelta):
+        return round(offset.total_seconds() * 1000)
+
+    if type(offset) is bool or not isinstance(offset, (int, float)):
+        raise TypeError(f'Invalid offset {offset!r}')
+
+    if not math.isfinite(offset):
+        raise ValueError(f'Invalid offset {offset!r}')
+
+    return round(offset * 1000)
+
 
 def _strip_cue_text_tags(line: str) -> str:
     """
@@ -260,6 +298,23 @@ class Caption:
     def end_in_seconds(self):
         """Return the end time of the caption in seconds."""
         return self.end_time.in_seconds()
+
+    def shift(self, offset: typing.Union[float, datetime.timedelta]):
+        """
+        Shift the start and end time of the caption.
+
+        The offset is rounded to the nearest millisecond and a timestamp
+        that would fall before zero is set to ``00:00:00.000``.
+
+        :param offset: a number of seconds or a ``timedelta``, negative
+            values move the caption earlier
+
+        :raises TypeError: if the offset is not a number or a ``timedelta``
+        :raises ValueError: if the offset is not finite
+        """
+        offset_ms = _offset_in_milliseconds(offset)
+        self.start_time = self.start_time._shifted(offset_ms)
+        self.end_time = self.end_time._shifted(offset_ms)
 
     @property
     def raw_text(self) -> str:

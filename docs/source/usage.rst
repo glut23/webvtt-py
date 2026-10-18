@@ -188,6 +188,38 @@ Manipulating captions
     del vtt.captions[2]
 
 
+Shifting captions
+-----------------
+
+Captions can be moved earlier or later by an offset, given as a number of
+seconds or a ``timedelta``:
+
+.. code-block:: python
+
+    import webvtt
+    from datetime import timedelta
+
+    vtt = webvtt.read('captions.vtt')
+
+    # show all the captions 1.5 seconds earlier
+    vtt.shift(-1.5)
+
+    # show the captions starting at or after 00:12:30 3 seconds later
+    vtt.shift(3, start='00:12:30.000')
+
+    # shift a single caption
+    vtt[4].shift(0.25)
+
+    # the offset can also be a timedelta
+    vtt.shift(timedelta(minutes=1, seconds=30))
+
+    vtt.save()
+
+The offset is rounded to the nearest millisecond. A timestamp that would
+fall before zero is set to ``00:00:00.000``, so a caption moved entirely
+before the start is kept with ``00:00:00.000 --> 00:00:00.000`` timings.
+
+
 Timestamps
 ----------
 
