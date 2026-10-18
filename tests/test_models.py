@@ -3,7 +3,7 @@ import re
 import time
 import unittest
 
-from webvtt.models import Timestamp, Caption, Style
+from webvtt.models import Timestamp, Caption, CueSettings, Style
 from webvtt.errors import MalformedCaptionError
 
 
@@ -734,4 +734,281 @@ class TestStyle(unittest.TestCase):
         self.assertEqual(
             style.text,
             '::cue(b) {\n  color: peachpuff;\n}'
+            )
+
+
+class TestCueSettings(unittest.TestCase):
+
+    def test_instantiation_without_settings(self):
+        settings = CueSettings()
+        self.assertEqual(str(settings), '')
+        self.assertFalse(settings)
+        self.assertIsNone(settings.vertical)
+        self.assertIsNone(settings.line)
+        self.assertIsNone(settings.position)
+        self.assertIsNone(settings.size)
+        self.assertIsNone(settings.align)
+        self.assertIsNone(settings.region)
+
+    def test_instantiation(self):
+        settings = CueSettings(
+            vertical='rl',
+            line='10%,end',
+            position='50%,line-left',
+            size='80%',
+            align='start',
+            region='fred'
+            )
+        self.assertTrue(settings)
+        self.assertEqual(settings.vertical, 'rl')
+        self.assertEqual(settings.line, '10%,end')
+        self.assertEqual(settings.position, '50%,line-left')
+        self.assertEqual(settings.size, '80%')
+        self.assertEqual(settings.align, 'start')
+        self.assertEqual(settings.region, 'fred')
+        self.assertEqual(
+            str(settings),
+            'vertical:rl line:10%,end position:50%,line-left size:80% '
+            'align:start region:fred'
+            )
+
+    def test_instantiation_only_keyword_arguments(self):
+        with self.assertRaises(TypeError):
+            CueSettings('rl')
+
+    def test_instantiation_invalid_value(self):
+        with self.assertRaises(MalformedCaptionError):
+            CueSettings(align='middle')
+
+    def test_from_string(self):
+        settings = CueSettings.from_string('line:0 align:start')
+        self.assertEqual(settings.line, '0')
+        self.assertEqual(settings.align, 'start')
+        self.assertIsNone(settings.position)
+        self.assertEqual(str(settings), 'line:0 align:start')
+
+    def test_from_string_empty(self):
+        for value in ('', ' ', ' \t '):
+            settings = CueSettings.from_string(value)
+            self.assertFalse(settings)
+            self.assertEqual(str(settings), '')
+
+    def test_from_string_keeps_order(self):
+        settings = CueSettings.from_string(
+            'align:end size:50% vertical:lr line:2'
+            )
+        self.assertEqual(
+            str(settings),
+            'align:end size:50% vertical:lr line:2'
+            )
+
+    def test_from_string_splits_on_spaces(self):
+        settings = CueSettings.from_string(
+            ' line:0\talign:start\x0csize:50%\r\nregion:fred  '
+            )
+        self.assertEqual(settings.line, '0')
+        self.assertEqual(settings.align, 'start')
+        self.assertEqual(settings.size, '50%')
+        self.assertEqual(settings.region, 'fred')
+        self.assertEqual(
+            str(settings),
+            'line:0 align:start size:50% region:fred'
+            )
+
+    def test_from_string_only_splits_on_ascii_spaces(self):
+        settings = CueSettings.from_string('line:0\xa0align:start')
+        self.assertIsNone(settings.line)
+        self.assertIsNone(settings.align)
+        self.assertEqual(str(settings), 'line:0\xa0align:start')
+
+    def test_from_string_keeps_invalid_settings(self):
+        settings = CueSettings.from_string(
+            'line:90% position:50% align:middle'
+            )
+        self.assertEqual(settings.line, '90%')
+        self.assertEqual(settings.position, '50%')
+        self.assertIsNone(settings.align)
+        self.assertEqual(
+            str(settings),
+            'line:90% position:50% align:middle'
+            )
+
+    def test_from_string_keeps_unknown_settings(self):
+        settings = CueSettings.from_string('foo:bar line:0 baz :x y:')
+        self.assertEqual(settings.line, '0')
+        self.assertEqual(str(settings), 'foo:bar line:0 baz :x y:')
+
+    def test_from_string_repeated_setting(self):
+        settings = CueSettings.from_string('line:0 align:start line:5')
+        self.assertEqual(settings.line, '5')
+        self.assertEqual(str(settings), 'line:0 align:start line:5')
+
+    def test_from_string_repeated_setting_last_valid(self):
+        settings = CueSettings.from_string('line:0 line:top')
+        self.assertEqual(settings.line, '0')
+
+    def test_from_string_value_with_colon(self):
+        settings = CueSettings.from_string('region:a:b')
+        self.assertEqual(settings.region, 'a:b')
+
+    def test_from_string_wrong_type(self):
+        with self.assertRaises(MalformedCaptionError):
+            CueSettings.from_string(None)
+
+    def test_from_string_strict(self):
+        settings = CueSettings.from_string(
+            'vertical:lr line:-1,center position:10%,line-right size:0% '
+            'align:right region:fred',
+            strict=True
+            )
+        self.assertEqual(settings.line, '-1,center')
+        self.assertEqual(settings.region, 'fred')
+
+    def test_from_string_strict_invalid_settings(self):
+        for value in ('align:middle',
+                      'line:0 foo:bar',
+                      'line:0 baz',
+                      ':start',
+                      'align:',
+                      ):
+            with self.subTest(value=value):
+                with self.assertRaises(MalformedCaptionError):
+                    CueSettings.from_string(value, strict=True)
+
+    def test_from_string_strict_repeated_setting(self):
+        with self.assertRaises(MalformedCaptionError) as cm:
+            CueSettings.from_string('line:0 line:5', strict=True)
+        self.assertIn('line:5', str(cm.exception))
+
+    def test_valid_values(self):
+        valid_values = {
+            'vertical': ('rl', 'lr'),
+            'line': ('0', '-1', '12', '0%', '100%', '33.5%', '10%,start',
+                     '2,center', '-3,end'),
+            'position': ('0%', '50%', '100%', '12.25%', '50%,line-left',
+                         '50%,center', '50%,line-right'),
+            'size': ('0%', '80%', '100%', '99.9%'),
+            'align': ('start', 'center', 'end', 'left', 'right'),
+            'region': ('fred', 'a:b', 'région-1'),
+            }
+        for name, values in valid_values.items():
+            for value in values:
+                with self.subTest(name=name, value=value):
+                    settings = CueSettings()
+                    setattr(settings, name, value)
+                    self.assertEqual(getattr(settings, name), value)
+                    self.assertEqual(str(settings), f'{name}:{value}')
+                    self.assertEqual(
+                        getattr(CueSettings.from_string(str(settings)), name),
+                        value
+                        )
+
+    def test_invalid_values(self):
+        invalid_values = {
+            'vertical': ('', 'RL', 'rr'),
+            'line': ('', 'top', '1.5', '--1', '1-', '+1', '-10%', '101%',
+                     '10%,', '10%,top', '0,start,end', '٣'),
+            'position': ('', '50', '-1%', '100.1%', '.5%', '5.%', '50%,',
+                         '50%,start', '٥٠%'),
+            'size': ('', '80', '101%', '1e2%', 'auto'),
+            'align': ('', 'middle', 'Start', 'line-left'),
+            'region': ('', 'a-->b'),
+            }
+        for name, values in invalid_values.items():
+            for value in values:
+                with self.subTest(name=name, value=value):
+                    with self.assertRaises(MalformedCaptionError):
+                        setattr(CueSettings(), name, value)
+                    self.assertIsNone(
+                        getattr(
+                            CueSettings.from_string(f'{name}:{value}'),
+                            name
+                            )
+                        )
+
+    def test_set_value_with_spaces(self):
+        for name, value in (('vertical', 'rl '),
+                            ('line', '0 align:start'),
+                            ('size', ' 50%'),
+                            ('region', 'a b'),
+                            ('region', 'a\tb'),
+                            ('region', 'a\nb'),
+                            ):
+            with self.subTest(name=name, value=value):
+                with self.assertRaises(MalformedCaptionError):
+                    setattr(CueSettings(), name, value)
+
+    def test_set_wrong_type(self):
+        for value in (0, 50.0, b'start'):
+            with self.subTest(value=value):
+                with self.assertRaises(MalformedCaptionError):
+                    CueSettings().line = value
+
+    def test_set_adds_setting_at_the_end(self):
+        settings = CueSettings.from_string('line:0 foo:bar')
+        settings.align = 'start'
+        self.assertEqual(str(settings), 'line:0 foo:bar align:start')
+
+    def test_set_replaces_setting_in_place(self):
+        settings = CueSettings.from_string('line:0 align:start size:50%')
+        settings.align = 'end'
+        self.assertEqual(str(settings), 'line:0 align:end size:50%')
+
+    def test_set_replaces_invalid_setting(self):
+        settings = CueSettings.from_string('line:90% align:middle')
+        settings.align = 'center'
+        self.assertEqual(settings.align, 'center')
+        self.assertEqual(str(settings), 'line:90% align:center')
+
+    def test_set_replaces_repeated_setting(self):
+        settings = CueSettings.from_string('line:0 align:start line:5')
+        settings.line = '-1'
+        self.assertEqual(str(settings), 'line:-1 align:start')
+
+    def test_set_invalid_value_keeps_settings(self):
+        settings = CueSettings.from_string('line:0 align:start')
+        with self.assertRaises(MalformedCaptionError):
+            settings.align = 'middle'
+        self.assertEqual(str(settings), 'line:0 align:start')
+
+    def test_set_none_removes_setting(self):
+        settings = CueSettings.from_string(
+            'line:0 align:middle size:50% align:start'
+            )
+        settings.align = None
+        self.assertIsNone(settings.align)
+        self.assertEqual(str(settings), 'line:0 size:50%')
+
+    def test_set_none_without_setting(self):
+        settings = CueSettings.from_string('line:0')
+        settings.align = None
+        self.assertEqual(str(settings), 'line:0')
+
+    def test_set_does_not_change_unknown_settings(self):
+        settings = CueSettings.from_string('line foo:bar line:0')
+        settings.line = None
+        self.assertEqual(str(settings), 'line foo:bar')
+
+    def test_equality(self):
+        self.assertEqual(
+            CueSettings.from_string('line:0 align:start'),
+            CueSettings(line='0', align='start')
+            )
+        self.assertEqual(CueSettings(), CueSettings.from_string(''))
+
+    def test_not_equality(self):
+        self.assertNotEqual(
+            CueSettings.from_string('line:0 align:start'),
+            CueSettings.from_string('align:start line:0')
+            )
+        self.assertNotEqual(
+            CueSettings.from_string('line:0'),
+            CueSettings.from_string('line:1')
+            )
+        self.assertNotEqual(CueSettings.from_string('line:0'), 'line:0')
+
+    def test_repr(self):
+        self.assertEqual(
+            repr(CueSettings.from_string('line:0 align:start')),
+            "<CueSettings text='line:0 align:start'>"
             )
