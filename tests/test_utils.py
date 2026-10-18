@@ -1,7 +1,12 @@
 import unittest
 import tempfile
 
-from webvtt.utils import FileWrapper, CODEC_BOMS, iter_blocks_of_lines
+from webvtt.utils import (
+    FileWrapper,
+    CODEC_BOMS,
+    iter_blocks_of_lines,
+    split_lines
+    )
 
 
 class TestUtils(unittest.TestCase):
@@ -31,4 +36,22 @@ class TestUtils(unittest.TestCase):
                 ['', 'block 1', 'line 2', ' ', '', 'block 2', '']
                 )),
             [['block 1', 'line 2'], ['block 2']]
+            )
+
+    def test_split_lines(self):
+        for text in ('',
+                     '\n',
+                     'line 1',
+                     'line 1\n',
+                     'line 1\r\nline 2\rline 3\nline 4',
+                     'line 1\n\nline 2\r\n',
+                     'line 1\r\r\n',
+                     ):
+            with self.subTest(text=text):
+                self.assertListEqual(split_lines(text), text.splitlines())
+
+    def test_split_lines_only_on_cr_and_lf(self):
+        self.assertListEqual(
+            split_lines('a\x0bb\x0cc\x1cd\x1de\x1ef\x85g\u2028h\u2029i\nj'),
+            ['a\x0bb\x0cc\x1cd\x1de\x1ef\x85g\u2028h\u2029i', 'j']
             )

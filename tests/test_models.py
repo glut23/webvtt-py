@@ -577,6 +577,34 @@ class TestCaption(unittest.TestCase):
             'Caption line #1\nCaption line #2'
             )
 
+    def test_text_only_split_on_cr_and_lf(self):
+        caption = Caption(text='line 1\u2028still line 1\r\nline 2\x85\n')
+        self.assertListEqual(
+            caption.lines,
+            ['line 1\u2028still line 1', 'line 2\x85']
+            )
+
+        caption.text = 'line 1\x0cstill line 1\rline 2\n'
+        self.assertListEqual(
+            caption.lines,
+            ['line 1\x0cstill line 1', 'line 2']
+            )
+
+    def test_set_text_keeps_lines(self):
+        caption = Caption(text=['line 1\u2028still line 1', 'line 2'])
+        caption.text = caption.text
+        self.assertListEqual(
+            caption.lines,
+            ['line 1\u2028still line 1', 'line 2']
+            )
+
+    def test_empty_text(self):
+        self.assertListEqual(Caption(text='').lines, [])
+
+        caption = Caption(text='Caption line #1')
+        caption.text = ''
+        self.assertListEqual(caption.lines, [])
+
     def test_update_text_wrong_type(self):
         c = Caption(text='Caption line #1')
 
@@ -678,6 +706,10 @@ class TestStyle(unittest.TestCase):
             style.lines,
             ['::cue(b) {', 'color: peachpuff;', '}']
             )
+
+    def test_text_only_split_on_cr_and_lf(self):
+        style = Style(text='::cue {\x0c color: red;\r\n}\n')
+        self.assertListEqual(style.lines, ['::cue {\x0c color: red;', '}'])
 
     def test_text_accept_list_of_strings(self):
         style = Style(text=['::cue(b) {', 'color: peachpuff;', '}'])

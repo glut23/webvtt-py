@@ -162,6 +162,9 @@ Creating captions
     # save the captions to a file
     vtt.save('captions.vtt')
 
+As in WebVTT, only CR, LF and CRLF break a text into lines. Other characters
+such as U+2028 or a form feed stay in the line.
+
 A ``WebVTT`` object created from scratch has no filename, so ``save()``
 requires an output path. Calling it without one raises ``MissingFilenameError``.
 

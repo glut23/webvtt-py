@@ -192,6 +192,23 @@ class TestWebVTTCommentBlock(unittest.TestCase):
             )
 
 
+    def test_format_lines(self):
+        for text, lines in (
+            ('', ['NOTE ']),
+            ('comment', ['NOTE comment']),
+            ('comment\n', ['NOTE comment']),
+            ('comment\u2028still comment',
+             ['NOTE comment\u2028still comment']),
+            ('line 1\rline 2\r\nline 3',
+             ['NOTE', 'line 1', 'line 2', 'line 3']),
+        ):
+            with self.subTest(text=text):
+                self.assertListEqual(
+                    vtt.WebVTTCommentBlock.format_lines(text),
+                    lines
+                    )
+
+
 class TestWebVTTStyleBlock(unittest.TestCase):
 
     def test_is_valid(self):
