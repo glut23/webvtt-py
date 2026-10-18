@@ -27,9 +27,9 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "WEBVTT" "1" "Oct 17, 2026" "0.5.1" "webvtt-py"
+.TH "WEBVTT" "1" "Oct 18, 2026" "0.5.1" "webvtt-py"
 .SH NAME
-webvtt \- segment WebVTT captions for HLS
+webvtt \- segment and shift WebVTT captions
 .SH SYNOPSIS
 .INDENT 0.0
 .INDENT 3.5
@@ -37,6 +37,7 @@ webvtt \- segment WebVTT captions for HLS
 .nf
 .ft C
 webvtt segment PATH \-o OUTPUT [\-d NUMBER] [\-m NUMBER]
+webvtt shift PATH OFFSET [\-o OUTPUT] [\-s TIMESTAMP]
 webvtt \-h
 .ft P
 .fi
@@ -44,9 +45,10 @@ webvtt \-h
 .UNINDENT
 .SH DESCRIPTION
 .sp
-\fBwebvtt\fP segments a WebVTT caption file for \X'tty: link https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis'\fI\%HTTP Live Streaming\fP\X'tty: link' (HLS).
+\fBwebvtt\fP segments a WebVTT caption file for \X'tty: link https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis'\fI\%HTTP Live Streaming\fP\X'tty: link' (HLS)
+and shifts the timestamps of its captions.
 .sp
-The captions in \fBPATH\fP are split into segments of a target duration. Each
+\fBsegment\fP splits the captions in \fBPATH\fP into segments of a target duration. Each
 segment is written to \fBOUTPUT\fP as \fBfileSequenceN.webvtt\fP, where \fBN\fP is
 the segment index starting at 0, along with a playlist named
 \fBprog_index.m3u8\fP that lists all the segments.
@@ -58,13 +60,30 @@ load.
 Every segment starts with an \fBX\-TIMESTAMP\-MAP\fP header that maps the local
 caption time \fB00:00:00.000\fP to an MPEG\-TS presentation timestamp, so the
 captions are kept in sync with the video stream.
+.sp
+\fBshift\fP moves the captions in \fBPATH\fP earlier or later by \fBOFFSET\fP
+seconds. The offset is rounded to the nearest millisecond and a timestamp
+that would fall before zero is set to \fB00:00:00.000\fP, so a caption moved
+entirely before the start is kept with \fB00:00:00.000 \-\-> 00:00:00.000\fP
+timings. The shifted captions are written to standard output, or to
+\fBOUTPUT\fP when given.
 .SH COMMANDS
 .INDENT 0.0
 .TP
 .B \fBsegment\fP
 Segment the WebVTT file at \fBPATH\fP\&.
+.TP
+.B \fBshift\fP
+Shift the timestamps of the WebVTT file at \fBPATH\fP\&.
 .UNINDENT
 .SH OPTIONS
+.INDENT 0.0
+.TP
+.B \fB\-h\fP, \fB\-\-help\fP
+Show the help message and exit. Also available for each command, as in
+\fBwebvtt shift \-h\fP\&.
+.UNINDENT
+.SS Segment options
 .INDENT 0.0
 .TP
 .B \fB\-o OUTPUT\fP, \fB\-\-output OUTPUT\fP
@@ -80,19 +99,34 @@ Default: \fB10\fP\&.
 .B \fB\-m NUMBER\fP, \fB\-\-mpegts NUMBER\fP
 MPEG\-TS value written to the \fBX\-TIMESTAMP\-MAP\fP header of each segment.
 Default: \fB900000\fP (10 seconds at the 90 kHz MPEG\-TS clock).
+.UNINDENT
+.SS Shift options
+.INDENT 0.0
 .TP
-.B \fB\-h\fP, \fB\-\-help\fP
-Show the help message and exit.
+.B \fBOFFSET\fP
+Number of seconds to shift the captions by, such as \fB2\fP or \fB0.25\fP\&.
+Negative values move the captions earlier, as in \fB\-1.5\fP\&. Required.
+.TP
+.B \fB\-o OUTPUT\fP, \fB\-\-output OUTPUT\fP
+File where the shifted captions are written, keeping the encoding and
+Byte Order Mark of the input file. It can be the input file itself to
+shift it in place. A \fB\&.vtt\fP extension is added if missing, and if it
+is a directory the file is written there with the input file name.
+Default: standard output.
+.TP
+.B \fB\-s TIMESTAMP\fP, \fB\-\-start TIMESTAMP\fP
+Only shift the captions starting at or after \fBTIMESTAMP\fP, in
+\fB[hh:]mm:ss.mmm\fP format. Default: shift all the captions.
 .UNINDENT
 .SH EXIT STATUS
 .INDENT 0.0
 .TP
 .B \fB0\fP
-The file was segmented successfully.
+The command completed successfully.
 .TP
 .B \fB1\fP
 The input file could not be read or is not a valid WebVTT file, or the
-output directory could not be written. An error message is printed to
+output could not be written. An error message is printed to
 standard error, for example:
 .INDENT 7.0
 .INDENT 3.5
@@ -106,9 +140,10 @@ webvtt: error: captions.vtt: not a valid WebVTT file
 .UNINDENT
 .TP
 .B \fB2\fP
-Invalid command line arguments.
+Invalid command line arguments, such as an offset that is not a number
+or an invalid \fB\-\-start\fP timestamp.
 .UNINDENT
-.SH EXAMPLE
+.SH EXAMPLES
 .sp
 Given \fBcaptions.vtt\fP:
 .INDENT 0.0
@@ -214,9 +249,44 @@ $ webvtt segment captions.vtt \-o out \-d 6 \-m 0
 .fi
 .UNINDENT
 .UNINDENT
+.sp
+Show the captions 1.5 seconds earlier:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ webvtt shift captions.vtt \-1.5
+WEBVTT
+
+00:00:00.000 \-\-> 00:00:02.500
+Hello and welcome.
+
+00:00:04.500 \-\-> 00:00:10.500
+This caption spans two segments.
+
+00:00:13.000 \-\-> 00:00:16.500
+Thanks for watching!
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Show the last caption 2 seconds later, updating the file in place:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ webvtt shift captions.vtt 2 \-\-start 00:14.500 \-o captions.vtt
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SH SEE ALSO
 .sp
-The same segmentation is available from Python with \fBwebvtt.segment()\fP\&.
+The same segmentation and shifting are available from Python with
+\fBwebvtt.segment()\fP and \fBWebVTT.shift()\fP\&.
 .SH AUTHOR
 Alejandro Mendez
 .SH COPYRIGHT

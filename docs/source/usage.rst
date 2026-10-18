@@ -219,6 +219,8 @@ The offset is rounded to the nearest millisecond. A timestamp that would
 fall before zero is set to ``00:00:00.000``, so a caption moved entirely
 before the start is kept with ``00:00:00.000 --> 00:00:00.000`` timings.
 
+Shifting is also available from the command line, see :doc:`cli`.
+
 
 Timestamps
 ----------

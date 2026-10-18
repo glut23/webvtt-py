@@ -81,8 +81,8 @@ Supported formats:
 
 CLI
 ---
-Caption segmentation is also available from the command line with the
-``webvtt`` executable. Given ``captions.vtt``:
+Caption segmentation and shifting are also available from the command line
+with the ``webvtt`` executable. Given ``captions.vtt``:
 
 .. code-block:: text
 
@@ -134,8 +134,19 @@ overlaps, ``out/fileSequence1.webvtt``:
   Thanks for watching!
 
 Use ``-d`` to change the segment duration and ``-m`` to change the MPEG-TS
-value. Run ``webvtt --help``, ``man webvtt`` or see the `CLI documentation`_
-for all options.
+value.
+
+Show the captions 1.5 seconds earlier, writing them to a new file:
+
+::
+
+    $ webvtt shift captions.vtt -1.5 --output shifted.vtt
+
+Without ``--output`` the shifted captions are written to standard output.
+Use ``--start`` to only shift the captions starting at or after a timestamp.
+
+Run ``webvtt --help``, ``man webvtt`` or see the `CLI documentation`_ for all
+options.
 
 .. _`CLI documentation`: https://webvtt-py.readthedocs.io/en/latest/cli.html
 
