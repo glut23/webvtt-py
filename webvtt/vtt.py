@@ -5,7 +5,7 @@ import typing
 from dataclasses import dataclass, field
 
 from .errors import MalformedFileError, MalformedCaptionError
-from .models import Caption, Style
+from .models import Caption, CueSettings, Style
 from .utils import split_lines
 
 TIMESTAMP = r'(?:\d+:)?\d{1,2}:\d{1,2}\.\d{1,3}'
@@ -58,7 +58,8 @@ class WebVTTCueBlock:
             identifier,
             start,
             end,
-            payload
+            payload,
+            settings=''
             ):
         """
         Initialize.
@@ -66,11 +67,13 @@ class WebVTTCueBlock:
         :param start: start time
         :param end: end time
         :param payload: caption text
+        :param settings: cue settings following the end time
         """
         self.identifier = identifier
         self.start = start
         self.end = end
         self.payload = payload
+        self.settings = settings
 
     @classmethod
     def is_valid(
@@ -120,6 +123,7 @@ class WebVTTCueBlock:
         identifier = None
         start = None
         end = None
+        settings = ''
         payload = []
 
         for line in lines:
@@ -127,12 +131,29 @@ class WebVTTCueBlock:
             if timing_match:
                 start = timing_match.group(1)
                 end = timing_match.group(2)
+                settings = cls._settings_after_timings(
+                    line[timing_match.end():]
+                    )
             elif not start:
                 identifier = line
             else:
                 payload.append(line)
 
-        return cls(identifier, start, end, payload)
+        return cls(identifier, start, end, payload, settings)
+
+    @staticmethod
+    def _settings_after_timings(rest: str) -> str:
+        """
+        Return the cue settings from the rest of a cue timings line.
+
+        As in WebVTT, the rest of the line is the cue settings, unless it
+        starts with a digit that is part of a malformed end time, such as
+        the last digit of ``00:00:04.3001``, and is then ignored.
+
+        :param rest: the text of the line following the end time
+        :returns: the cue settings
+        """
+        return '' if rest[:1].isdecimal() else rest
 
     @staticmethod
     def format_lines(caption: Caption) -> typing.List[str]:
@@ -145,9 +166,20 @@ class WebVTTCueBlock:
         return [
             '',
             *(identifier for identifier in {caption.identifier} if identifier),
-            f'{caption.start} --> {caption.end}',
+            format_timings(caption),
             *caption.lines
         ]
+
+
+def format_timings(caption: Caption) -> str:
+    """
+    Return the cue timings line of a caption.
+
+    :param caption: the `Caption` instance
+    :returns: the start and end times followed by the cue settings, if any
+    """
+    timings = f'{caption.start} --> {caption.end}'
+    return f'{timings} {caption.settings}' if caption.settings else timings
 
 
 class WebVTTCommentBlock:
@@ -458,11 +490,12 @@ def parse_item(
 
     :param lines: lines of text
     :param strict: only accept cue timestamps in the WebVTT format and
-        raise an error for cues with an invalid timestamp
+        raise an error for cues with an invalid timestamp or cue setting
     :returns: An item (Caption or Style) if found, otherwise None
 
     :raises MalformedCaptionError: if strict and a cue has an invalid
-        timestamp
+        timestamp or a cue setting that is not known, not valid or
+        repeated
     """
     if WebVTTCueBlock.is_valid(lines, strict):
         cue_block = WebVTTCueBlock.from_lines(lines)
@@ -470,7 +503,8 @@ def parse_item(
             return Caption(cue_block.start,
                            cue_block.end,
                            cue_block.payload,
-                           cue_block.identifier
+                           cue_block.identifier,
+                           CueSettings.from_string(cue_block.settings, strict)
                            )
         except MalformedCaptionError:
             if strict:

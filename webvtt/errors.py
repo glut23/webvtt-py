@@ -17,7 +17,9 @@ class MalformedCaptionError(Exception):
 
     Raised when a timestamp is not valid, e.g. when creating a
     :class:`~webvtt.models.Caption`, setting its ``start`` or ``end`` or
-    reading a file that contains a cue with an invalid timestamp.
+    reading a file that contains a cue with an invalid timestamp. Also
+    raised when a cue setting is not valid, e.g. when setting one of
+    :class:`~webvtt.models.CueSettings`.
     """
 
 

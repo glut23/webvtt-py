@@ -406,6 +406,272 @@ def _strip_cue_text_tags(line: str) -> str:
     return ''.join(parts)
 
 
+# the characters WebVTT treats as spaces when splitting the cue settings
+_CUE_SETTINGS_SEPARATOR = re.compile('[ \t\n\f\r]+')
+_PERCENTAGE = re.compile(r'[0-9]+(?:\.[0-9]+)?%')
+_LINE_NUMBER = re.compile(r'-?[0-9]+')
+
+
+def _is_percentage(value: str) -> bool:
+    """Return whether the value is a WebVTT percentage from 0 to 100."""
+    return bool(_PERCENTAGE.fullmatch(value)) and float(value[:-1]) <= 100
+
+
+def _is_valid_line(value: str) -> bool:
+    """Return whether the value is valid for the line cue setting."""
+    line, separator, alignment = value.partition(',')
+    return (
+        (_is_percentage(line) or bool(_LINE_NUMBER.fullmatch(line))) and
+        (not separator or alignment in ('start', 'center', 'end'))
+        )
+
+
+def _is_valid_position(value: str) -> bool:
+    """Return whether the value is valid for the position cue setting."""
+    position, separator, alignment = value.partition(',')
+    return (
+        _is_percentage(position) and
+        (not separator or
+         alignment in ('line-left', 'center', 'line-right'))
+        )
+
+
+def _is_valid_region(value: str) -> bool:
+    """Return whether the value is a valid region identifier."""
+    return (
+        bool(value) and
+        '-->' not in value and
+        not _CUE_SETTINGS_SEPARATOR.search(value)
+        )
+
+
+def _split_cue_setting(
+        setting: str
+        ) -> typing.Optional[typing.Tuple[str, str]]:
+    """
+    Split a cue setting in name and value at its first colon.
+
+    :param setting: a cue setting as written in a cue timings line
+    :returns: the name and value, or None when there is no colon or it is
+        the first or last character
+    """
+    name, _, value = setting.partition(':')
+    if not name or not value:
+        return None
+    return name, value
+
+
+def _cue_setting_name(setting: str) -> typing.Optional[str]:
+    """Return the name of a cue setting, or None when it has no name."""
+    parts = _split_cue_setting(setting)
+    return parts[0] if parts else None
+
+
+def _cue_setting_property(name: str, doc: str) -> property:
+    """Return a property to get and set the cue setting with that name."""
+    return property(
+        lambda self: self._get(name),
+        lambda self, value: self._set(name, value),
+        doc=doc
+        )
+
+
+class CueSettings:
+    """
+    Representation of the cue settings of a caption.
+
+    The settings are kept as written and in their original order, so they
+    are written back the same, including those that are not valid or not
+    known. A property returns the value of its setting when it is valid,
+    the last valid one when it is repeated, and validates a new value.
+    """
+
+    VALIDATORS: typing.Dict[str, typing.Callable[[str], bool]] = {
+        'vertical': lambda value: value in ('rl', 'lr'),
+        'line': _is_valid_line,
+        'position': _is_valid_position,
+        'size': _is_percentage,
+        'align': lambda value: value in (
+            'start', 'center', 'end', 'left', 'right'
+            ),
+        'region': _is_valid_region,
+        }
+
+    def __init__(self,
+                 *,
+                 vertical: typing.Optional[str] = None,
+                 line: typing.Optional[str] = None,
+                 position: typing.Optional[str] = None,
+                 size: typing.Optional[str] = None,
+                 align: typing.Optional[str] = None,
+                 region: typing.Optional[str] = None
+                 ):
+        """
+        Initialize.
+
+        :param vertical: writing direction, ``rl`` or ``lr``
+        :param line: line position, as a line number or a percentage with
+            an optional alignment, e.g. ``-1`` or ``10%,end``
+        :param position: position as a percentage with an optional
+            alignment, e.g. ``50%,line-left``
+        :param size: size as a percentage, e.g. ``80%``
+        :param align: text alignment, ``start``, ``center``, ``end``,
+            ``left`` or ``right``
+        :param region: identifier of a region
+
+        :raises MalformedCaptionError: if a value is not valid
+        """
+        self._settings: typing.List[str] = []
+        self.vertical = vertical
+        self.line = line
+        self.position = position
+        self.size = size
+        self.align = align
+        self.region = region
+
+    @classmethod
+    def from_string(cls, value: str, strict: bool = False) -> 'CueSettings':
+        """
+        Return a `CueSettings` instance from the settings of a cue.
+
+        :param value: the cue settings, e.g. ``line:0 align:start``
+        :param strict: raise an error on settings that are not known, not
+            valid or repeated instead of keeping them
+        :returns: a `CueSettings` instance
+
+        :raises MalformedCaptionError: if the value is not a string, or if
+            strict and a setting is not known, not valid or repeated
+        """
+        if type(value) is not str:
+            raise MalformedCaptionError(f'Invalid cue settings {value!r}')
+
+        settings = cls()
+        settings._settings = [
+            setting
+            for setting in _CUE_SETTINGS_SEPARATOR.split(value)
+            if setting
+            ]
+
+        if strict:
+            names: typing.Set[str] = set()
+            for setting in settings._settings:
+                parts = _split_cue_setting(setting)
+                if (not parts or
+                        parts[0] not in cls.VALIDATORS or
+                        not cls.VALIDATORS[parts[0]](parts[1])):
+                    raise MalformedCaptionError(
+                        f'Invalid cue setting {setting!r}'
+                        )
+                if parts[0] in names:
+                    raise MalformedCaptionError(
+                        f'Repeated cue setting {setting!r}'
+                        )
+                names.add(parts[0])
+
+        return settings
+
+    def __str__(self):
+        """Return the settings as written in a cue timings line."""
+        return ' '.join(self._settings)
+
+    def __repr__(self):
+        """Return the string representation of the cue settings."""
+        return f'<{self.__class__.__name__} text={str(self)!r}>'
+
+    def __bool__(self):
+        """Return whether there is any setting."""
+        return bool(self._settings)
+
+    def __eq__(self, other):
+        """Compare equality with another object."""
+        if not isinstance(other, type(self)):
+            return False
+
+        return self._settings == other._settings
+
+    def _get(self, name: str) -> typing.Optional[str]:
+        """Return the value of the last valid setting with that name."""
+        value = None
+        for setting in self._settings:
+            parts = _split_cue_setting(setting)
+            if (parts and
+                    parts[0] == name and
+                    self.VALIDATORS[name](parts[1])):
+                value = parts[1]
+        return value
+
+    def _set(self, name: str, value: typing.Optional[str]):
+        """
+        Set the setting with that name, or remove it when the value is None.
+
+        Every setting with that name is replaced by a single one where the
+        first of them was, or added at the end when there is none.
+
+        :raises MalformedCaptionError: if the value is not valid
+        """
+        if value is not None and (
+                type(value) is not str or
+                not self.VALIDATORS[name](value)
+                ):
+            raise MalformedCaptionError(
+                f'Invalid {name} cue setting {value!r}'
+                )
+
+        indexes = [
+            index
+            for index, setting in enumerate(self._settings)
+            if _cue_setting_name(setting) == name
+            ]
+        for index in reversed(indexes):
+            del self._settings[index]
+        if value is not None:
+            self._settings.insert(
+                indexes[0] if indexes else len(self._settings),
+                f'{name}:{value}'
+                )
+
+    vertical = _cue_setting_property(
+        'vertical',
+        'Writing direction, ``rl`` or ``lr``.'
+        )
+    line = _cue_setting_property(
+        'line',
+        'Line position, as a line number or a percentage with an optional '
+        'alignment.'
+        )
+    position = _cue_setting_property(
+        'position',
+        'Position as a percentage with an optional alignment.'
+        )
+    size = _cue_setting_property('size', 'Size as a percentage.')
+    align = _cue_setting_property(
+        'align',
+        'Text alignment, ``start``, ``center``, ``end``, ``left`` or '
+        '``right``.'
+        )
+    region = _cue_setting_property('region', 'Identifier of a region.')
+
+
+def _to_cue_settings(
+        value: typing.Optional[typing.Union[str, CueSettings]]
+        ) -> CueSettings:
+    """
+    Return a new `CueSettings` instance from the value.
+
+    :param value: the cue settings as a string, a `CueSettings` instance
+        that is copied, or None for no settings
+    :returns: a `CueSettings` instance
+
+    :raises MalformedCaptionError: if the value is not a string, a
+        `CueSettings` instance or None
+    """
+    if isinstance(value, CueSettings):
+        settings = CueSettings()
+        settings._settings = list(value._settings)
+        return settings
+    return CueSettings.from_string('' if value is None else value)
+
+
 class Caption:
     """Representation of a caption."""
 
@@ -418,7 +684,10 @@ class Caption:
                  text: typing.Optional[typing.Union[str,
                                                     typing.Sequence[str]
                                                     ]] = None,
-                 identifier: typing.Optional[str] = None
+                 identifier: typing.Optional[str] = None,
+                 settings: typing.Optional[typing.Union[str,
+                                                        CueSettings
+                                                        ]] = None
                  ):
         """
         Initialize.
@@ -427,13 +696,17 @@ class Caption:
         :param end: end time of the caption
         :param text: the text of the caption
         :param identifier: optional identifier
+        :param settings: optional cue settings, as a string such as
+            ``line:0 align:start`` or a `CueSettings` instance
 
-        :raises MalformedCaptionError: if start or end are not valid
+        :raises MalformedCaptionError: if start or end are not valid, or
+            settings is not a string, a `CueSettings` instance or None
         """
         text = text or []
         self.start = start or '00:00:00.000'
         self.end = end or '00:00:00.000'
         self.identifier = identifier
+        self._settings = _to_cue_settings(settings)
         self.lines = (split_lines(text)
                       if isinstance(text, str)
                       else
@@ -448,7 +721,8 @@ class Caption:
                 f'start={self.start!r} '
                 f'end={self.end!r} '
                 f'text={cleaned_text!r} '
-                f'identifier={self.identifier!r}>'
+                f'identifier={self.identifier!r} '
+                f'settings={str(self.settings)!r}>'
                 )
 
     def __str__(self):
@@ -464,7 +738,8 @@ class Caption:
         return (self.start == other.start and
                 self.end == other.end and
                 self.raw_text == other.raw_text and
-                self.identifier == other.identifier
+                self.identifier == other.identifier and
+                self.settings == other.settings
                 )
 
     @property
@@ -486,6 +761,24 @@ class Caption:
     def end(self, value: str):
         """Set the end time of the caption."""
         self.end_time = Timestamp.from_string(value)
+
+    @property
+    def settings(self) -> CueSettings:
+        """Return the cue settings of the caption."""
+        return self._settings
+
+    @settings.setter
+    def settings(self, value: typing.Optional[typing.Union[str, CueSettings]]):
+        """
+        Set the cue settings of the caption, or clear them when None.
+
+        A `CueSettings` instance is copied, so it is not shared with the
+        caption it may come from.
+
+        :raises MalformedCaptionError: if the value is not a string, a
+            `CueSettings` instance or None
+        """
+        self._settings = _to_cue_settings(value)
 
     @property
     def start_in_seconds(self) -> int:

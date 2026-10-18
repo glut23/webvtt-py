@@ -191,6 +191,56 @@ Manipulating captions
     del vtt.captions[2]
 
 
+Cue settings
+------------
+
+The cue settings that follow the timestamps of a cue, such as
+``line:0 align:start``, position and align the caption. They are available
+as a ``CueSettings`` object in the ``settings`` attribute of a caption,
+with a property for each setting that returns its value or ``None`` when it
+is not set:
+
+.. code-block:: python
+
+    import webvtt
+    from webvtt import Caption, CueSettings
+
+    vtt = webvtt.read('captions.vtt')
+    caption = vtt[0]
+
+    caption.settings.line      # '10%,end'
+    caption.settings.align     # 'start'
+    str(caption.settings)      # 'line:10%,end align:start'
+
+    # change, add or remove a setting
+    caption.settings.line = '0'
+    caption.settings.position = '50%,center'
+    caption.settings.size = None
+
+    # replace or clear all the settings
+    caption.settings = 'line:0 align:start'
+    caption.settings = None
+
+    # create a caption with settings
+    caption = Caption(
+        '00:00:00.500',
+        '00:00:07.000',
+        'Caption text',
+        settings=CueSettings(line='0', align='start')
+    )
+
+The supported settings are ``vertical``, ``line``, ``position``, ``size``,
+``align`` and ``region``. Setting a value that is not valid as per the
+WebVTT specification, such as ``align = 'middle'``, raises
+``MalformedCaptionError``.
+
+The settings are saved as they were read, in the same order and including
+the ones that are not valid or not known, separated by a single space. When a setting is not valid, such as ``align:middle``
+from an older version of the specification, its property returns ``None``
+and assigning a new value replaces it. When converting to SRT or SBV,
+the cue settings are not included as those formats do not support them.
+
+
 Shifting captions
 -----------------
 
@@ -625,8 +675,9 @@ range ones such as ``00:00:61.000 --> 00:00:62.000`` is skipped.
 To validate the content, pass ``strict=True`` to ``read``,
 ``from_buffer`` or ``from_string`` and a ``MalformedCaptionError`` is
 raised instead. Strict parsing also raises the error for timestamps that
-are not in the WebVTT format and when a cue is not separated from the
-previous cue, comment or style by an empty line:
+are not in the WebVTT format, for cue settings that are not known, not
+valid or repeated, and when a cue is not separated from the previous cue,
+comment or style by an empty line:
 
 .. code-block:: python
 

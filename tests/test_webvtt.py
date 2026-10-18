@@ -658,6 +658,54 @@ class TestWebVTT(unittest.TestCase):
                     ]
                 )
 
+    def test_save_cue_settings(self):
+        with tempfile.NamedTemporaryFile('w', suffix='.vtt') as f:
+            vtt = webvtt.read(PATH_TO_SAMPLES / 'netflix_chicas_del_cable.vtt')
+            vtt.save(f.name)
+
+            lines = pathlib.Path(f.name).read_text().splitlines()
+            self.assertIn(
+                '00:00:07.960 --> 00:00:09.480 position:50.00%,middle '
+                'align:middle size:80.00% line:84.67%',
+                lines
+                )
+
+    def test_save_updated_cue_settings(self):
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'youtube_dl.vtt')
+        vtt.captions[0].settings.line = '0'
+        vtt.captions[1].settings = None
+
+        lines = vtt.content.splitlines()
+        self.assertIn(
+            '00:04:46.070 --> 00:04:46.470 align:start position:0% line:0',
+            lines
+            )
+        self.assertIn('00:04:46.470 --> 00:05:04.080', lines)
+
+    def test_shift_keeps_cue_settings(self):
+        vtt = webvtt.from_string(
+            'WEBVTT\n\n00:00:01.000 --> 00:00:03.000 line:0 align:start\n'
+            'Top left\n'
+            )
+        vtt.shift(2)
+        self.assertEqual(
+            vtt.content,
+            'WEBVTT\n\n00:00:03.000 --> 00:00:05.000 line:0 align:start\n'
+            'Top left\n'
+            )
+
+    def test_save_as_srt_without_cue_settings(self):
+        vtt = webvtt.from_string(
+            'WEBVTT\n\n00:00:01.000 --> 00:00:03.000 line:0 align:start\n'
+            'Top left\n'
+            )
+        output = io.StringIO()
+        vtt.write(output, format='srt')
+        self.assertEqual(
+            output.getvalue(),
+            '1\n00:00:01,000 --> 00:00:03,000\nTop left'
+            )
+
     def test_save_updated_identifiers(self):
         vtt = webvtt.read(PATH_TO_SAMPLES / 'using_identifiers.vtt')
         vtt.captions[0].identifier = 'first caption'

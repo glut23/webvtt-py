@@ -358,6 +358,31 @@ class TestSegmenter(unittest.TestCase):
             [['only'], ['only']]
             )
 
+    def test_segmentation_keeps_cue_settings(self):
+        webvtt_path = pathlib.Path(self.temp_dir.name) / 'captions.vtt'
+        webvtt_path.write_text(textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.500 --> 00:00:07.000 line:0 align:start
+            Caption text #1
+            ''').lstrip())
+        output_path = pathlib.Path(self.temp_dir.name) / 'output'
+
+        segmenter.segment(webvtt_path, output_path)
+
+        self.assertEqual(
+            (output_path / 'fileSequence0.webvtt').read_text(),
+            textwrap.dedent(
+                '''
+                WEBVTT
+                X-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000
+
+                00:00:00.500 --> 00:00:07.000 line:0 align:start
+                Caption text #1
+                '''
+                ).lstrip()
+            )
+
     def test_segment_with_no_captions(self):
         segmenter.segment(
             webvtt_path=PATH_TO_SAMPLES / 'no_captions.vtt',

@@ -6,9 +6,9 @@ __author_email__ = 'amendez23@gmail.com'
 
 from .webvtt import WebVTT
 from . import segmenter
-from .models import Caption, Style  # noqa
+from .models import Caption, CueSettings, Style  # noqa
 
-__all__ = ['WebVTT', 'Caption', 'Style']
+__all__ = ['WebVTT', 'Caption', 'CueSettings', 'Style']
 
 read = WebVTT.read
 read_buffer = WebVTT.read_buffer
