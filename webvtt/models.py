@@ -652,6 +652,26 @@ class CueSettings:
     region = _cue_setting_property('region', 'Identifier of a region.')
 
 
+def _to_cue_settings(
+        value: typing.Optional[typing.Union[str, CueSettings]]
+        ) -> CueSettings:
+    """
+    Return a new `CueSettings` instance from the value.
+
+    :param value: the cue settings as a string, a `CueSettings` instance
+        that is copied, or None for no settings
+    :returns: a `CueSettings` instance
+
+    :raises MalformedCaptionError: if the value is not a string, a
+        `CueSettings` instance or None
+    """
+    if isinstance(value, CueSettings):
+        settings = CueSettings()
+        settings._settings = list(value._settings)
+        return settings
+    return CueSettings.from_string('' if value is None else value)
+
+
 class Caption:
     """Representation of a caption."""
 
@@ -686,7 +706,7 @@ class Caption:
         self.start = start or '00:00:00.000'
         self.end = end or '00:00:00.000'
         self.identifier = identifier
-        self.settings = settings
+        self._settings = _to_cue_settings(settings)
         self.lines = (split_lines(text)
                       if isinstance(text, str)
                       else
@@ -758,14 +778,7 @@ class Caption:
         :raises MalformedCaptionError: if the value is not a string, a
             `CueSettings` instance or None
         """
-        if isinstance(value, CueSettings):
-            settings = CueSettings()
-            settings._settings = list(value._settings)
-            self._settings = settings
-        else:
-            self._settings = CueSettings.from_string(
-                '' if value is None else value
-                )
+        self._settings = _to_cue_settings(value)
 
     @property
     def start_in_seconds(self) -> int:
