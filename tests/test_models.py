@@ -191,6 +191,8 @@ class TestTimestamp(unittest.TestCase):
                                 (0.0025, '00:00:00.003'),
                                 (1.0005, '00:00:01.001'),
                                 (1.9995, '00:00:02.000'),
+                                (0.5075, '00:00:00.508'),
+                                (259.0395, '00:04:19.040'),
                                 (0.0004999, '00:00:00.000')):
             with self.subTest(value=value):
                 self.assertEqual(str(Timestamp.from_seconds(value)), expected)
@@ -359,6 +361,9 @@ class TestCaption(unittest.TestCase):
                                  (0.0025, '00:00:10.003'),
                                  (-0.0025, '00:00:09.997'),
                                  (0.0004999, '00:00:10.000'),
+                                 (0.5075, '00:00:10.508'),
+                                 (-0.5075, '00:00:09.492'),
+                                 (259.0395, '00:04:29.040'),
                                  (datetime.timedelta(microseconds=500),
                                   '00:00:10.001'),
                                  (datetime.timedelta(microseconds=-500),

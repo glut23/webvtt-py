@@ -145,8 +145,8 @@ Show the captions 1.5 seconds earlier, writing them to a new file:
 Without ``--output`` the shifted captions are written to standard output.
 Use ``--start`` to only shift the captions starting at or after a timestamp.
 
-Run ``webvtt segment --help`` or ``webvtt shift --help``, ``man webvtt`` or see
-the `CLI documentation`_ for all options.
+For all the options, run ``webvtt segment --help``, ``webvtt shift --help`` or
+``man webvtt``, or see the `CLI documentation`_.
 
 .. _`CLI documentation`: https://webvtt-py.readthedocs.io/en/latest/cli.html
 

@@ -1,12 +1,16 @@
 """Models module."""
 
 import datetime
-import fractions
+import decimal
 import math
 import re
 import typing
 
 from .errors import MalformedCaptionError
+
+# a context of our own, so rounding does not depend on the decimal context
+# of the caller
+_DECIMAL_CONTEXT = decimal.Context()
 
 
 class Timestamp:
@@ -107,8 +111,9 @@ class Timestamp:
         """
         Return a `Timestamp` instance from a number of seconds.
 
-        The value is rounded to the nearest millisecond with halves rounded
-        up, so ``1.9996`` and ``1.9995`` are read as ``00:00:02.000``.
+        The value is rounded to the nearest millisecond as written, with
+        halves rounded up, so ``1.9996`` and ``1.9995`` are read as
+        ``00:00:02.000``.
 
         :param value: the timestamp in seconds
         :returns: a `Timestamp` instance
@@ -124,7 +129,7 @@ class Timestamp:
                 ):
             raise MalformedCaptionError(f'Invalid timestamp {value!r}')
 
-        return cls._from_milliseconds(_round_half_away_from_zero(value * 1000))
+        return cls._from_milliseconds(_in_milliseconds(value))
 
     @classmethod
     def _from_milliseconds(cls, value: int) -> 'Timestamp':
@@ -170,22 +175,33 @@ class Timestamp:
             )
 
 
-def _round_half_away_from_zero(
-        value: typing.Union[float, fractions.Fraction]
-        ) -> int:
+def _in_milliseconds(value: typing.Union[float, datetime.timedelta]) -> int:
     """
-    Round a number to the nearest integer, halves away from zero.
+    Return a number of seconds or a ``timedelta`` in milliseconds.
 
-    Unlike ``round``, which rounds halves to the even integer, ``0.5`` is
-    rounded to ``1`` and ``-0.5`` to ``-1``.
+    The value is rounded to the nearest millisecond with halves rounded away
+    from zero. A float is rounded as written, from its shortest
+    representation, so ``259.0395`` is 259040 milliseconds although the
+    closest float is slightly smaller.
 
-    :param value: the number to round
-    :returns: the rounded number
+    :param value: a finite number of seconds or a ``timedelta``
+    :returns: the value in milliseconds
     """
-    magnitude = abs(fractions.Fraction(value))
-    integer = math.floor(magnitude)
-    rounded = integer + (magnitude - integer >= fractions.Fraction(1, 2))
-    return -rounded if value < 0 else rounded
+    if isinstance(value, datetime.timedelta):
+        seconds = decimal.Decimal(
+            value // datetime.timedelta(microseconds=1)
+            ).scaleb(-6, context=_DECIMAL_CONTEXT)
+    elif isinstance(value, float):
+        seconds = decimal.Decimal(float.__repr__(value))
+    else:
+        seconds = decimal.Decimal(value)
+
+    return int(
+        seconds.scaleb(3, context=_DECIMAL_CONTEXT).to_integral_value(
+            rounding=decimal.ROUND_HALF_UP,
+            context=_DECIMAL_CONTEXT
+            )
+        )
 
 
 def _offset_in_milliseconds(
@@ -202,10 +218,7 @@ def _offset_in_milliseconds(
     :raises ValueError: if the offset is not finite
     """
     if isinstance(offset, datetime.timedelta):
-        return _round_half_away_from_zero(
-            fractions.Fraction(offset // datetime.timedelta(microseconds=1),
-                               1000)
-            )
+        return _in_milliseconds(offset)
 
     if type(offset) is bool or not isinstance(offset, (int, float)):
         raise TypeError(f'Invalid offset {offset!r}')
@@ -213,7 +226,7 @@ def _offset_in_milliseconds(
     if not math.isfinite(offset):
         raise ValueError(f'Invalid offset {offset!r}')
 
-    return _round_half_away_from_zero(offset * 1000)
+    return _in_milliseconds(offset)
 
 
 def _strip_cue_text_tags(line: str) -> str:

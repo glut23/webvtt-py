@@ -1,8 +1,7 @@
 """CLI module."""
 
 import argparse
-import datetime
-import decimal
+import math
 import os
 import sys
 import typing
@@ -164,25 +163,22 @@ def _write_stdout(content: str):
         sys.exit(1)
 
 
-def _offset(value: str) -> datetime.timedelta:
+def _offset(value: str) -> float:
     """
-    Return the offset of a command line argument in seconds.
+    Return the offset in seconds of a command line argument.
 
-    The value is read as a decimal number, so it is rounded to the nearest
-    millisecond exactly as written, e.g. ``1.0005`` is 1001 milliseconds.
+    ``WebVTT.shift`` rounds the offset to the nearest millisecond as
+    written, e.g. ``1.0005`` is 1001 milliseconds.
     """
     try:
-        offset = decimal.Decimal(value)
-        if not offset.is_finite():
-            raise ValueError
+        offset = float(value)
+    except ValueError:
+        offset = math.nan
 
-        milliseconds = offset.quantize(
-            decimal.Decimal('0.001'),
-            rounding=decimal.ROUND_HALF_UP
-            ).scaleb(3)
-        return datetime.timedelta(milliseconds=int(milliseconds))
-    except (ArithmeticError, ValueError):
+    if not math.isfinite(offset):
         raise argparse.ArgumentTypeError(f'invalid offset: {value!r}')
+
+    return offset
 
 
 def _timestamp(value: str) -> str:

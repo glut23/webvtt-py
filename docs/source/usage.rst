@@ -215,10 +215,10 @@ seconds or a ``timedelta``:
 
     vtt.save()
 
-The offset is rounded to the nearest millisecond, with halves rounded away
-from zero, so ``0.0005`` is 1 millisecond and ``-0.0005`` is -1 millisecond.
-A timestamp that would fall before zero is set to ``00:00:00.000``, so a
-caption moved entirely before the start is kept with
+The offset is rounded to the nearest millisecond as written, with halves
+rounded away from zero, so ``0.0005`` is 1 millisecond and ``-0.0005`` is -1
+millisecond. A timestamp that would fall before zero is set to
+``00:00:00.000``, so a caption moved entirely before the start is kept with
 ``00:00:00.000 --> 00:00:00.000`` timings.
 
 Shifting is also available from the command line, see :doc:`cli`.

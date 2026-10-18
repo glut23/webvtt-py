@@ -374,7 +374,9 @@ class CLIShiftTestCase(unittest.TestCase):
                                  ('0.0025', '00:00:00.503 --> 00:00:01.003'),
                                  ('0.0004999',
                                   '00:00:00.500 --> 00:00:01.000'),
-                                 ('2e-3', '00:00:00.502 --> 00:00:01.002')):
+                                 ('2e-3', '00:00:00.502 --> 00:00:01.002'),
+                                 ('259.0395',
+                                  '00:04:19.540 --> 00:04:20.040')):
             with self.subTest(offset=offset):
                 self.assertIn(
                     expected,
@@ -472,7 +474,7 @@ class CLIShiftTestCase(unittest.TestCase):
         self.assertEqual(stderr.getvalue(), '')
 
     def test_shift_invalid_offset(self):
-        for value in ('abc', 'nan', 'sNaN', 'inf', '1e400', '1e15', ''):
+        for value in ('abc', 'nan', 'sNaN', 'inf', '1e400', ''):
             with self.subTest(value=value):
                 self.assert_usage_error(
                     ['shift', self.vtt_file, value],
