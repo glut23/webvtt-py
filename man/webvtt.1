@@ -65,7 +65,7 @@ captions are kept in sync with the video stream.
 seconds. The offset is rounded to the nearest millisecond and a timestamp
 that would fall before zero is set to \fB00:00:00.000\fP, so a caption moved
 entirely before the start is kept with \fB00:00:00.000 \-\-> 00:00:00.000\fP
-timings. The shifted captions are written to standard output, or to
+timings. The shifted captions are written to standard output in UTF\-8, or to
 \fBOUTPUT\fP when given.
 .SH COMMANDS
 .INDENT 0.0

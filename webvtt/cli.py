@@ -2,6 +2,7 @@
 
 import argparse
 import math
+import os
 import sys
 import typing
 
@@ -136,7 +137,29 @@ def _shift(args: argparse.Namespace):
     if args.output:
         vtt.save(args.output)
     else:
-        sys.stdout.write(vtt.content)
+        _write_stdout(vtt.content)
+
+
+def _write_stdout(content: str):
+    """
+    Write WebVTT content to standard output.
+
+    The content is encoded in UTF-8 as WebVTT requires, whatever the
+    encoding of standard output is.
+    """
+    try:
+        if hasattr(sys.stdout, 'buffer'):
+            sys.stdout.flush()
+            sys.stdout.buffer.write(content.encode('utf-8'))
+        else:
+            sys.stdout.write(content)
+        sys.stdout.flush()
+    except BrokenPipeError:
+        # the reader stopped early, as in ``webvtt shift ... | head``;
+        # point standard output to devnull so Python does not fail again
+        # flushing it at exit
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        sys.exit(1)
 
 
 def _offset(value: str) -> float:

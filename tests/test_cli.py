@@ -422,6 +422,42 @@ class CLIShiftTestCase(unittest.TestCase):
                 )
             )
 
+    def test_shift_to_stdout_in_utf8(self):
+        pathlib.Path(self.vtt_file).write_text(
+            self.CAPTIONS.replace('Caption #1', 'Subtítulo #1'),
+            encoding='utf-8'
+            )
+        stdout = io.TextIOWrapper(io.BytesIO(), encoding='ascii')
+
+        with contextlib.redirect_stdout(stdout):
+            main(['shift', self.vtt_file, '0'])
+
+        self.assertEqual(
+            stdout.buffer.getvalue().decode('utf-8'),
+            self.CAPTIONS.replace('Caption #1', 'Subtítulo #1')
+            )
+
+    def test_shift_to_closed_pipe(self):
+        class ClosedPipe(io.StringIO):
+            def __init__(self, fd):
+                super().__init__()
+                self.fd = fd
+
+            def write(self, s):
+                raise BrokenPipeError
+
+            def fileno(self):
+                return self.fd
+
+        with tempfile.TemporaryFile() as f:
+            with contextlib.redirect_stdout(ClosedPipe(f.fileno())), \
+                    contextlib.redirect_stderr(io.StringIO()) as stderr:
+                with self.assertRaises(SystemExit) as cm:
+                    main(['shift', self.vtt_file, '1'])
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(stderr.getvalue(), '')
+
     def test_shift_invalid_offset(self):
         for value in ('abc', 'nan', 'inf', '1e400', ''):
             with self.subTest(value=value):

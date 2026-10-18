@@ -409,11 +409,10 @@ class WebVTT:
         :raises ValueError: if the offset is not finite
         :raises MalformedCaptionError: if the start timestamp is not valid
         """
-        # validate the offset even when there are no captions to shift
-        _offset_in_milliseconds(offset)
+        offset_ms = _offset_in_milliseconds(offset)
 
         for caption in self.iter_slice(start=start):
-            caption.shift(offset)
+            caption._shift_milliseconds(offset_ms)
 
     @property
     def total_length(self):

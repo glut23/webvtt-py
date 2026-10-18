@@ -123,7 +123,17 @@ class Timestamp:
                 ):
             raise MalformedCaptionError(f'Invalid timestamp {value!r}')
 
-        hours, remainder = divmod(round(value * 1000), 3_600_000)
+        return cls._from_milliseconds(round(value * 1000))
+
+    @classmethod
+    def _from_milliseconds(cls, value: int) -> 'Timestamp':
+        """
+        Return a `Timestamp` instance from a number of milliseconds.
+
+        :param value: the timestamp in milliseconds, zero or greater
+        :returns: a `Timestamp` instance
+        """
+        hours, remainder = divmod(value, 3_600_000)
         minutes, remainder = divmod(remainder, 60_000)
         seconds, milliseconds = divmod(remainder, 1000)
 
@@ -154,8 +164,8 @@ class Timestamp:
         :param offset_ms: the milliseconds to move the timestamp by
         :returns: a `Timestamp` instance
         """
-        return self.from_seconds(
-            max(self.in_milliseconds() + offset_ms, 0) / 1000
+        return self._from_milliseconds(
+            max(self.in_milliseconds() + offset_ms, 0)
             )
 
 
@@ -312,7 +322,14 @@ class Caption:
         :raises TypeError: if the offset is not a number or a ``timedelta``
         :raises ValueError: if the offset is not finite
         """
-        offset_ms = _offset_in_milliseconds(offset)
+        self._shift_milliseconds(_offset_in_milliseconds(offset))
+
+    def _shift_milliseconds(self, offset_ms: int):
+        """
+        Shift the start and end time of the caption by milliseconds.
+
+        :param offset_ms: the milliseconds to shift the caption by
+        """
         self.start_time = self.start_time._shifted(offset_ms)
         self.end_time = self.end_time._shifted(offset_ms)
 
