@@ -9,7 +9,7 @@ import tempfile
 import pathlib
 
 import webvtt
-from webvtt.models import Caption, Style, Timestamp
+from webvtt.models import Caption, Region, Style, Timestamp
 from webvtt.utils import CODEC_BOMS
 from webvtt.errors import MalformedFileError, MalformedCaptionError
 
@@ -1418,6 +1418,72 @@ class TestWebVTT(unittest.TestCase):
             '::cue {\n  background-image: linear-gradient(to bottom, '
             'dimgray, lightgray);\n  color: papayawhip;\n}'
             )
+
+    def test_parse_regions(self):
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'regions.vtt')
+        self.assertEqual(len(vtt.regions), 2)
+        self.assertEqual(vtt.regions[0].id, 'fred')
+        self.assertEqual(vtt.regions[1].regionanchor, '100%,100%')
+        self.assertEqual(len(vtt.captions), 2)
+        self.assertEqual(vtt.captions[1].settings.region, 'bill')
+
+    def test_parse_regions_strict(self):
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'regions.vtt', strict=True)
+        self.assertEqual(len(vtt.regions), 2)
+
+    def test_save_regions(self):
+        with tempfile.NamedTemporaryFile('w', suffix='.vtt') as f:
+            webvtt.read(PATH_TO_SAMPLES / 'regions.vtt').save(f.name)
+            self.assertEqual(
+                pathlib.Path(f.name).read_text(encoding='utf-8'),
+                (PATH_TO_SAMPLES / 'regions.vtt').read_text(encoding='utf-8')
+                )
+
+    def test_regions_from_buffer(self):
+        with open(PATH_TO_SAMPLES / 'regions.vtt', encoding='utf-8') as f:
+            vtt = webvtt.from_buffer(f)
+        self.assertListEqual(
+            [region.id for region in vtt.regions],
+            ['fred', 'bill']
+            )
+
+    def test_regions_from_string(self):
+        vtt = webvtt.from_string(
+            'WEBVTT\n\nREGION\nid:fred\n\n'
+            '00:00:00.500 --> 00:00:04.300 region:fred\nCaption text\n'
+            )
+        self.assertEqual(vtt.regions[0].id, 'fred')
+
+    def test_without_regions(self):
+        self.assertListEqual(webvtt.WebVTT().regions, [])
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'sample.vtt')
+        self.assertListEqual(vtt.regions, [])
+
+    def test_create_regions(self):
+        vtt = webvtt.WebVTT(
+            captions=[
+                Caption('00:00:00.500', '00:00:04.300', 'Caption text',
+                        settings='region:fred')
+                ],
+            regions=[Region(id='fred', width='40%')]
+            )
+        vtt.regions.append(Region(id='bill'))
+        self.assertEqual(
+            vtt.content,
+            'WEBVTT\n\nREGION\nid:fred\nwidth:40%\n\nREGION\nid:bill\n\n'
+            '00:00:00.500 --> 00:00:04.300 region:fred\nCaption text\n'
+            )
+
+    def test_write_regions(self):
+        output = io.StringIO()
+        webvtt.read(PATH_TO_SAMPLES / 'regions.vtt').write(output)
+        self.assertIn('REGION\nid:bill\n', output.getvalue())
+
+    def test_save_as_srt_without_regions(self):
+        output = io.StringIO()
+        webvtt.read(PATH_TO_SAMPLES / 'regions.vtt').write(output, 'srt')
+        self.assertNotIn('REGION', output.getvalue())
+        self.assertNotIn('region', output.getvalue())
 
     def test_parse_styles_with_comments(self):
         vtt = webvtt.read(PATH_TO_SAMPLES / 'styles_with_comments.vtt')
