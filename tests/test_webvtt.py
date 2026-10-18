@@ -360,6 +360,35 @@ class TestWebVTT(unittest.TestCase):
         with self.assertRaises(MalformedCaptionError):
             webvtt.from_string(content, strict=True)
 
+    def test_from_string_line_breaks(self):
+        content = (
+            'WEBVTT\r\n'
+            '\r\n'
+            '00:00:00.500 --> 00:00:07.000\r'
+            'line 1\u2028still line 1\x0cand\x85more\r'
+            'line 2\n'
+            '\n'
+            '00:00:07.000 --> 00:00:11.890\n'
+            'Caption #2'
+            )
+
+        vtt = webvtt.from_string(content)
+
+        self.assertListEqual(
+            [caption.lines for caption in vtt.captions],
+            [['line 1\u2028still line 1\x0cand\x85more', 'line 2'],
+             ['Caption #2']
+             ]
+            )
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, 'captions.vtt')
+            with open(path, 'w', encoding='utf-8', newline='') as f:
+                f.write(content)
+            self.assertListEqual(
+                [caption.lines for caption in webvtt.read(path).captions],
+                [caption.lines for caption in vtt.captions]
+                )
+
     def test_read_buffer_for_vtt_content(self):
         buffer = io.StringIO(textwrap.dedent('''\
             WEBVTT\r
@@ -478,6 +507,55 @@ class TestWebVTT(unittest.TestCase):
             webvtt.from_buffer,
             io.StringIO(),
             format='ttt'
+            )
+
+    def test_read_bytesio_buffer_line_breaks(self):
+        sources = {
+            'vtt': 'WEBVTT\r\r00:00:00.500 --> 00:00:07.000\r'
+                   'line 1\u2028still line 1\r\nline 2\n',
+            'srt': '1\r00:00:00,500 --> 00:00:07,000\r'
+                   'line 1\u2028still line 1\r\nline 2\n',
+            'sbv': '0:00:00.500,0:00:07.000\r'
+                   'line 1\u2028still line 1\r\nline 2\n',
+            }
+        for format, source in sources.items():
+            with self.subTest(format=format):
+                buffer = io.BytesIO(source.encode('utf-8'))
+                vtt = webvtt.from_buffer(buffer, format=format)
+                self.assertEqual(len(vtt), 1)
+                self.assertListEqual(
+                    vtt[0].lines,
+                    ['line 1\u2028still line 1', 'line 2']
+                    )
+                self.assertFalse(buffer.closed)
+
+    def test_read_buffer_line_breaks(self):
+        content = (
+            'WEBVTT\r\r00:00:00.500 --> 00:00:07.000\r'
+            'line 1\u2028still line 1\r\nline 2\r\r\n'
+            '00:00:07.000 --> 00:00:11.890\nCaption #2\n'
+            )
+        vtt = webvtt.from_buffer(io.StringIO(content))
+        self.assertListEqual(
+            [caption.lines for caption in vtt.captions],
+            [['line 1\u2028still line 1', 'line 2'], ['Caption #2']]
+            )
+
+    def test_save_as_srt_keeps_unicode_line_separators(self):
+        vtt = webvtt.from_string(textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.500 --> 00:00:07.000
+            line 1\u2028still line 1
+            line 2
+            ''').lstrip()
+            )
+        out = io.StringIO()
+        vtt.write(out, format='srt')
+        self.assertEqual(
+            out.getvalue(),
+            '1\n00:00:00,500 --> 00:00:07,000\n'
+            'line 1\u2028still line 1\nline 2'
             )
 
     def test_read_bytesio_buffer_for_srt_content(self):
