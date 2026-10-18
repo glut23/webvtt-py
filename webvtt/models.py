@@ -410,6 +410,7 @@ def _strip_cue_text_tags(line: str) -> str:
 _SETTINGS_SEPARATOR = re.compile('[ \t\n\f\r]+')
 _PERCENTAGE = re.compile(r'[0-9]+(?:\.[0-9]+)?%')
 _LINE_NUMBER = re.compile(r'-?[0-9]+')
+_NUMBER_OF_LINES = re.compile(r'[0-9]+')
 
 
 def _is_percentage(value: str) -> bool:
@@ -434,6 +435,12 @@ def _is_valid_position(value: str) -> bool:
         (not separator or
          alignment in ('line-left', 'center', 'line-right'))
         )
+
+
+def _is_valid_anchor(value: str) -> bool:
+    """Return whether the value is two percentages separated by a comma."""
+    x, separator, y = value.partition(',')
+    return bool(separator) and _is_percentage(x) and _is_percentage(y)
 
 
 def _is_valid_identifier(value: str) -> bool:
@@ -554,6 +561,10 @@ class _Settings:
     def __bool__(self):
         """Return whether there is any setting."""
         return bool(self._settings)
+
+    def __iter__(self) -> typing.Iterator[str]:
+        """Iterate the settings as written, e.g. ``line:0``."""
+        return iter(self._settings)
 
     def __eq__(self, other):
         """Compare equality with another object."""
@@ -901,3 +912,77 @@ class Style:
     def text(self):
         """Return the text of the style."""
         return '\n'.join(self.lines)
+
+
+class Region(_Settings):
+    """
+    Representation of a region.
+
+    A region is an area of the video where captions are rendered, defined
+    in a REGION block of the header and referred to by its identifier in
+    the ``region`` cue setting of the captions.
+
+    The settings are kept as written and in their original order, so they
+    are written back the same, including those that are not valid or not
+    known. A property returns the value of its setting when it is valid,
+    the last valid one when it is repeated, and validates a new value.
+    """
+
+    VALIDATORS = {
+        'id': _is_valid_identifier,
+        'width': _is_percentage,
+        'lines': lambda value: bool(_NUMBER_OF_LINES.fullmatch(value)),
+        'regionanchor': _is_valid_anchor,
+        'viewportanchor': _is_valid_anchor,
+        'scroll': lambda value: value == 'up',
+        }
+
+    _KIND = 'region setting'
+
+    def __init__(self,
+                 *,
+                 id: typing.Optional[str] = None,
+                 width: typing.Optional[str] = None,
+                 lines: typing.Optional[str] = None,
+                 regionanchor: typing.Optional[str] = None,
+                 viewportanchor: typing.Optional[str] = None,
+                 scroll: typing.Optional[str] = None
+                 ):
+        """
+        Initialize.
+
+        :param id: identifier of the region
+        :param width: width as a percentage of the video, e.g. ``40%``
+        :param lines: number of lines of text, e.g. ``3``
+        :param regionanchor: point of the region anchored to the video, as
+            two percentages of the region, e.g. ``0%,100%``
+        :param viewportanchor: point of the video the region is anchored
+            to, as two percentages of the video, e.g. ``10%,90%``
+        :param scroll: ``up`` for the lines to scroll up
+
+        :raises MalformedCaptionError: if a value is not valid
+        """
+        super().__init__()
+        self.id = id
+        self.width = width
+        self.lines = lines
+        self.regionanchor = regionanchor
+        self.viewportanchor = viewportanchor
+        self.scroll = scroll
+        self.comments: typing.List[str] = []
+
+    id = _setting_property('id', 'Identifier of the region.')
+    width = _setting_property(
+        'width',
+        'Width as a percentage of the video.'
+        )
+    lines = _setting_property('lines', 'Number of lines of text.')
+    regionanchor = _setting_property(
+        'regionanchor',
+        'Point of the region anchored to the video, as two percentages.'
+        )
+    viewportanchor = _setting_property(
+        'viewportanchor',
+        'Point of the video the region is anchored to, as two percentages.'
+        )
+    scroll = _setting_property('scroll', '``up`` if the lines scroll up.')
