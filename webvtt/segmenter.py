@@ -5,6 +5,7 @@ import os
 import pathlib
 from math import floor
 
+from . import vtt
 from .webvtt import WebVTT, Caption
 
 DEFAULT_MPEGTS = 900000
@@ -91,7 +92,7 @@ def write_segments(
                     )
 
             for caption in segment:
-                f.write('\n{} --> {}\n'.format(caption.start, caption.end))
+                f.write(f'\n{vtt.format_timings(caption)}\n')
                 f.writelines(f'{line}\n' for line in caption.lines)
 
 

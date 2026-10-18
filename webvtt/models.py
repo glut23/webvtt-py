@@ -659,7 +659,10 @@ class Caption:
                  text: typing.Optional[typing.Union[str,
                                                     typing.Sequence[str]
                                                     ]] = None,
-                 identifier: typing.Optional[str] = None
+                 identifier: typing.Optional[str] = None,
+                 settings: typing.Optional[typing.Union[str,
+                                                        CueSettings
+                                                        ]] = None
                  ):
         """
         Initialize.
@@ -668,6 +671,8 @@ class Caption:
         :param end: end time of the caption
         :param text: the text of the caption
         :param identifier: optional identifier
+        :param settings: optional cue settings, as a string such as
+            ``line:0 align:start`` or a `CueSettings` instance
 
         :raises MalformedCaptionError: if start or end are not valid
         """
@@ -675,6 +680,7 @@ class Caption:
         self.start = start or '00:00:00.000'
         self.end = end or '00:00:00.000'
         self.identifier = identifier
+        self.settings = settings
         self.lines = (split_lines(text)
                       if isinstance(text, str)
                       else
@@ -689,7 +695,8 @@ class Caption:
                 f'start={self.start!r} '
                 f'end={self.end!r} '
                 f'text={cleaned_text!r} '
-                f'identifier={self.identifier!r}>'
+                f'identifier={self.identifier!r} '
+                f'settings={str(self.settings)!r}>'
                 )
 
     def __str__(self):
@@ -705,7 +712,8 @@ class Caption:
         return (self.start == other.start and
                 self.end == other.end and
                 self.raw_text == other.raw_text and
-                self.identifier == other.identifier
+                self.identifier == other.identifier and
+                self.settings == other.settings
                 )
 
     @property
@@ -727,6 +735,28 @@ class Caption:
     def end(self, value: str):
         """Set the end time of the caption."""
         self.end_time = Timestamp.from_string(value)
+
+    @property
+    def settings(self) -> CueSettings:
+        """Return the cue settings of the caption."""
+        return self._settings
+
+    @settings.setter
+    def settings(self, value: typing.Optional[typing.Union[str, CueSettings]]):
+        """
+        Set the cue settings of the caption, or clear them when None.
+
+        A `CueSettings` instance is copied, so it is not shared with the
+        caption it may come from.
+
+        :raises MalformedCaptionError: if the value is not a string, a
+            `CueSettings` instance or None
+        """
+        if value is None:
+            value = ''
+        elif isinstance(value, CueSettings):
+            value = str(value)
+        self._settings = CueSettings.from_string(value)
 
     @property
     def start_in_seconds(self) -> int:

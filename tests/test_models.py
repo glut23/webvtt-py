@@ -507,7 +507,108 @@ class TestCaption(unittest.TestCase):
         self.assertEqual(
             repr(caption),
             "<Caption start='00:00:07.000' end='00:00:11.890' "
-            "text='Hello test!' identifier='A test caption'>"
+            "text='Hello test!' identifier='A test caption' settings=''>"
+            )
+
+    def test_repr_with_settings(self):
+        caption = Caption(
+            start='00:00:07.000',
+            end='00:00:11.890',
+            text='Hello test!',
+            settings='line:0 align:start'
+            )
+
+        self.assertEqual(
+            repr(caption),
+            "<Caption start='00:00:07.000' end='00:00:11.890' "
+            "text='Hello test!' identifier=None "
+            "settings='line:0 align:start'>"
+            )
+
+    def test_settings_default(self):
+        caption = Caption('00:00:07.000', '00:00:11.890', 'Hello test!')
+        self.assertIsInstance(caption.settings, CueSettings)
+        self.assertFalse(caption.settings)
+
+    def test_settings_from_string(self):
+        caption = Caption(
+            '00:00:07.000',
+            '00:00:11.890',
+            'Hello test!',
+            settings='line:0 align:middle'
+            )
+        self.assertEqual(caption.settings.line, '0')
+        self.assertIsNone(caption.settings.align)
+        self.assertEqual(str(caption.settings), 'line:0 align:middle')
+
+    def test_settings_from_cue_settings_are_copied(self):
+        settings = CueSettings(line='0')
+        caption = Caption(
+            '00:00:07.000',
+            '00:00:11.890',
+            'Hello test!',
+            settings=settings
+            )
+        other = Caption('00:00:11.890', '00:00:13.000', 'Other')
+        other.settings = caption.settings
+
+        settings.line = '1'
+        other.settings.line = '2'
+
+        self.assertEqual(caption.settings.line, '0')
+        self.assertEqual(other.settings.line, '2')
+
+    def test_update_settings(self):
+        caption = Caption(
+            '00:00:07.000',
+            '00:00:11.890',
+            'Hello test!',
+            settings='line:0'
+            )
+        caption.settings.align = 'start'
+        self.assertEqual(str(caption.settings), 'line:0 align:start')
+
+        caption.settings = 'size:50%'
+        self.assertEqual(str(caption.settings), 'size:50%')
+
+        caption.settings = None
+        self.assertFalse(caption.settings)
+
+    def test_settings_wrong_type(self):
+        with self.assertRaises(MalformedCaptionError):
+            Caption('00:00:07.000', '00:00:11.890', settings=['line:0'])
+
+    def test_settings_not_validated(self):
+        caption = Caption(
+            '00:00:07.000',
+            '00:00:11.890',
+            settings='foo:bar line:0 line:1'
+            )
+        self.assertEqual(str(caption.settings), 'foo:bar line:0 line:1')
+
+    def test_not_equality_settings(self):
+        self.assertNotEqual(
+            Caption(
+                '00:00:07.000',
+                '00:00:11.890',
+                'Hello',
+                settings='line:0'
+                ),
+            Caption('00:00:07.000', '00:00:11.890', 'Hello')
+            )
+        self.assertEqual(
+            Caption(
+                '00:00:07.000',
+                '00:00:11.890',
+                'Hello',
+                settings='line:0'
+                ),
+            Caption(
+                '00:00:07.000',
+                '00:00:11.890',
+                'Hello',
+                settings=CueSettings(line='0')
+                )
             )
 
     def test_str(self):

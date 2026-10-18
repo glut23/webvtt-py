@@ -816,6 +816,135 @@ class TestVTTModule(unittest.TestCase):
         self.assertEqual(output.captions[1].start, '00:00:04.300')
         self.assertEqual(output.captions[1].text, 'Caption text #2')
 
+    def test_parse_cue_settings(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.500 --> 00:00:04.300 line:0 align:start
+            Caption text #1
+
+            identifier
+            00:00:04.300 --> 00:00:07.000\tposition:10%,line-left  size:50%
+            Caption text #2
+
+            00:00:07.000 --> 00:00:09.000
+            Caption text #3
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(output.captions), 3)
+        self.assertEqual(output.captions[0].settings.line, '0')
+        self.assertEqual(output.captions[0].settings.align, 'start')
+        self.assertEqual(output.captions[0].text, 'Caption text #1')
+        self.assertEqual(output.captions[1].identifier, 'identifier')
+        self.assertEqual(
+            str(output.captions[1].settings),
+            'position:10%,line-left size:50%'
+            )
+        self.assertFalse(output.captions[2].settings)
+
+    def test_parse_keeps_invalid_and_unknown_cue_settings(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            00:21:13.720 --> 00:21:15.360 line:90% position:50% align:middle
+            Caption text #1
+
+            00:21:15.360 --> 00:21:17.000 foo:bar line:0 line:-1
+            Caption text #2
+            ''').strip().split('\n')
+            )
+        self.assertEqual(
+            str(output.captions[0].settings),
+            'line:90% position:50% align:middle'
+            )
+        self.assertIsNone(output.captions[0].settings.align)
+        self.assertEqual(
+            str(output.captions[1].settings),
+            'foo:bar line:0 line:-1'
+            )
+        self.assertEqual(output.captions[1].settings.line, '-1')
+
+    def test_parse_ignores_text_attached_to_end_timestamp(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.500 --> 00:00:04.3001 line:0
+            Caption text #1
+            ''').strip().split('\n')
+            )
+        self.assertEqual(output.captions[0].end, '00:00:04.300')
+        self.assertFalse(output.captions[0].settings)
+
+    def test_parse_strict_cue_settings(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.500 --> 00:00:04.300 line:0 align:start
+            Caption text #1
+            ''').strip().split('\n'),
+            strict=True
+            )
+        self.assertEqual(
+            str(output.captions[0].settings),
+            'line:0 align:start'
+            )
+
+    def test_parse_strict_invalid_cue_settings(self):
+        for settings in ('align:middle', 'foo:bar', 'line:0 line:1'):
+            with self.subTest(settings=settings):
+                with self.assertRaises(MalformedCaptionError):
+                    vtt.parse(
+                        [
+                            'WEBVTT',
+                            '',
+                            f'00:00:00.500 --> 00:00:04.300 {settings}',
+                            'Caption text #1',
+                            ],
+                        strict=True
+                        )
+
+    def test_format_timings(self):
+        caption = Caption('00:00:00.500', '00:00:04.300', 'Caption text')
+        self.assertEqual(
+            vtt.format_timings(caption),
+            '00:00:00.500 --> 00:00:04.300'
+            )
+        caption.settings.line = '0'
+        caption.settings.align = 'start'
+        self.assertEqual(
+            vtt.format_timings(caption),
+            '00:00:00.500 --> 00:00:04.300 line:0 align:start'
+            )
+
+    def test_cue_settings_round_trip(self):
+        content = textwrap.dedent('''
+            WEBVTT
+
+            00:21:13.720 --> 00:21:15.360 line:90% position:50% align:middle
+            Caption text #1
+
+            identifier
+            00:21:15.360 --> 00:21:17.000 foo:bar line:0
+            Caption text #2
+
+            00:21:17.000 --> 00:21:19.000
+            Caption text #3
+            ''').lstrip()
+        output = vtt.parse(content.splitlines())
+        self.assertEqual(
+            vtt.to_str(
+                output.captions,
+                output.styles,
+                output.header_comments,
+                output.footer_comments
+                ),
+            content
+            )
+
     def test_parse_whitespace_lines_between_cues(self):
         output = vtt.parse([
             'WEBVTT',
