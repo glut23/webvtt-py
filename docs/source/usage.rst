@@ -235,8 +235,7 @@ WebVTT specification, such as ``align = 'middle'``, raises
 ``MalformedCaptionError``.
 
 The settings are saved as they were read, in the same order and including
-the ones that are not valid or not known, so reading and saving a file
-does not change them. When a setting is not valid, such as ``align:middle``
+the ones that are not valid or not known, separated by a single space. When a setting is not valid, such as ``align:middle``
 from an older version of the specification, its property returns ``None``
 and assigning a new value replaces it. When converting to SRT or SBV,
 the cue settings are not included as those formats do not support them.

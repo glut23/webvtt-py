@@ -878,6 +878,41 @@ class TestVTTModule(unittest.TestCase):
         self.assertEqual(output.captions[0].end, '00:00:04.300')
         self.assertFalse(output.captions[0].settings)
 
+    def test_parse_cue_settings_without_space(self):
+        output = vtt.parse([
+            'WEBVTT',
+            '',
+            '00:00:00.500 --> 00:00:04.300line:0',
+            'Caption text #1',
+            ])
+        self.assertEqual(output.captions[0].end, '00:00:04.300')
+        self.assertEqual(str(output.captions[0].settings), 'line:0')
+
+    def test_parse_cue_settings_after_non_ascii_space(self):
+        output = vtt.parse([
+            'WEBVTT',
+            '',
+            '00:00:00.500 --> 00:00:04.300\xa0align:start',
+            'Caption text #1',
+            ])
+        self.assertIsNone(output.captions[0].settings.align)
+        self.assertEqual(
+            str(output.captions[0].settings),
+            '\xa0align:start'
+            )
+
+    def test_parse_strict_cue_settings_after_non_ascii_space(self):
+        with self.assertRaises(MalformedCaptionError):
+            vtt.parse(
+                [
+                    'WEBVTT',
+                    '',
+                    '00:00:00.500 --> 00:00:04.300\xa0align:start',
+                    'Caption text #1',
+                    ],
+                strict=True
+                )
+
     def test_parse_strict_cue_settings(self):
         output = vtt.parse(
             textwrap.dedent('''

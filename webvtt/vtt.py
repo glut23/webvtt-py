@@ -146,14 +146,14 @@ class WebVTTCueBlock:
         """
         Return the cue settings from the rest of a cue timings line.
 
-        The settings are separated from the end time by whitespace. Any
-        other text right after the end time is ignored, as it is part of
-        a malformed end time.
+        As in WebVTT, the rest of the line is the cue settings, unless it
+        starts with a digit that is part of a malformed end time, such as
+        the last digit of ``00:00:04.3001``, and is then ignored.
 
         :param rest: the text of the line following the end time
         :returns: the cue settings
         """
-        return rest if rest[:1] in (' ', '\t', '\x0c') else ''
+        return '' if rest[:1].isdecimal() else rest
 
     @staticmethod
     def format_lines(caption: Caption) -> typing.List[str]:

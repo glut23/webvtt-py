@@ -461,6 +461,12 @@ def _split_cue_setting(
     return name, value
 
 
+def _cue_setting_name(setting: str) -> typing.Optional[str]:
+    """Return the name of a cue setting, or None when it has no name."""
+    parts = _split_cue_setting(setting)
+    return parts[0] if parts else None
+
+
 def _cue_setting_property(name: str, doc: str) -> property:
     """Return a property to get and set the cue setting with that name."""
     return property(
@@ -614,8 +620,7 @@ class CueSettings:
         indexes = [
             index
             for index, setting in enumerate(self._settings)
-            if _split_cue_setting(setting) and
-            setting.partition(':')[0] == name
+            if _cue_setting_name(setting) == name
             ]
         for index in reversed(indexes):
             del self._settings[index]
@@ -674,7 +679,8 @@ class Caption:
         :param settings: optional cue settings, as a string such as
             ``line:0 align:start`` or a `CueSettings` instance
 
-        :raises MalformedCaptionError: if start or end are not valid
+        :raises MalformedCaptionError: if start or end are not valid, or
+            settings is not a string, a `CueSettings` instance or None
         """
         text = text or []
         self.start = start or '00:00:00.000'
@@ -752,11 +758,14 @@ class Caption:
         :raises MalformedCaptionError: if the value is not a string, a
             `CueSettings` instance or None
         """
-        if value is None:
-            value = ''
-        elif isinstance(value, CueSettings):
-            value = str(value)
-        self._settings = CueSettings.from_string(value)
+        if isinstance(value, CueSettings):
+            settings = CueSettings()
+            settings._settings = list(value._settings)
+            self._settings = settings
+        else:
+            self._settings = CueSettings.from_string(
+                '' if value is None else value
+                )
 
     @property
     def start_in_seconds(self) -> int:
