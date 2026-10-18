@@ -10,7 +10,15 @@ from functools import partial
 from . import vtt, utils
 from . import srt
 from . import sbv
-from .models import Caption, Style, Timestamp, _offset_in_milliseconds
+from .models import (
+    Caption,
+    Style,
+    Timestamp,
+    _Position,
+    _offset_in_milliseconds,
+    _sync_mapping,
+    _framerate_mapping
+    )
 from .errors import MissingFilenameError
 
 DEFAULT_ENCODING = 'utf-8'
@@ -413,7 +421,55 @@ class WebVTT:
         offset_ms = _offset_in_milliseconds(offset)
 
         for caption in self.iter_slice(start=start):
-            caption._shift_milliseconds(offset_ms)
+            caption._retime(lambda milliseconds: milliseconds + offset_ms)
+
+    def sync(self, *points: typing.Sequence[_Position]):
+        """
+        Synchronize the captions to two or more points.
+
+        Each point is a ``(from, to)`` pair: the time ``from`` in the
+        captions is moved to ``to``. Times between two points are moved
+        along the line between them, which fixes captions that drift out of
+        sync, and times before the first or after the last point along the
+        line of the outermost points. Start and end times are rounded to the
+        nearest millisecond, halves away from zero, and a time that would
+        fall before zero is set to ``00:00:00.000``.
+
+        :param points: ``(from, to)`` pairs, each time a timestamp string, a
+            `Timestamp`, a number of seconds or a ``timedelta``
+
+        :raises MalformedCaptionError: if a timestamp string is not valid
+        :raises TypeError: if a point is not a pair of supported values
+        :raises ValueError: if there are fewer than two points, two points
+            have the same ``from`` time, the ``to`` times are not in the
+            same order as the ``from`` times, or a time is not finite or is
+            before zero
+        """
+        mapping = _sync_mapping(points)
+
+        for caption in self.captions:
+            caption._retime(mapping)
+
+    def change_framerate(self, from_fps: float, to_fps: float):
+        """
+        Change the timing of the captions from one frame rate to another.
+
+        Useful when the captions were timed for a video with a different
+        frame rate, e.g. ``change_framerate(25, 23.976)`` for captions of a
+        25 fps video played with a 23.976 fps one. Times are multiplied by
+        ``from_fps / to_fps`` and rounded to the nearest millisecond, halves
+        away from zero.
+
+        :param from_fps: the frame rate the captions are timed for
+        :param to_fps: the frame rate of the video
+
+        :raises TypeError: if a frame rate is not a number
+        :raises ValueError: if a frame rate is not finite or not above zero
+        """
+        mapping = _framerate_mapping(from_fps, to_fps)
+
+        for caption in self.captions:
+            caption._retime(mapping)
 
     @property
     def total_length(self):

@@ -8,7 +8,7 @@ import tempfile
 import pathlib
 
 import webvtt
-from webvtt.models import Caption, Style
+from webvtt.models import Caption, Style, Timestamp
 from webvtt.utils import CODEC_BOMS
 from webvtt.errors import MalformedFileError, MalformedCaptionError
 
@@ -800,6 +800,171 @@ class TestWebVTT(unittest.TestCase):
             vtt.shift('1.5')
 
         self.assertEqual([(c.start, c.end) for c in vtt], before)
+
+    SYNC_CAPTIONS = textwrap.dedent('''
+        WEBVTT
+
+        00:00:01.000 --> 00:00:02.000
+        Caption #1
+
+        00:00:10.000 --> 00:00:12.500
+        Caption #2
+
+        00:01:40.000 --> 00:01:41.000
+        Caption #3
+        ''').strip()
+
+    def timings(self, vtt):
+        return [(c.start, c.end) for c in vtt]
+
+    def test_sync(self):
+        vtt = webvtt.from_string(self.SYNC_CAPTIONS)
+        vtt.sync(('00:00:01.000', '00:00:02.000'),
+                 ('00:01:40.000', '00:02:00.000'))
+
+        self.assertEqual(
+            self.timings(vtt),
+            [('00:00:02.000', '00:00:03.192'),
+             ('00:00:12.727', '00:00:15.707'),
+             ('00:02:00.000', '00:02:01.192')]
+            )
+        self.assertEqual([c.text for c in vtt],
+                         ['Caption #1', 'Caption #2', 'Caption #3'])
+
+    def test_sync_point_types_and_order(self):
+        vtt = webvtt.from_string(self.SYNC_CAPTIONS)
+        vtt.sync((datetime.timedelta(seconds=100), 120.0),
+                 (Timestamp(seconds=1), 2))
+
+        self.assertEqual(
+            self.timings(vtt),
+            [('00:00:02.000', '00:00:03.192'),
+             ('00:00:12.727', '00:00:15.707'),
+             ('00:02:00.000', '00:02:01.192')]
+            )
+
+    def test_sync_identity(self):
+        vtt = webvtt.from_string(self.SYNC_CAPTIONS)
+        before = self.timings(vtt)
+
+        vtt.sync(('00:00:05.000', '00:00:05.000'), [50, 50])
+
+        self.assertEqual(self.timings(vtt), before)
+
+    def test_sync_multiple_points(self):
+        vtt = webvtt.from_string(self.SYNC_CAPTIONS)
+        vtt.sync((0, 0), (10, 10), (100, 190))
+
+        self.assertEqual(
+            self.timings(vtt),
+            [('00:00:01.000', '00:00:02.000'),
+             ('00:00:10.000', '00:00:15.000'),
+             ('00:03:10.000', '00:03:12.000')]
+            )
+
+    def test_sync_extrapolates_and_clamps_to_zero(self):
+        vtt = webvtt.from_string(self.SYNC_CAPTIONS)
+        vtt.sync((10, 5), (20, 15))
+
+        self.assertEqual(
+            self.timings(vtt),
+            [('00:00:00.000', '00:00:00.000'),
+             ('00:00:05.000', '00:00:07.500'),
+             ('00:01:35.000', '00:01:36.000')]
+            )
+        self.assertEqual(len(vtt), 3)
+
+    def test_sync_rounds_halves_away_from_zero(self):
+        vtt = webvtt.from_string(textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.001 --> 00:00:00.003
+            Caption
+            ''').strip())
+
+        vtt.sync((0, 0), (2, 3))
+
+        self.assertEqual(self.timings(vtt),
+                         [('00:00:00.002', '00:00:00.005')])
+
+    def test_sync_invalid_points(self):
+        for points, error in (
+                ((), ValueError),
+                (((1, 2),), ValueError),
+                (((1, 2), (1, 3)), ValueError),
+                (((1, 5), (2, 4)), ValueError),
+                (((1, 5), (2, 5)), ValueError),
+                (((1, 2), (3, -4)), ValueError),
+                (((1, 2), (3, float('nan'))), ValueError),
+                (((1, 2), (3,)), TypeError),
+                (((1, 2), '34'), TypeError),
+                (((1, 2), (3, None)), TypeError),
+                (((1, 2), (3, True)), TypeError),
+                (((1, 2), ('00:03', 4)), MalformedCaptionError)):
+            with self.subTest(points=points):
+                vtt = webvtt.from_string(self.SYNC_CAPTIONS)
+                before = self.timings(vtt)
+
+                with self.assertRaises(error):
+                    vtt.sync(*points)
+
+                self.assertEqual(self.timings(vtt), before)
+
+    def test_sync_no_captions(self):
+        vtt = webvtt.WebVTT()
+        vtt.sync((1, 2), (3, 4))
+        self.assertEqual(vtt.captions, [])
+
+        with self.assertRaises(ValueError):
+            vtt.sync((1, 2))
+
+    def test_change_framerate(self):
+        vtt = webvtt.from_string(self.SYNC_CAPTIONS)
+        vtt.change_framerate(25, 23.976)
+
+        self.assertEqual(
+            self.timings(vtt),
+            [('00:00:01.043', '00:00:02.085'),
+             ('00:00:10.427', '00:00:13.034'),
+             ('00:01:44.271', '00:01:45.314')]
+            )
+
+        vtt = webvtt.from_string(self.SYNC_CAPTIONS)
+        vtt.change_framerate(23.976, 25)
+
+        self.assertEqual(
+            self.timings(vtt),
+            [('00:00:00.959', '00:00:01.918'),
+             ('00:00:09.590', '00:00:11.988'),
+             ('00:01:35.904', '00:01:36.863')]
+            )
+
+    def test_change_framerate_same(self):
+        vtt = webvtt.from_string(self.SYNC_CAPTIONS)
+        before = self.timings(vtt)
+
+        vtt.change_framerate(29.97, 29.97)
+
+        self.assertEqual(self.timings(vtt), before)
+
+    def test_change_framerate_invalid(self):
+        for fps, error in ((0, ValueError),
+                           (-25, ValueError),
+                           (float('nan'), ValueError),
+                           (float('inf'), ValueError),
+                           ('25', TypeError),
+                           (None, TypeError),
+                           (True, TypeError)):
+            with self.subTest(fps=fps):
+                vtt = webvtt.from_string(self.SYNC_CAPTIONS)
+                before = self.timings(vtt)
+
+                with self.assertRaises(error):
+                    vtt.change_framerate(25, fps)
+                with self.assertRaises(error):
+                    vtt.change_framerate(fps, 25)
+
+                self.assertEqual(self.timings(vtt), before)
 
     def test_parse_empty_file(self):
         self.assertRaises(

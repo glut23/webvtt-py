@@ -224,6 +224,60 @@ millisecond. A timestamp that would fall before zero is set to
 Shifting is also available from the command line, see :doc:`cli`.
 
 
+Synchronizing captions
+----------------------
+
+When the captions are in sync at the start but drift further out of sync
+over time, usually because they were timed for a video with a different
+frame rate or cut, shifting is not enough. ``sync`` moves the captions to
+two or more points, each a ``(from, to)`` pair where the time ``from`` in
+the captions is moved to ``to``:
+
+.. code-block:: python
+
+    import webvtt
+
+    vtt = webvtt.read('captions.vtt')
+
+    # the caption at 00:00:05.000 should be at 00:00:04.200 and the one at
+    # 01:30:00.000 at 01:31:12.500, everything else is moved along
+    vtt.sync(('00:00:05.000', '00:00:04.200'),
+             ('01:30:00.000', '01:31:12.500'))
+
+    # points can be taken from the captions themselves
+    vtt.sync((vtt[0].start, '00:00:04.200'), (vtt[-1].start, '01:31:12.500'))
+
+    # with more points, each part between two points is synchronized on its
+    # own, for captions whose drift is not constant
+    vtt.sync(('00:00:05.000', '00:00:04.200'),
+             ('00:45:00.000', '00:45:30.000'),
+             ('01:30:00.000', '01:31:12.500'))
+
+    # captions timed for a 25 fps video played with a 23.976 fps one
+    vtt.change_framerate(25, 23.976)
+
+    vtt.save()
+
+The times of the points can be timestamp strings, ``Timestamp`` objects,
+numbers of seconds or ``timedelta`` objects, and they can be given in any
+order. Times between two points are moved along the line between them, and
+times before the first or after the last point along the line of the
+outermost points. Start and end times are both moved, so the duration of
+the captions changes with the timing.
+
+As with ``shift``, times are rounded to the nearest millisecond with halves
+rounded away from zero, and a time that would fall before zero is set to
+``00:00:00.000``. A ``ValueError`` is raised if fewer than two points are
+given, two points have the same ``from`` time, or the ``to`` times are not
+in the same order as the ``from`` times, since that would change the order
+of the captions.
+
+Use ``shift`` when all the captions are off by the same amount and ``sync``
+when the difference grows along the video.
+
+Synchronizing is also available from the command line, see :doc:`cli`.
+
+
 Timestamps
 ----------
 
