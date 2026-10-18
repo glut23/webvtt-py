@@ -816,6 +816,54 @@ class TestVTTModule(unittest.TestCase):
         self.assertEqual(output.captions[1].start, '00:00:04.300')
         self.assertEqual(output.captions[1].text, 'Caption text #2')
 
+    def test_parse_cue_without_text_followed_by_cue_timings_line(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            00:22:21.320 --> 00:22:26.520
+            00:21:13.720 --> 00:21:15.360 line:90% position:50% align:middle
+            Caption text #2
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(output.captions), 2)
+        self.assertEqual(output.captions[0].start, '00:22:21.320')
+        self.assertEqual(output.captions[0].text, '')
+        self.assertEqual(output.captions[1].start, '00:21:13.720')
+        self.assertEqual(output.captions[1].end, '00:21:15.360')
+        self.assertEqual(output.captions[1].text, 'Caption text #2')
+
+    def test_parse_strict_cue_without_text_followed_by_cue_timings_line(self):
+        with self.assertRaises(MalformedCaptionError) as cm:
+            vtt.parse(
+                textwrap.dedent('''
+                WEBVTT
+
+                00:22:21.320 --> 00:22:26.520
+                00:21:13.720 --> 00:21:15.360
+                Caption text #2
+                ''').strip().split('\n'),
+                strict=True
+                )
+        self.assertIn('00:21:13.720 --> 00:21:15.360', str(cm.exception))
+
+    def test_parse_consecutive_cues_without_text(self):
+        output = vtt.parse(
+            textwrap.dedent('''
+            WEBVTT
+
+            00:00:00.500 --> 00:00:04.300
+            00:00:04.300 --> 00:00:07.000
+            00:00:07.000 --> 00:00:09.000
+            Caption text #3
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(output.captions), 3)
+        self.assertListEqual(
+            [caption.text for caption in output.captions],
+            ['', '', 'Caption text #3']
+            )
+
     def test_parse_cue_settings(self):
         output = vtt.parse(
             textwrap.dedent('''
