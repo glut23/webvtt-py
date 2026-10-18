@@ -10,6 +10,7 @@ dist/
 
 # Testing
 .tox/
+.coverage
 
 # PyCharm
 .idea

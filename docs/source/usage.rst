@@ -188,6 +188,25 @@ Manipulating captions
     del vtt.captions[2]
 
 
+Timestamps
+----------
+
+.. code-block:: python
+
+    from webvtt.models import Timestamp
+
+    # create a timestamp from a number of seconds,
+    # rounded to the nearest millisecond
+    >>> str(Timestamp.from_seconds(5051.67))
+    '01:24:11.670'
+
+    # in_seconds leaves the milliseconds out
+    >>> Timestamp.from_string('01:24:11.670').in_seconds()
+    5051
+    >>> Timestamp.from_string('01:24:11.670').in_milliseconds()
+    5051670
+
+
 Saving captions
 ---------------
 

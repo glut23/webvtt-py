@@ -157,6 +157,67 @@ class TestTimestamp(unittest.TestCase):
             '<Timestamp hours=1 minutes=12 seconds=45 milliseconds=320>'
             )
 
+    def test_from_seconds(self):
+        timestamp = Timestamp.from_seconds(5051.67)
+        self.assertEqual(timestamp.hours, 1)
+        self.assertEqual(timestamp.minutes, 24)
+        self.assertEqual(timestamp.seconds, 11)
+        self.assertEqual(timestamp.milliseconds, 670)
+        self.assertEqual(str(timestamp), '01:24:11.670')
+
+    def test_from_seconds_int(self):
+        self.assertEqual(str(Timestamp.from_seconds(0)), '00:00:00.000')
+        self.assertEqual(str(Timestamp.from_seconds(65)), '00:01:05.000')
+
+    def test_from_seconds_over_24_hours(self):
+        self.assertEqual(
+            str(Timestamp.from_seconds(360005.2)),
+            '100:00:05.200'
+            )
+
+    def test_from_seconds_rounds_to_milliseconds(self):
+        self.assertEqual(str(Timestamp.from_seconds(0.0004)), '00:00:00.000')
+        self.assertEqual(str(Timestamp.from_seconds(1.2346)), '00:00:01.235')
+        self.assertEqual(str(Timestamp.from_seconds(59.9996)), '00:01:00.000')
+        self.assertEqual(
+            str(Timestamp.from_seconds(3599.9999)),
+            '01:00:00.000'
+            )
+
+    def test_from_seconds_invalid(self):
+        for value in (-0.001, -1, float('nan'), float('inf'), '12', None,
+                      True):
+            with self.subTest(value=value):
+                with self.assertRaises(MalformedCaptionError):
+                    Timestamp.from_seconds(value)
+
+    def test_from_seconds_round_trip(self):
+        for value in ('00:00:00.000', '00:00:00.001', '01:24:11.670',
+                      '23:59:59.999', '100:24:11.670'):
+            with self.subTest(value=value):
+                timestamp = Timestamp.from_string(value)
+                self.assertEqual(
+                    Timestamp.from_seconds(
+                        timestamp.in_milliseconds() / 1000
+                        ),
+                    timestamp
+                    )
+
+    def test_in_seconds(self):
+        self.assertEqual(Timestamp.from_string('01:24:11.999').in_seconds(),
+                         5051
+                         )
+
+    def test_in_milliseconds(self):
+        self.assertEqual(
+            Timestamp.from_string('01:24:11.670').in_milliseconds(),
+            5051670
+            )
+        self.assertEqual(
+            Timestamp.from_string('00:00:00.000').in_milliseconds(),
+            0
+            )
+
 
 class TestCaption(unittest.TestCase):
 
