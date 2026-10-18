@@ -256,3 +256,268 @@ class CLITestCase(unittest.TestCase):
                 ['segment', vtt_file, '-o', output],
                 f'{output}: {os.strerror(errno.EEXIST)}'
                 )
+
+    def test_cli_requires_command(self):
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as cm:
+                main([])
+
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn(
+            'the following arguments are required: command',
+            stderr.getvalue()
+            )
+
+
+class CLIShiftTestCase(unittest.TestCase):
+
+    CAPTIONS = textwrap.dedent(
+        '''
+        WEBVTT
+
+        00:00:00.500 --> 00:00:01.000
+        Credits
+
+        00:00:01.500 --> 00:00:04.000
+        Caption #1
+
+        00:00:04.000 --> 00:00:07.000
+        Caption #2
+        '''
+        ).lstrip()
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+        self.vtt_file = os.path.join(self.temp_dir.name, 'captions.vtt')
+        pathlib.Path(self.vtt_file).write_text(self.CAPTIONS)
+
+    def run_cli(self, argv):
+        with contextlib.redirect_stdout(io.StringIO()) as stdout:
+            main(argv)
+        return stdout.getvalue()
+
+    def assert_usage_error(self, argv, expected_message):
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as cm:
+                main(argv)
+
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn(expected_message, stderr.getvalue())
+
+    def test_shift_to_stdout(self):
+        self.assertEqual(
+            self.run_cli(['shift', self.vtt_file, '1.25']),
+            textwrap.dedent(
+                '''
+                WEBVTT
+
+                00:00:01.750 --> 00:00:02.250
+                Credits
+
+                00:00:02.750 --> 00:00:05.250
+                Caption #1
+
+                00:00:05.250 --> 00:00:08.250
+                Caption #2
+                '''
+                ).lstrip()
+            )
+        self.assertEqual(
+            pathlib.Path(self.vtt_file).read_text(),
+            self.CAPTIONS
+            )
+
+    def test_shift_negative_clamps_to_zero(self):
+        self.assertEqual(
+            self.run_cli(['shift', self.vtt_file, '-2']),
+            textwrap.dedent(
+                '''
+                WEBVTT
+
+                00:00:00.000 --> 00:00:00.000
+                Credits
+
+                00:00:00.000 --> 00:00:02.000
+                Caption #1
+
+                00:00:02.000 --> 00:00:05.000
+                Caption #2
+                '''
+                ).lstrip()
+            )
+
+    def test_shift_from_start(self):
+        self.assertEqual(
+            self.run_cli(
+                ['shift', self.vtt_file, '-0.5', '--start', '00:00:01.500']
+                ),
+            textwrap.dedent(
+                '''
+                WEBVTT
+
+                00:00:00.500 --> 00:00:01.000
+                Credits
+
+                00:00:01.000 --> 00:00:03.500
+                Caption #1
+
+                00:00:03.500 --> 00:00:06.500
+                Caption #2
+                '''
+                ).lstrip()
+            )
+
+    def test_shift_rounds_offset_as_written(self):
+        for offset, expected in (('1.0005', '00:00:01.501 --> 00:00:02.001'),
+                                 ('-0.0005', '00:00:00.499 --> 00:00:00.999'),
+                                 ('0.0025', '00:00:00.503 --> 00:00:01.003'),
+                                 ('0.0004999',
+                                  '00:00:00.500 --> 00:00:01.000'),
+                                 ('2e-3', '00:00:00.502 --> 00:00:01.002'),
+                                 ('259.0395',
+                                  '00:04:19.540 --> 00:04:20.040')):
+            with self.subTest(offset=offset):
+                self.assertIn(
+                    expected,
+                    self.run_cli(['shift', self.vtt_file, offset])
+                    )
+
+    def test_shift_to_output_file(self):
+        output = os.path.join(self.temp_dir.name, 'shifted.vtt')
+
+        self.assertEqual(
+            self.run_cli(['shift', self.vtt_file, '3', '-o', output]),
+            ''
+            )
+        self.assertEqual(
+            pathlib.Path(output).read_text(),
+            textwrap.dedent(
+                '''
+                WEBVTT
+
+                00:00:03.500 --> 00:00:04.000
+                Credits
+
+                00:00:04.500 --> 00:00:07.000
+                Caption #1
+
+                00:00:07.000 --> 00:00:10.000
+                Caption #2
+                '''
+                ).lstrip()
+            )
+        self.assertEqual(
+            pathlib.Path(self.vtt_file).read_text(),
+            self.CAPTIONS
+            )
+
+    def test_shift_in_place(self):
+        self.run_cli(['shift', self.vtt_file, '-s', '00:00:04.000', '1',
+                      '-o', self.vtt_file])
+
+        self.assertEqual(
+            pathlib.Path(self.vtt_file).read_text(),
+            self.CAPTIONS.replace(
+                '00:00:04.000 --> 00:00:07.000',
+                '00:00:05.000 --> 00:00:08.000'
+                )
+            )
+
+    def test_shift_keeps_bom(self):
+        pathlib.Path(self.vtt_file).write_bytes(
+            b'\xef\xbb\xbf' + self.CAPTIONS.encode('utf-8')
+            )
+
+        self.run_cli(['shift', self.vtt_file, '1', '-o', self.vtt_file])
+
+        self.assertTrue(
+            pathlib.Path(self.vtt_file).read_bytes().startswith(
+                b'\xef\xbb\xbfWEBVTT\n\n00:00:01.500 --> 00:00:02.000'
+                )
+            )
+
+    def test_shift_to_stdout_in_utf8(self):
+        pathlib.Path(self.vtt_file).write_text(
+            self.CAPTIONS.replace('Caption #1', 'Subtítulo #1'),
+            encoding='utf-8'
+            )
+        stdout = io.TextIOWrapper(io.BytesIO(), encoding='ascii')
+
+        with contextlib.redirect_stdout(stdout):
+            main(['shift', self.vtt_file, '0'])
+
+        self.assertEqual(
+            stdout.buffer.getvalue().decode('utf-8'),
+            self.CAPTIONS.replace('Caption #1', 'Subtítulo #1')
+            )
+
+    def test_shift_to_closed_pipe(self):
+        class ClosedPipe(io.StringIO):
+            def __init__(self, fd):
+                super().__init__()
+                self.fd = fd
+
+            def write(self, s):
+                raise BrokenPipeError
+
+            def fileno(self):
+                return self.fd
+
+        with tempfile.TemporaryFile() as f:
+            with contextlib.redirect_stdout(ClosedPipe(f.fileno())), \
+                    contextlib.redirect_stderr(io.StringIO()) as stderr:
+                with self.assertRaises(SystemExit) as cm:
+                    main(['shift', self.vtt_file, '1'])
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(stderr.getvalue(), '')
+
+    def test_shift_invalid_offset(self):
+        for value in ('abc', 'nan', 'sNaN', 'inf', '1e400', ''):
+            with self.subTest(value=value):
+                self.assert_usage_error(
+                    ['shift', self.vtt_file, value],
+                    f'argument OFFSET: invalid offset: {value!r}'
+                    )
+
+    def test_shift_invalid_start(self):
+        self.assert_usage_error(
+            ['shift', self.vtt_file, '1', '--start', '1:2'],
+            "argument -s/--start: invalid timestamp: '1:2'"
+            )
+
+    def test_shift_requires_offset(self):
+        self.assert_usage_error(
+            ['shift', self.vtt_file],
+            'the following arguments are required: OFFSET'
+            )
+
+    def test_shift_missing_file(self):
+        vtt_file = os.path.join(self.temp_dir.name, 'missing.vtt')
+
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as cm:
+                main(['shift', vtt_file, '1'])
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(
+            stderr.getvalue(),
+            f'webvtt: error: {vtt_file}: {os.strerror(errno.ENOENT)}\n'
+            )
+
+    def test_shift_invalid_file(self):
+        vtt_file = str(
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'invalid.vtt'
+            )
+
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as cm:
+                main(['shift', vtt_file, '1'])
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(
+            stderr.getvalue(),
+            f'webvtt: error: {vtt_file}: not a valid WebVTT file\n'
+            )

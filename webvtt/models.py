@@ -1,10 +1,16 @@
 """Models module."""
 
+import datetime
+import decimal
 import math
 import re
 import typing
 
 from .errors import MalformedCaptionError
+
+# a context of our own, so rounding does not depend on the decimal context
+# of the caller
+_DECIMAL_CONTEXT = decimal.Context()
 
 
 class Timestamp:
@@ -105,8 +111,9 @@ class Timestamp:
         """
         Return a `Timestamp` instance from a number of seconds.
 
-        The value is rounded to the nearest millisecond, so ``1.9996`` is
-        read as ``00:00:02.000``.
+        The value is rounded to the nearest millisecond as written, with
+        halves rounded up, so ``1.9996`` and ``1.9995`` are read as
+        ``00:00:02.000``.
 
         :param value: the timestamp in seconds
         :returns: a `Timestamp` instance
@@ -122,7 +129,17 @@ class Timestamp:
                 ):
             raise MalformedCaptionError(f'Invalid timestamp {value!r}')
 
-        hours, remainder = divmod(round(value * 1000), 3_600_000)
+        return cls._from_milliseconds(_in_milliseconds(value))
+
+    @classmethod
+    def _from_milliseconds(cls, value: int) -> 'Timestamp':
+        """
+        Return a `Timestamp` instance from a number of milliseconds.
+
+        :param value: the timestamp in milliseconds, zero or greater
+        :returns: a `Timestamp` instance
+        """
+        hours, remainder = divmod(value, 3_600_000)
         minutes, remainder = divmod(remainder, 60_000)
         seconds, milliseconds = divmod(remainder, 1000)
 
@@ -143,6 +160,73 @@ class Timestamp:
     def in_milliseconds(self) -> int:
         """Return the timestamp in milliseconds."""
         return self.in_seconds() * 1000 + self.milliseconds
+
+    def _shifted(self, offset_ms: int) -> 'Timestamp':
+        """
+        Return a new `Timestamp` moved by a number of milliseconds.
+
+        A result before zero is clamped to ``00:00:00.000``.
+
+        :param offset_ms: the milliseconds to move the timestamp by
+        :returns: a `Timestamp` instance
+        """
+        return self._from_milliseconds(
+            max(self.in_milliseconds() + offset_ms, 0)
+            )
+
+
+def _in_milliseconds(value: typing.Union[float, datetime.timedelta]) -> int:
+    """
+    Return a number of seconds or a ``timedelta`` in milliseconds.
+
+    The value is rounded to the nearest millisecond with halves rounded away
+    from zero. A float is rounded as written, from its shortest
+    representation, so ``259.0395`` is 259040 milliseconds although the
+    closest float is slightly smaller.
+
+    :param value: a finite number of seconds or a ``timedelta``
+    :returns: the value in milliseconds
+    """
+    if isinstance(value, datetime.timedelta):
+        seconds = decimal.Decimal(
+            value // datetime.timedelta(microseconds=1)
+            ).scaleb(-6, context=_DECIMAL_CONTEXT)
+    elif isinstance(value, float):
+        seconds = decimal.Decimal(float.__repr__(value))
+    else:
+        seconds = decimal.Decimal(value)
+
+    return int(
+        seconds.scaleb(3, context=_DECIMAL_CONTEXT).to_integral_value(
+            rounding=decimal.ROUND_HALF_UP,
+            context=_DECIMAL_CONTEXT
+            )
+        )
+
+
+def _offset_in_milliseconds(
+        offset: typing.Union[float, datetime.timedelta]
+        ) -> int:
+    """
+    Return a shift offset in milliseconds.
+
+    :param offset: a number of seconds or a ``timedelta``
+    :returns: the offset rounded to the nearest millisecond, halves away
+        from zero
+
+    :raises TypeError: if the offset is not a number or a ``timedelta``
+    :raises ValueError: if the offset is not finite
+    """
+    if isinstance(offset, datetime.timedelta):
+        return _in_milliseconds(offset)
+
+    if type(offset) is bool or not isinstance(offset, (int, float)):
+        raise TypeError(f'Invalid offset {offset!r}')
+
+    if not math.isfinite(offset):
+        raise ValueError(f'Invalid offset {offset!r}')
+
+    return _in_milliseconds(offset)
 
 
 def _strip_cue_text_tags(line: str) -> str:
@@ -260,6 +344,31 @@ class Caption:
     def end_in_seconds(self):
         """Return the end time of the caption in seconds."""
         return self.end_time.in_seconds()
+
+    def shift(self, offset: typing.Union[float, datetime.timedelta]):
+        """
+        Shift the start and end time of the caption.
+
+        The offset is rounded to the nearest millisecond, halves away from
+        zero, and a timestamp that would fall before zero is set to
+        ``00:00:00.000``.
+
+        :param offset: a number of seconds or a ``timedelta``, negative
+            values move the caption earlier
+
+        :raises TypeError: if the offset is not a number or a ``timedelta``
+        :raises ValueError: if the offset is not finite
+        """
+        self._shift_milliseconds(_offset_in_milliseconds(offset))
+
+    def _shift_milliseconds(self, offset_ms: int):
+        """
+        Shift the start and end time of the caption by milliseconds.
+
+        :param offset_ms: the milliseconds to shift the caption by
+        """
+        self.start_time = self.start_time._shifted(offset_ms)
+        self.end_time = self.end_time._shifted(offset_ms)
 
     @property
     def raw_text(self) -> str:
