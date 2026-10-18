@@ -1110,6 +1110,136 @@ class TestWebVTT(unittest.TestCase):
     def test_metadata_headers_multiline(self):
         vtt = webvtt.read(PATH_TO_SAMPLES / 'metadata_headers_multiline.vtt')
         self.assertEqual(len(vtt.captions), 2)
+        self.assertListEqual(
+            vtt.metadata,
+            ['Kind: captions',
+             'Language: en',
+             'Style:',
+             '::cue(c.colorCCCCCC) { color: rgb(204, 204, 204);',
+             '}',
+             '##'
+             ]
+            )
+
+    def test_metadata_headers_preserved_on_save(self):
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'metadata_headers.vtt')
+        self.assertEqual(vtt.header_text, '')
+        self.assertListEqual(vtt.metadata, ['Kind: captions', 'Language: en'])
+
+        vtt.shift(1)
+        with tempfile.TemporaryDirectory() as td:
+            output = os.path.join(td, 'captions.vtt')
+            vtt.save(output)
+
+            with open(output, encoding='utf-8') as f:
+                self.assertEqual(
+                    f.read(),
+                    textwrap.dedent('''
+                        WEBVTT
+                        Kind: captions
+                        Language: en
+
+                        00:00:01.500 --> 00:00:08.000
+                        Caption text #1
+
+                        00:00:08.000 --> 00:00:12.890
+                        Caption text #2
+                        ''').lstrip()
+                    )
+
+    def test_header_round_trip(self):
+        content = textwrap.dedent('''
+            WEBVTT - Sample title
+            X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:126000
+
+            00:00:00.000 --> 00:00:02.000
+             Hello there
+            ''').lstrip()
+
+        vtt = webvtt.from_string(content)
+        self.assertEqual(vtt.header_text, '- Sample title')
+        self.assertListEqual(
+            vtt.metadata,
+            ['X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:126000']
+            )
+        self.assertEqual(vtt.content, content)
+
+        vtt = webvtt.from_buffer(io.StringIO(content))
+        self.assertEqual(vtt.header_text, '- Sample title')
+        out = io.StringIO()
+        vtt.write(out)
+        self.assertEqual(out.getvalue(), content)
+
+    def test_header_in_new_file(self):
+        vtt = webvtt.WebVTT(
+            captions=[
+                Caption(start='00:00:00.500',
+                        end='00:00:07.000',
+                        text='Caption #1'
+                        )
+                ],
+            header_text='Sample title'
+            )
+        vtt.metadata.append('Language: en')
+
+        self.assertEqual(
+            vtt.content,
+            textwrap.dedent('''
+                WEBVTT Sample title
+                Language: en
+
+                00:00:00.500 --> 00:00:07.000
+                Caption #1
+                ''').lstrip()
+            )
+
+    def test_save_header_with_other_unicode_line_separators(self):
+        content = (
+            'WEBVTT title\u2028more\n'
+            'Kind: a\x0cb\n'
+            '\n'
+            '00:00:00.500 --> 00:00:07.000\n'
+            'Caption #1\n'
+            )
+        with tempfile.TemporaryDirectory() as td:
+            source = os.path.join(td, 'source.vtt')
+            with open(source, 'w', encoding='utf-8', newline='') as f:
+                f.write(content)
+
+            vtt = webvtt.read(source)
+            self.assertEqual(vtt.header_text, 'title\u2028more')
+            self.assertListEqual(vtt.metadata, ['Kind: a\x0cb'])
+
+            output = os.path.join(td, 'output.vtt')
+            vtt.save(output)
+            with open(output, encoding='utf-8', newline='') as f:
+                self.assertEqual(f.read(), content)
+
+    def test_save_invalid_metadata(self):
+        vtt = webvtt.WebVTT(metadata=['Kind: captions', ''])
+        with tempfile.TemporaryDirectory() as td:
+            output = os.path.join(td, 'captions.vtt')
+            with self.assertRaises(ValueError):
+                vtt.save(output)
+            self.assertFalse(os.path.exists(output))
+            self.assertIsNone(vtt.file)
+
+    def test_header_not_in_srt(self):
+        vtt = webvtt.from_string(
+            textwrap.dedent('''
+                WEBVTT - Sample title
+                Language: en
+
+                00:00:00.500 --> 00:00:07.000
+                Caption #1
+                ''').lstrip()
+            )
+        out = io.StringIO()
+        vtt.write(out, format='srt')
+        self.assertEqual(
+            out.getvalue(),
+            '1\n00:00:00,500 --> 00:00:07,000\nCaption #1'
+            )
 
     def test_parse_identifiers(self):
         vtt = webvtt.read(PATH_TO_SAMPLES / 'using_identifiers.vtt')

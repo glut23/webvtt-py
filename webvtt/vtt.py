@@ -2,7 +2,7 @@
 
 import re
 import typing
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .errors import MalformedFileError, MalformedCaptionError
 from .models import Caption, Style
@@ -19,6 +19,8 @@ class ParserOutput:
     captions: typing.List[Caption]
     header_comments: typing.List[str]
     footer_comments: typing.List[str]
+    header_text: str = ''
+    metadata: typing.List[str] = field(default_factory=list)
 
     @classmethod
     def from_data(
@@ -275,7 +277,11 @@ def parse(
     if not is_valid_content(lines):
         raise MalformedFileError('Invalid format')
 
-    return parse_items(lines, strict)
+    output = parse_items(lines, strict)
+    output.header_text, output.metadata = parse_header(
+        next(iter_blocks_of_lines(lines))
+        )
+    return output
 
 
 def is_valid_content(lines: typing.Sequence[str]) -> bool:
@@ -392,6 +398,56 @@ def parse_items(
         )
 
 
+def parse_header(
+        lines: typing.Sequence[str]
+        ) -> typing.Tuple[str, typing.List[str]]:
+    """
+    Parse the header block of the file.
+
+    :param lines: lines of the header block, the first one starting with
+        "WEBVTT"
+    :returns: the text following "WEBVTT" in the first line and the
+        metadata lines that follow it
+    """
+    text = lines[0][len('WEBVTT'):]
+    if text[:1] in (' ', '\t'):
+        text = text[1:]
+    return text, list(lines[1:])
+
+
+def validate_header(header_text: str, metadata: typing.Iterable[str]):
+    """
+    Validate the header text and metadata lines before writing them.
+
+    :param header_text: the text following "WEBVTT" in the first line
+    :param metadata: the metadata lines of the header
+
+    :raises ValueError: if the header text contains a line break, or a
+        metadata line is empty, contains a line break or contains "-->"
+    """
+    if _has_line_break(header_text):
+        raise ValueError(
+            f'Header text must be a single line: {header_text!r}'
+            )
+
+    for line in metadata:
+        if not line or _has_line_break(line) or '-->' in line:
+            raise ValueError(
+                'Metadata lines must be single non-empty lines without '
+                f'"-->": {line!r}'
+                )
+
+
+def _has_line_break(text: str) -> bool:
+    """
+    Return whether the text contains a WebVTT line terminator.
+
+    :param text: the text to check
+    :returns: true if the text contains a carriage return or a line feed
+    """
+    return '\n' in text or '\r' in text
+
+
 def parse_item(
         lines: typing.Sequence[str],
         strict: bool = False
@@ -431,7 +487,9 @@ def write(
         captions: typing.Iterable[Caption],
         styles: typing.Iterable[Style],
         header_comments: typing.Iterable[str],
-        footer_comments: typing.Iterable[str]
+        footer_comments: typing.Iterable[str],
+        header_text: str = '',
+        metadata: typing.Iterable[str] = ()
         ):
     """
     Write captions to an output.
@@ -441,12 +499,18 @@ def write(
     :param styles: Iterable of `Style` objects
     :param header_comments: the comments for the header
     :param footer_comments: the comments for the footer
+    :param header_text: the text following "WEBVTT" in the first line
+    :param metadata: the metadata lines of the header
+
+    :raises ValueError: if the header text or metadata are not valid
     """
     f.write(
         to_str(captions,
                styles,
                header_comments,
-               footer_comments
+               footer_comments,
+               header_text,
+               metadata
                )
         )
 
@@ -455,7 +519,9 @@ def to_str(
         captions: typing.Iterable[Caption],
         styles: typing.Iterable[Style],
         header_comments: typing.Iterable[str],
-        footer_comments: typing.Iterable[str]
+        footer_comments: typing.Iterable[str],
+        header_text: str = '',
+        metadata: typing.Iterable[str] = ()
         ) -> str:
     """
     Convert captions to a string with webvtt format.
@@ -464,9 +530,18 @@ def to_str(
     :param styles: the iterable of `Style` objects
     :param header_comments: the comments for the header
     :param footer_comments: the comments for the footer
+    :param header_text: the text following "WEBVTT" in the first line
+    :param metadata: the metadata lines of the header
     :returns: String of the content in WebVTT format.
+
+    :raises ValueError: if the header text or metadata are not valid
     """
-    output = ['WEBVTT']
+    metadata = list(metadata)
+    validate_header(header_text, metadata)
+
+    output = [f'WEBVTT {header_text}' if header_text else 'WEBVTT',
+              *metadata
+              ]
 
     for comment in header_comments:
         output.extend([
