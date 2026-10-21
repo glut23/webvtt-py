@@ -8,27 +8,26 @@ Reading WebVTT caption files
 
     import webvtt
 
-    # we can iterate over the captions
-    for caption in webvtt.read('captions.vtt'):
+    vtt = webvtt.read('captions.vtt')
+
+    # iterate over the captions
+    for caption in vtt:
         print(caption.start)  # start timestamp in text format
         print(caption.end)  # end timestamp in text format
         print(caption.text)  # caption text
         print(caption.voice)  # voice span if present
 
-    # you can also iterate over the lines of a particular caption
+    # iterate over the lines of a particular caption
     for line in vtt[0].lines:
         print(line)
 
-    # caption text is returned clean without class tags
-    # we can access the raw text of a caption with raw_text
-    >>> vtt[0].text
-    'This is a caption text'
-    >>> vtt[0].raw_text
-    'This is a <c.colorE5E5E5>caption</c> text'
+    # the caption text is returned clean without class tags,
+    # the raw text of a caption is available in raw_text
+    vtt[0].text      # 'This is a caption text'
+    vtt[0].raw_text  # 'This is a <c.colorE5E5E5>caption</c> text'
 
     # caption identifiers
-    >>> vtt[0].identifier
-    'chapter 1'
+    vtt[0].identifier  # 'chapter 1'
 
 
 Reading WebVTT caption files from a file-like object
@@ -40,7 +39,7 @@ Reading WebVTT caption files from a file-like object
     import requests
     from io import StringIO
 
-    payload = requests.get('http://subtitles.com/1234.vtt').text()
+    payload = requests.get('http://subtitles.com/1234.vtt').text
     buffer = StringIO(payload)
 
     for caption in webvtt.from_buffer(buffer):
@@ -83,6 +82,7 @@ Reading caption files in other formats from a BytesIO object
         print(caption.end)
         print(caption.text)
 
+
 Reading WebVTT captions from a string
 -------------------------------------
 
@@ -112,8 +112,8 @@ Reading WebVTT captions from a string
         print(caption.text)
 
 
-Iterate a slice of captions
----------------------------
+Iterating over a slice of captions
+----------------------------------
 
 .. code-block:: python
 
@@ -122,7 +122,7 @@ Iterate a slice of captions
     vtt = webvtt.read('captions.vtt')
     for caption in vtt.iter_slice(start='00:00:11.000',
                                   end='00:00:27.000'
-                                  )
+                                  ):
         print(caption.start)
         print(caption.end)
         print(caption.text)
@@ -162,11 +162,12 @@ Creating captions
     # save the captions to a file
     vtt.save('captions.vtt')
 
-As in WebVTT, only CR, LF and CRLF break a text into lines. Other characters
+As in WebVTT, only CR, LF and CRLF break text into lines. Other characters
 such as U+2028 or a form feed stay in the line.
 
 A ``WebVTT`` object created from scratch has no filename, so ``save()``
-requires an output path. Calling it without one raises ``MissingFilenameError``.
+requires an output path. Calling it without one raises
+``MissingFilenameError``.
 
 
 Manipulating captions
@@ -235,10 +236,11 @@ WebVTT specification, such as ``align = 'middle'``, raises
 ``MalformedCaptionError``.
 
 The settings are saved as they were read, in the same order and including
-the ones that are not valid or not known, separated by a single space. When a setting is not valid, such as ``align:middle``
-from an older version of the specification, its property returns ``None``
-and assigning a new value replaces it. When converting to SRT or SBV,
-the cue settings are not included as those formats do not support them.
+the ones that are not valid or not known, separated by a single space.
+When a setting is not valid, such as ``align:middle`` from an older
+version of the specification, its property returns ``None`` and assigning
+a new value replaces it. When converting to SRT, the cue settings are not
+included as the format does not support them.
 
 
 Shifting captions
@@ -257,7 +259,7 @@ seconds or a ``timedelta``:
     # show all the captions 1.5 seconds earlier
     vtt.shift(-1.5)
 
-    # show the captions starting at or after 00:12:30 3 seconds later
+    # show the captions from 00:12:30 onwards 3 seconds later
     vtt.shift(3, start='00:12:30.000')
 
     # shift a single caption
@@ -268,7 +270,8 @@ seconds or a ``timedelta``:
 
     vtt.save()
 
-The offset is rounded to the nearest millisecond as written, with halves
+The offset is rounded to the nearest millisecond of its decimal value, with
+halves
 rounded away from zero, so ``0.0005`` is 1 millisecond and ``-0.0005`` is -1
 millisecond. A timestamp that would fall before zero is set to
 ``00:00:00.000``, so a caption moved entirely before the start is kept with
@@ -342,16 +345,13 @@ Timestamps
 
     from webvtt.models import Timestamp
 
-    # create a timestamp from a number of seconds,
-    # rounded to the nearest millisecond, halves rounded up
-    >>> str(Timestamp.from_seconds(5051.67))
-    '01:24:11.670'
+    # create a timestamp from a number of seconds, rounded to the
+    # nearest millisecond with halves rounded away from zero
+    str(Timestamp.from_seconds(5051.67))  # '01:24:11.670'
 
     # in_seconds leaves the milliseconds out
-    >>> Timestamp.from_string('01:24:11.670').in_seconds()
-    5051
-    >>> Timestamp.from_string('01:24:11.670').in_milliseconds()
-    5051670
+    Timestamp.from_string('01:24:11.670').in_seconds()       # 5051
+    Timestamp.from_string('01:24:11.670').in_milliseconds()  # 5051670
 
 
 Saving captions
@@ -369,13 +369,13 @@ Saving captions
     # save to a different file
     vtt.save('new_captions.vtt')
 
-    # you can save to a file path
+    # save to a file path, the .vtt extension is added when missing
     vtt.save('other/folder/new_captions')
 
-    # if there is a filename present in the object we can target a folder
+    # save to a folder, keeping the name of the file that was read
     vtt.save('other/folder')
 
-    # write to an opened file
+    # write to an open file
     with open('other_captions.vtt', 'w') as f:
         vtt.write(f)
 
@@ -413,7 +413,7 @@ You can read captions from the following formats:
     # save the captions in WebVTT format
     vtt.save()
 
-    # the conversion can be done chaining the method calls
+    # the conversion can be done by chaining the method calls
     webvtt.from_srt('captions.srt').save()
 
     # the same for SBV format
@@ -436,7 +436,7 @@ Convert WebVTT captions to other formats:
     vtt = webvtt.read('captions.vtt')
     vtt.save_as_srt()
 
-    # write to an opened file in SRT format
+    # write to an open file in SRT format
     with open('captions.srt', 'w') as f:
         vtt.write(f, format='srt')
 
@@ -448,10 +448,10 @@ Segmenting captions for HLS
 
     import webvtt
 
-    # write 10 second segments and a prog_index.m3u8 playlist to output/path
+    # write 10-second segments and a prog_index.m3u8 playlist to output/path
     webvtt.segment('captions.vtt', 'output/path')
 
-    # use 6 second segments and a different MPEG-TS value
+    # use 6-second segments and a different MPEG-TS value
     webvtt.segment('captions.vtt', 'output/path', seconds=6, mpegts=0)
 
 Segmentation is also available from the command line, see :doc:`cli`.
@@ -460,7 +460,7 @@ Segmentation is also available from the command line, see :doc:`cli`.
 WebVTT files with Byte Order Mark (BOM)
 ---------------------------------------
 
-When the WebVTT file has BOM, saving it will keep the BOM:
+When the WebVTT file has a BOM, saving it keeps the BOM:
 
 .. code-block:: python
 
@@ -482,7 +482,7 @@ Add a BOM to a file without it:
                       add_bom=True
                       )
 
-    # saved file has BOM
+    # saved file has a BOM
     vtt.save()
 
 
@@ -494,11 +494,11 @@ Remove the BOM from a file:
 
     vtt = webvtt.read('captions_with_bom.vtt')
 
-    # saved file does not have BOM
+    # saved file does not have a BOM
     vtt.save(add_bom=False)
 
 
-Save file with a different encoding:
+Save a file with a different encoding:
 
 .. code-block:: python
 
@@ -508,14 +508,13 @@ Save file with a different encoding:
 
     vtt.save(encoding='utf-32-le')
 
-    # save in different encoding with BOM
+    # save in a different encoding with a BOM
     vtt.save(encoding='utf-32-le',
              add_bom=True
              )
 
 
-
-WebVTT Styles
+WebVTT styles
 -------------
 
 .. code-block:: python
@@ -562,7 +561,7 @@ Updating styles:
     vtt.styles[0].lines[1] = '  color: papayawhip;'
 
 
-WebVTT Regions
+WebVTT regions
 --------------
 
 Regions are areas of the video where captions are rendered, defined in
@@ -599,13 +598,13 @@ value or ``None`` when it is not set:
     vtt.captions[0].settings.region = 'fred'
 
 The supported settings are ``id``, ``width``, ``lines``, ``regionanchor``,
-``viewportanchor`` and ``scroll``. As for cue settings, setting a value
+``viewportanchor`` and ``scroll``. As with cue settings, setting a value
 that is not valid raises ``MalformedCaptionError``, and the settings are
 saved as they were read, including the ones that are not valid or not
 known, with a setting per line. ``REGION`` blocks after the first cue are
 not regions as per the WebVTT specification and are ignored, or raise
-``MalformedCaptionError`` with strict parsing. When
-converting to SRT or SBV, the regions are not included.
+``MalformedCaptionError`` with strict parsing. When converting to SRT, the
+regions are not included.
 
 Removing or renaming a region does not update the captions that use it.
 
@@ -632,10 +631,9 @@ reading and written back when saving:
 
     vtt = webvtt.read('captions.vtt')
 
-    print(vtt.header_text)
-    # - Sample title
+    vtt.header_text  # '- Sample title'
 
-    print(vtt.metadata)
+    vtt.metadata
     # ['X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:126000', 'Kind: captions']
 
     vtt.metadata.append('Language: en')
@@ -646,10 +644,11 @@ to the same media time. Saving, writing or getting the ``content`` raises
 ``ValueError`` if the header text has a line break, or if a metadata line is
 empty, has a line break or contains ``-->``, since that would break the file.
 
-WebVTT Comments
+
+WebVTT comments
 ---------------
 
-Comments can be added or retrieved from different items:
+Comments can be added to or retrieved from different items:
 
 .. code-block:: python
 
@@ -672,6 +671,7 @@ Comments can be added or retrieved from different items:
     # comments are just a list of strings
     vtt.captions[5].comments.append('caption for review')
 
+
 Handling errors
 ---------------
 
@@ -680,7 +680,8 @@ module:
 
 * ``MalformedFileError``: the content is not valid for the expected
   format (WebVTT, SRT or SBV).
-* ``MalformedCaptionError``: a caption has an invalid timestamp.
+* ``MalformedCaptionError``: a caption, cue setting or region is not
+  valid, or the content does not pass strict parsing.
 * ``MissingFilenameError``: captions are saved without an output path
   and there is no file to derive it from.
 
@@ -707,8 +708,9 @@ module:
     except MissingFilenameError:
         vtt.save('captions.vtt')
 
-Strict parsing
---------------
+
+Parsing rules
+-------------
 
 The WebVTT parser follows the parsing rules of the WebVTT specification:
 blocks are separated by empty lines, so lines containing only whitespace
@@ -721,6 +723,10 @@ Timestamps with fields shorter than the specification requires, such as
 and the captions are saved in the standard ``00:00:13.540`` and
 ``00:01:05.200`` format. The fraction of a second is padded on the right,
 so ``.2`` is read as 200 milliseconds.
+
+
+Strict parsing
+--------------
 
 By default the parser ignores blocks it cannot parse, so a cue with
 malformed timings such as ``00:00:00.-004 --> 00:00:04.300`` or out of
