@@ -20,7 +20,7 @@ class SRTCueBlock:
             index: str,
             start: str,
             end: str,
-            payload: typing.List[str]
+            payload: typing.Sequence[str]
             ):
         """
         Initialize.
@@ -47,7 +47,7 @@ class SRTCueBlock:
         """
         return bool(
           len(lines) >= 2 and
-          lines[0].isdigit() and
+          lines[0].strip().isdigit() and
           re.match(cls.CUE_TIMINGS_PATTERN, lines[1])
           )
 
@@ -67,7 +67,7 @@ class SRTCueBlock:
         match = re.match(cls.CUE_TIMINGS_PATTERN, lines[1])
         assert match is not None
 
-        payload = list(lines[2:])
+        payload = lines[2:]
 
         return cls(index, match.group(1), match.group(2), payload)
 
@@ -101,44 +101,64 @@ def is_valid_content(lines: typing.Sequence[str]) -> bool:
     )
 
 
+def is_cue_start(lines: typing.Sequence[str]) -> bool:
+    """
+    Validate if the lines start with a cue index or cue timings.
+
+    :param lines: the lines to be validated
+    :returns: true if the lines start a cue
+    """
+    return lines[0].strip().isdigit() or '-->' in lines[0]
+
+
+def iter_cue_blocks(
+        lines: typing.Sequence[str]
+        ) -> typing.Generator[typing.List[str], None, None]:
+    """
+    Iterate blocks of text, also splitting a block where a cue starts.
+
+    A cue starts at a cue index followed by the cue timings, even without
+    an empty line before it.
+
+    :param lines: lines of text
+    """
+    for block_lines in utils.iter_blocks_of_lines(lines):
+        start = 0
+        for i in range(1, len(block_lines) - 1):
+            if (block_lines[i].strip().isdigit() and
+                    '-->' in block_lines[i + 1]):
+                yield block_lines[start:i]
+                start = i
+        yield block_lines[start:]
+
+
 def parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
     """
     Parse captions from the text.
 
-    Blocks of text that do not start with a cue index are taken as part
-    of the text of the previous cue, as some files have empty lines in
-    the caption text.
+    Blocks of text that do not start a cue are taken as part of the text
+    of the previous cue, as some files have empty lines in the caption
+    text.
 
     :param lines: lines of text
     :returns: list of `Caption` objects
     """
-    cue_blocks: typing.List[SRTCueBlock] = []
-    cue_block: typing.Optional[SRTCueBlock] = None
+    captions: typing.List[Caption] = []
+    caption: typing.Optional[Caption] = None
 
-    for block_lines in utils.iter_blocks_of_lines(lines):
-        if block_lines[0].isdigit():
-            cue_block = None
+    for block_lines in iter_cue_blocks(lines):
+        if is_cue_start(block_lines):
+            caption = None
             if SRTCueBlock.is_valid(block_lines):
                 cue_block = SRTCueBlock.from_lines(block_lines)
-                cue_blocks.append(cue_block)
-        elif cue_block:
-            cue_block.payload.extend(block_lines)
+                start, end = map(lambda x: x.replace(',', '.'),
+                                 (cue_block.start, cue_block.end))
+                caption = Caption(start, end, cue_block.payload)
+                captions.append(caption)
+        elif caption is not None:
+            caption.lines.extend(block_lines)
 
-    captions: typing.List[Caption] = []
-
-    for cue_block in cue_blocks:
-        if not cue_block.payload:
-            continue
-
-        cue_block.start, cue_block.end = map(
-            lambda x: x.replace(',', '.'), (cue_block.start, cue_block.end))
-
-        captions.append(Caption(cue_block.start,
-                                cue_block.end,
-                                cue_block.payload
-                                ))
-
-    return captions
+    return [caption for caption in captions if caption.lines]
 
 
 def write(
