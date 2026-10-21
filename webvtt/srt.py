@@ -20,7 +20,7 @@ class SRTCueBlock:
             index: str,
             start: str,
             end: str,
-            payload: typing.Sequence[str]
+            payload: typing.List[str]
             ):
         """
         Initialize.
@@ -46,7 +46,7 @@ class SRTCueBlock:
         :returns: true for a matching cue time block
         """
         return bool(
-          len(lines) >= 3 and
+          len(lines) >= 2 and
           lines[0].isdigit() and
           re.match(cls.CUE_TIMINGS_PATTERN, lines[1])
           )
@@ -67,7 +67,7 @@ class SRTCueBlock:
         match = re.match(cls.CUE_TIMINGS_PATTERN, lines[1])
         assert match is not None
 
-        payload = lines[2:]
+        payload = list(lines[2:])
 
         return cls(index, match.group(1), match.group(2), payload)
 
@@ -97,8 +97,7 @@ def is_valid_content(lines: typing.Sequence[str]) -> bool:
     return bool(
         len(lines) >= 3 and
         lines[0].isdigit() and
-        '-->' in lines[1] and
-        lines[2].strip()
+        '-->' in lines[1]
     )
 
 
@@ -106,16 +105,31 @@ def parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
     """
     Parse captions from the text.
 
+    Blocks of text that do not start with a cue index are taken as part
+    of the text of the previous cue, as some files have empty lines in
+    the caption text.
+
     :param lines: lines of text
     :returns: list of `Caption` objects
     """
-    captions: typing.List[Caption] = []
+    cue_blocks: typing.List[SRTCueBlock] = []
+    cue_block: typing.Optional[SRTCueBlock] = None
 
     for block_lines in utils.iter_blocks_of_lines(lines):
-        if not SRTCueBlock.is_valid(block_lines):
+        if block_lines[0].isdigit():
+            cue_block = None
+            if SRTCueBlock.is_valid(block_lines):
+                cue_block = SRTCueBlock.from_lines(block_lines)
+                cue_blocks.append(cue_block)
+        elif cue_block:
+            cue_block.payload.extend(block_lines)
+
+    captions: typing.List[Caption] = []
+
+    for cue_block in cue_blocks:
+        if not cue_block.payload:
             continue
 
-        cue_block = SRTCueBlock.from_lines(block_lines)
         cue_block.start, cue_block.end = map(
             lambda x: x.replace(',', '.'), (cue_block.start, cue_block.end))
 

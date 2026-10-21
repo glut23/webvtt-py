@@ -419,6 +419,11 @@ You can read captions from the following formats:
     # the same for SBV format
     vtt = webvtt.from_sbv('captions.sbv')
 
+Some SRT files have empty lines in the caption text. When reading SRT, only
+a line with a cue index after an empty line starts a new caption. Any other
+text after an empty line stays in the current caption, and the empty lines
+are removed.
+
 Convert WebVTT captions to other formats:
 
 * SubRip (.srt)

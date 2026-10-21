@@ -38,7 +38,7 @@ class TestSRTCueBlock(unittest.TestCase):
             ''').strip().split('\n'))
             )
 
-        self.assertFalse(srt.SRTCueBlock.is_valid(textwrap.dedent('''
+        self.assertTrue(srt.SRTCueBlock.is_valid(textwrap.dedent('''
             1
             00:00:00,500 --> 00:00:07,000
             ''').strip().split('\n'))
@@ -123,6 +123,113 @@ class TestSRTModule(unittest.TestCase):
             r'00:00:07.000 00:00:11.890 Caption #2 line 1\n'
             'Caption #2 line 2'
             )
+
+    def test_parse_captions_with_empty_lines_in_text(self):
+        captions = srt.parse(
+            textwrap.dedent('''
+            1
+            00:02:05,988 --> 00:02:10,987
+            CHAPITRE 12
+
+            BAPTÊME ET PARADIS DES DIEUX
+
+            2
+            00:02:13,278 --> 00:02:14,367
+            Je vois…
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(captions), 2)
+        self.assertEqual(
+            captions[0].lines,
+            ['CHAPITRE 12', 'BAPTÊME ET PARADIS DES DIEUX']
+            )
+        self.assertEqual(captions[1].lines, ['Je vois…'])
+
+    def test_parse_captions_with_empty_line_after_cue_timings(self):
+        captions = srt.parse(
+            textwrap.dedent('''
+            1
+            00:00:00,500 --> 00:00:07,000
+
+            Caption #1
+
+            2
+            00:00:07,000 --> 00:00:11,890
+
+            Caption #2 line 1
+
+            Caption #2 line 2
+
+            3
+            00:00:11,890 --> 00:00:16,320
+            Caption #3
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(captions), 3)
+        self.assertEqual(
+            str(captions[0]),
+            '00:00:00.500 00:00:07.000 Caption #1'
+            )
+        self.assertEqual(
+            str(captions[1]),
+            r'00:00:07.000 00:00:11.890 Caption #2 line 1\n'
+            'Caption #2 line 2'
+            )
+        self.assertEqual(
+            str(captions[2]),
+            '00:00:11.890 00:00:16.320 Caption #3'
+            )
+
+    def test_parse_captions_with_whitespace_lines_in_text(self):
+        captions = srt.parse(
+            ['1',
+             '00:00:00,500 --> 00:00:07,000',
+             'Caption #1 line 1',
+             '  ',
+             'Caption #1 line 2'
+             ]
+            )
+        self.assertEqual(len(captions), 1)
+        self.assertEqual(
+            captions[0].lines,
+            ['Caption #1 line 1', 'Caption #1 line 2']
+            )
+
+    def test_parse_skips_text_of_cue_with_invalid_timings(self):
+        captions = srt.parse(
+            textwrap.dedent('''
+            1
+            00:00:00,500 --> 00:00:07,000
+            Caption #1
+
+            2
+            00:00:07,000 --> 00:00:11.890
+            Caption #2
+
+            More text of caption #2
+
+            3
+            00:00:11,890 --> 00:00:16,320
+            Caption #3
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(captions), 2)
+        self.assertEqual(captions[0].lines, ['Caption #1'])
+        self.assertEqual(captions[1].lines, ['Caption #3'])
+
+    def test_parse_skips_cues_without_text(self):
+        captions = srt.parse(
+            textwrap.dedent('''
+            1
+            00:00:00,500 --> 00:00:07,000
+
+            2
+            00:00:07,000 --> 00:00:11,890
+            Caption #2
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(captions), 1)
+        self.assertEqual(captions[0].lines, ['Caption #2'])
 
     def test_write(self):
         out = io.StringIO()
