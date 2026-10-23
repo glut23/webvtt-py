@@ -12,7 +12,7 @@ class SBVCueBlock:
     """Representation of a cue timing block."""
 
     CUE_TIMINGS_PATTERN = re.compile(
-        r'\s*(\d{1,2}:\d{1,2}:\d{1,2}.\d{3}),(\d{1,2}:\d{1,2}:\d{1,2}.\d{3})'
+        r'\s*(\d+:\d{1,2}:\d{1,2}\.\d{3}),(\d+:\d{1,2}:\d{1,2}\.\d{3})'
         )
 
     def __init__(
