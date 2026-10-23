@@ -358,6 +358,19 @@ class TestSegmenter(unittest.TestCase):
             [['only'], ['only']]
             )
 
+    def test_slice_segments_caption_ends_after_last_caption(self):
+        captions = [
+            Caption('00:00.000', '00:35.000', 'long'),
+            Caption('00:01.000', '00:05.000', 'short'),
+            ]
+
+        segments = segmenter.slice_segments(captions, 10)
+
+        self.assertEqual(
+            [[c.text for c in segment] for segment in segments],
+            [['long', 'short'], ['long'], ['long'], ['long']]
+            )
+
     def test_segmentation_keeps_cue_settings(self):
         webvtt_path = pathlib.Path(self.temp_dir.name) / 'captions.vtt'
         webvtt_path.write_text(textwrap.dedent('''
