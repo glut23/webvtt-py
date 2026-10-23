@@ -776,6 +776,12 @@ class TestCaption(unittest.TestCase):
         self.assertEqual(caption.raw_text, 'This is a test')
         self.assertIsNone(caption.voice)
 
+    def test_voice_span_long_whitespace_is_linear(self):
+        caption = Caption(text='<v' + ' ' * 80000)
+        start = time.perf_counter()
+        self.assertIsNone(caption.voice)
+        self.assertLess(time.perf_counter() - start, 1)
+
     def test_text_strips_tags_like_regex(self):
         for raw_text in (
             '<v Bob>Hello <b>test</b>!',
