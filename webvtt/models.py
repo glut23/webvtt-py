@@ -731,7 +731,7 @@ class Caption:
     """Representation of a caption."""
 
     CUE_TEXT_TAGS = re.compile('<.*?>')
-    VOICE_SPAN_PATTERN = re.compile(r'<v(?:\.\w+)*\s+([^>]+)>')
+    VOICE_SPAN_PATTERN = re.compile(r'<v(?:\.\w+)*\s+([^>\s][^>]*)>')
 
     def __init__(self,
                  start: typing.Optional[str] = None,
