@@ -4,9 +4,8 @@ import typing
 import re
 
 from . import utils
-from .models import Caption
+from .models import Caption, _caption_from_timings
 from .errors import MalformedFileError
-from .srt import parse_timestamp
 
 
 class SBVCueBlock:
@@ -115,11 +114,11 @@ def _parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
             continue
 
         cue_block = SBVCueBlock.from_lines(block_lines)
-        try:
-            start, end = map(parse_timestamp,
-                             (cue_block.start, cue_block.end))
-        except ValueError:
-            continue
-        captions.append(Caption(str(start), str(end), cue_block.payload))
+        caption = _caption_from_timings(cue_block.start,
+                                        cue_block.end,
+                                        cue_block.payload
+                                        )
+        if caption is not None:
+            captions.append(caption)
 
     return captions
