@@ -1,9 +1,12 @@
+import sys
 import unittest
 import textwrap
 
 from webvtt import sbv
 from webvtt.errors import MalformedFileError
 from webvtt.models import Caption
+
+INT_MAX_STR_DIGITS = getattr(sys, 'get_int_max_str_digits', lambda: 0)()
 
 
 class TestSBVCueBlock(unittest.TestCase):
@@ -204,3 +207,5 @@ class TestSBVModule(unittest.TestCase):
              '9' * 5000 + ':00:03.000,0:00:04.000', 'Caption #2']
             )
         self.assertEqual(captions[0].text, 'Caption #1')
+        self.assertEqual(len(captions),
+                         1 if 0 < INT_MAX_STR_DIGITS < 5000 else 2)
