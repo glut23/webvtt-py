@@ -169,6 +169,100 @@ class TestSRTModule(unittest.TestCase):
             )
         self.assertEqual(captions[1].lines, ['Je vois…'])
 
+    def test_parse_captions_with_digits_only_line_after_empty_line(self):
+        captions = srt.parse(
+            textwrap.dedent('''
+            1
+            00:00:00,500 --> 00:00:07,000
+            The year was
+
+            1984
+
+            and then
+
+            2
+            00:00:07,000 --> 00:00:11,890
+            Caption #2
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(captions), 2)
+        self.assertEqual(captions[0].lines,
+                         ['The year was', '1984', 'and then'])
+        self.assertEqual(captions[1].lines, ['Caption #2'])
+
+    def test_parse_captions_with_digits_only_line_starting_a_block(self):
+        captions = srt.parse(
+            textwrap.dedent('''
+            1
+            00:00:00,500 --> 00:00:07,000
+            Countdown
+
+            3
+            2
+            1
+
+            2
+            00:00:07,000 --> 00:00:11,890
+            Caption #2
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(captions), 2)
+        self.assertEqual(captions[0].lines, ['Countdown', '3', '2', '1'])
+        self.assertEqual(captions[1].lines, ['Caption #2'])
+
+    def test_parse_captions_with_empty_line_after_index(self):
+        captions = srt.parse(
+            textwrap.dedent('''
+            1
+            00:00:00,500 --> 00:00:07,000
+            Caption #1
+
+            2
+
+            00:00:07,000 --> 00:00:11,890
+            Caption #2
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(captions), 2)
+        self.assertEqual(captions[0].lines, ['Caption #1'])
+        self.assertEqual(captions[1].lines, ['Caption #2'])
+        self.assertEqual(captions[1].start, '00:00:07.000')
+
+    def test_parse_captions_with_digits_only_line_at_the_end(self):
+        # a number at the end is more likely to be text, such as a year,
+        # than the index of a cue that is not there
+        captions = srt.parse(
+            textwrap.dedent('''
+            1
+            00:00:00,500 --> 00:00:07,000
+            Copyright
+
+            2024
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(captions), 1)
+        self.assertEqual(captions[0].lines, ['Copyright', '2024'])
+
+    def test_parse_captions_with_digits_only_line_followed_by_text(self):
+        captions = srt.parse(
+            textwrap.dedent('''
+            1
+            00:00:00,500 --> 00:00:07,000
+            Caption #1
+
+            2
+            More text
+
+            3
+            00:00:07,000 --> 00:00:11,890
+            Caption #3
+            ''').strip().split('\n')
+            )
+        self.assertEqual(len(captions), 2)
+        self.assertEqual(captions[0].lines,
+                         ['Caption #1', '2', 'More text'])
+        self.assertEqual(captions[1].lines, ['Caption #3'])
+
     def test_parse_captions_with_empty_line_after_cue_timings(self):
         captions = srt.parse(
             textwrap.dedent('''
