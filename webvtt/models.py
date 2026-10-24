@@ -381,17 +381,19 @@ def _frame_rate(value: _FrameRate) -> fractions.Fraction:
     return fractions.Fraction(value)
 
 
-def _strip_cue_text_tags(line: str) -> str:
+def _iter_cue_text_tokens(
+        line: str
+        ) -> typing.Generator[typing.Tuple[str, bool], None, None]:
     """
-    Remove cue tags from a single line of text.
+    Iterate the text and the cue tags of a single line of text.
 
-    Gives the same result as ``re.sub('<.*?>', '', line)`` for a line
-    without a newline, in linear time. That regex rescans the rest of the
-    line from every ``<`` that has no ``>`` after it, which is quadratic in
-    the length of the line; once one ``<`` has no closing ``>``, no later
-    ``<`` on the line has one either, so the scan can stop there.
+    A ``<`` without a ``>`` after it is part of the text. The scan stops at
+    the first one, as no later ``<`` on the line has a ``>`` after it either,
+    which keeps it linear in the length of the line.
+
+    :param line: a line of cue text
+    :returns: tuples of the text or the tag content and true for a tag
     """
-    parts = []
     pos = 0
     while True:
         start = line.find('<', pos)
@@ -400,10 +402,26 @@ def _strip_cue_text_tags(line: str) -> str:
         end = line.find('>', start + 1)
         if end < 0:
             break
-        parts.append(line[pos:start])
+        if start > pos:
+            yield line[pos:start], False
+        yield line[start + 1:end], True
         pos = end + 1
-    parts.append(line[pos:])
-    return ''.join(parts)
+    if pos < len(line):
+        yield line[pos:], False
+
+
+def _strip_cue_text_tags(line: str) -> str:
+    """
+    Remove cue tags from a single line of text.
+
+    Gives the same result as ``re.sub('<.*?>', '', line)`` for a line
+    without a newline, in linear time. That regex rescans the rest of the
+    line from every ``<`` that has no ``>`` after it, which is quadratic in
+    the length of the line.
+    """
+    return ''.join(
+        token for token, is_tag in _iter_cue_text_tokens(line) if not is_tag
+        )
 
 
 # the characters WebVTT treats as spaces when splitting settings
