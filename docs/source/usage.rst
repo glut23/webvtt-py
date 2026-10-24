@@ -429,7 +429,8 @@ the milliseconds can be a comma or a dot, the fields can be shorter, as in
 ``0:0:7,500``, and the milliseconds are read as a number, so ``00:00:07,5``
 is 5 milliseconds. A field over its range carries over, so ``00:00:07,1500``
 is read as ``00:00:08.500``. The hours and the milliseconds are required, and
-a cue without them is skipped.
+a cue without them is skipped. The cue timings of SBV carry over in the same
+way, so ``0:61:00.000`` is read as ``01:01:00.000``.
 
 Convert WebVTT captions to other formats:
 
