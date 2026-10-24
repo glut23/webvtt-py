@@ -31,7 +31,7 @@ class TestSRTCueBlock(unittest.TestCase):
             ''').strip().split('\n'))
             )
 
-        self.assertFalse(srt.SRTCueBlock.is_valid(textwrap.dedent('''
+        self.assertTrue(srt.SRTCueBlock.is_valid(textwrap.dedent('''
             1
             00:00:00.500 --> 00:00:07.000
             Caption #1
@@ -94,6 +94,19 @@ class TestSRTCueBlock(unittest.TestCase):
 
 
 class TestSRTModule(unittest.TestCase):
+
+    def test_parse_timestamp(self):
+        for value, expected in (('00:00:07,500', '00:00:07.500'),
+                                ('00:00:07.500', '00:00:07.500'),
+                                ('0:0:7,500', '00:00:07.500'),
+                                ('00:00:07,5', '00:00:07.005'),
+                                ('00:00:07,50', '00:00:07.050'),
+                                ('00:00:07,0005', '00:00:07.005'),
+                                ('00:00:07,1500', '00:00:08.500'),
+                                ('00:00:61,000', '00:01:01.000'),
+                                ('00:61:01,000', '01:01:01.000'),
+                                ('100:00:07,000', '100:00:07.000')):
+            self.assertEqual(str(srt.parse_timestamp(value)), expected)
 
     def test_parse_invalid_format(self):
         self.assertRaises(
@@ -213,7 +226,7 @@ class TestSRTModule(unittest.TestCase):
             Caption #1
 
             2
-            00:00:07,000 --> 00:00:11.890
+            00:00:07,000 --> 00:00:11:890
             Caption #2
 
             More text of caption #2
@@ -297,11 +310,38 @@ class TestSRTModule(unittest.TestCase):
         self.assertEqual(captions[1].lines, ['Caption #3'])
 
     def test_parse_ignores_text_attached_to_end_timestamp(self):
-        for timings in ('00:00:00,500 --> 00:00:07,0005',
-                        '00:00:00,500 --> 00:00:07,000xyz'):
+        captions = srt.parse(
+            ['1', '00:00:00,500 --> 00:00:07,000xyz', 'Caption #1']
+            )
+        self.assertEqual(len(captions), 1)
+        self.assertEqual(captions[0].end, '00:00:07.000')
+
+    def test_parse_timings_variants(self):
+        for timings, start, end in (
+                ('00:00:00.500 --> 00:00:07.000',
+                 '00:00:00.500', '00:00:07.000'),
+                ('00:00:00.500 --> 00:00:07,000',
+                 '00:00:00.500', '00:00:07.000'),
+                ('0:0:0,500 --> 0:0:7,000',
+                 '00:00:00.500', '00:00:07.000'),
+                ('100:00:00,500 --> 100:00:07,000',
+                 '100:00:00.500', '100:00:07.000'),
+                ('00:61:00,500 --> 00:61:07,000',
+                 '01:01:00.500', '01:01:07.000'),
+                ):
             captions = srt.parse(['1', timings, 'Caption #1'])
             self.assertEqual(len(captions), 1)
-            self.assertEqual(captions[0].end, '00:00:07.000')
+            self.assertEqual(captions[0].start, start)
+            self.assertEqual(captions[0].end, end)
+
+    def test_parse_skips_cue_with_incomplete_timings(self):
+        for timings in ('00:00,500 --> 00:07,000',
+                        '00:00:00 --> 00:00:07',
+                        '00:00:00,500 --> 00:00:07,' + '9' * 5000):
+            self.assertEqual(
+                srt.parse(['1', timings, 'Caption #1']),
+                []
+                )
 
     def test_parse_skips_cues_without_text(self):
         captions = srt.parse(

@@ -3,16 +3,19 @@
 import typing
 import re
 
-from .models import Caption
+from .models import Caption, Timestamp
 from .errors import MalformedFileError
 from . import utils
+
+
+TIMESTAMP = r'\d+:\d{1,2}:\d{1,2}[,.]\d+'
 
 
 class SRTCueBlock:
     """Representation of a cue timing block."""
 
     CUE_TIMINGS_PATTERN = re.compile(
-        r'\s*(\d+:\d{2}:\d{2},\d{3})\s*-->\s*(\d+:\d{2}:\d{2},\d{3})'
+        rf'\s*({TIMESTAMP})\s*-->\s*({TIMESTAMP})'
         )
 
     def __init__(
@@ -151,14 +154,39 @@ def parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
             caption = None
             if SRTCueBlock.is_valid(block_lines):
                 cue_block = SRTCueBlock.from_lines(block_lines)
-                start, end = map(lambda x: x.replace(',', '.'),
-                                 (cue_block.start, cue_block.end))
-                caption = Caption(start, end, cue_block.payload)
+                try:
+                    start, end = map(parse_timestamp,
+                                     (cue_block.start, cue_block.end))
+                except ValueError:
+                    continue
+                caption = Caption(str(start), str(end), cue_block.payload)
                 captions.append(caption)
         elif caption is not None:
             caption.lines.extend(block_lines)
 
     return [caption for caption in captions if caption.lines]
+
+
+def parse_timestamp(value: str) -> Timestamp:
+    """
+    Return a `Timestamp` from a SRT timestamp.
+
+    As in most SRT readers, the separator before the milliseconds can be a
+    comma or a dot, the milliseconds are read as a number, so ``07,5`` is 5
+    milliseconds, and fields over their range carry over, so ``07,1500``
+    is 8.5 seconds.
+
+    :param value: the timestamp in ``hh:mm:ss,mmm`` format
+    :returns: a `Timestamp` instance
+
+    :raises ValueError: if a field has too many digits to be read
+    """
+    hours, minutes, seconds, milliseconds = map(
+        int, re.split('[:,.]', value)
+        )
+    return Timestamp._from_milliseconds(
+        ((hours * 60 + minutes) * 60 + seconds) * 1000 + milliseconds
+        )
 
 
 def write(
