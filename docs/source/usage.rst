@@ -424,6 +424,13 @@ caption starts at a cue index followed by the cue timings, even without an
 empty line before it. Any other text after an empty line stays in the
 current caption, and the empty lines are removed.
 
+The cue timings of SRT are read as in most SRT readers. The separator before
+the milliseconds can be a comma or a dot, the fields can be shorter, as in
+``0:0:7,500``, and the milliseconds are read as a number, so ``00:00:07,5``
+is 5 milliseconds. A field over its range carries over, so ``00:00:07,1500``
+is read as ``00:00:08.500``. The hours and the milliseconds are required, and
+a cue without them is skipped.
+
 Convert WebVTT captions to other formats:
 
 * SubRip (.srt)
