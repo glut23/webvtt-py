@@ -50,7 +50,7 @@ def slice_segments(
     total_segments = (
         0
         if not captions else
-        floor(captions[-1].end_in_seconds / seconds) + 1
+        floor(max(c.end_in_seconds for c in captions) / seconds) + 1
     )
 
     segments: typing.List[typing.List[Caption]] = [
