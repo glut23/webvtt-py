@@ -359,30 +359,40 @@ class WebVTT:
     def save_as_srt(
             self,
             output: typing.Optional[str] = None,
-            encoding: typing.Optional[str] = DEFAULT_ENCODING
+            encoding: typing.Optional[str] = DEFAULT_ENCODING,
+            keep_formatting: bool = False
             ):
         """
         Save the WebVTT captions to a file in SubRip format.
 
         :param output: destination path of the file
         :param encoding: encoding of the file
+        :param keep_formatting: keep bold, italic, underline and the colours
+            of the cue classes in the styles, instead of removing the cue tags
 
         :raises MissingFilenameError: if output cannot be determined
         """
         self.file = self._get_destination_file(output, extension='srt')
         with open(self.file, 'w', encoding=encoding) as f:
-            srt.write(f, self.captions)
+            srt.write(f,
+                      self.captions,
+                      self.styles if keep_formatting else None
+                      )
 
     def write(
             self,
             f: typing.IO[str],
-            format: str = 'vtt'
+            format: str = 'vtt',
+            keep_formatting: bool = False
             ):
         """
         Save the WebVTT captions to a file-like object.
 
         :param f: destination file-like object
         :param format: the format to use (`vtt` or `srt`)
+        :param keep_formatting: when writing SRT, keep bold, italic,
+            underline and the colours of the cue classes in the styles,
+            instead of removing the cue tags
 
         :raises ValueError: if the format is not supported, or the header
             text or metadata are not valid
@@ -398,7 +408,10 @@ class WebVTT:
                              self.regions
                              )
         if format == 'srt':
-            return srt.write(f, self.captions)
+            return srt.write(f,
+                             self.captions,
+                             self.styles if keep_formatting else None
+                             )
 
         raise ValueError(f'Format {format} is not supported.')
 

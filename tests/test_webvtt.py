@@ -713,6 +713,36 @@ class TestWebVTT(unittest.TestCase):
             '1\n00:00:01,000 --> 00:00:03,000\nTop left'
             )
 
+    def test_save_as_srt_keeping_formatting(self):
+        vtt = webvtt.from_string(textwrap.dedent('''
+            WEBVTT
+
+            STYLE
+            ::cue(.yellow) {
+              color: yellow;
+            }
+
+            00:00:01.000 --> 00:00:03.000
+            <c.yellow>Hello <b>world</b></c>
+            ''').lstrip()
+            )
+        output = io.StringIO()
+        vtt.write(output, format='srt', keep_formatting=True)
+        self.assertEqual(
+            output.getvalue(),
+            '1\n00:00:01,000 --> 00:00:03,000\n'
+            '<font color="yellow">Hello <b>world</b></font>'
+            )
+
+    def test_save_as_srt_keeping_formatting_ignored_for_vtt(self):
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'styles_colours.vtt')
+        output = io.StringIO()
+        vtt.write(output, keep_formatting=True)
+        self.assertEqual(
+            output.getvalue(),
+            (PATH_TO_SAMPLES / 'styles_colours.vtt').read_text()
+            )
+
     def test_save_updated_identifiers(self):
         vtt = webvtt.read(PATH_TO_SAMPLES / 'using_identifiers.vtt')
         vtt.captions[0].identifier = 'first caption'
@@ -1949,6 +1979,17 @@ class TestParseSBV(unittest.TestCase):
 
             self.assertEqual(
                 pathlib.Path(PATH_TO_SAMPLES / 'sample.srt').read_text(),
+                pathlib.Path(f.name).read_text()
+                )
+
+    def test_convert_to_srt_keeping_formatting(self):
+        with tempfile.NamedTemporaryFile('w', suffix='.srt') as f:
+            webvtt.read(
+                PATH_TO_SAMPLES / 'styles_colours.vtt'
+                ).save_as_srt(f.name, keep_formatting=True)
+
+            self.assertEqual(
+                (PATH_TO_SAMPLES / 'styles_colours.srt').read_text(),
                 pathlib.Path(f.name).read_text()
                 )
 

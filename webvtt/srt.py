@@ -3,12 +3,19 @@
 import typing
 import re
 
-from .models import Caption, _caption_from_timings
+from .models import (
+    Caption, Style, _caption_from_timings, _iter_cue_text_tokens
+    )
 from .errors import MalformedFileError
 from . import utils
 
 
 TIMESTAMP = r'\d+:\d{1,2}:\d{1,2}[,.]\d+'
+
+CUE_CLASS_SELECTOR = re.compile(r'::cue\(\s*\.([\w-]+)\s*\)')
+
+# the cue tags that SRT players support
+SRT_TAGS = {'b', 'i', 'u'}
 
 
 class SRTCueBlock:
@@ -166,24 +173,195 @@ def parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
     return [caption for caption in captions if caption.lines]
 
 
+def strip_css_comments(css: str) -> str:
+    """
+    Remove the comments from CSS.
+
+    A comment without an end runs to the end of the CSS. This scans for
+    the comments with ``str.find``, as a non-greedy regex for them rescans
+    the rest of the CSS from every comment start without an end, which is
+    quadratic in the length of the CSS.
+
+    :param css: the CSS text
+    :returns: the CSS without comments
+    """
+    parts = []
+    pos = 0
+    while True:
+        start = css.find('/*', pos)
+        if start < 0:
+            break
+        parts.append(css[pos:start])
+        end = css.find('*/', start + 2)
+        if end < 0:
+            return ''.join(parts)
+        pos = end + 2
+    parts.append(css[pos:])
+    return ''.join(parts)
+
+
+def css_colour(declarations: str) -> typing.Optional[str]:
+    """
+    Return the colour in the declarations of a CSS rule.
+
+    The last ``color`` declaration applies. ``!important`` is removed, and
+    a value that cannot be written in a ``font`` tag is ignored.
+
+    :param declarations: the declarations of the rule
+    :returns: the colour, or None when the rule has no colour
+    """
+    colour = None
+    for declaration in declarations.split(';'):
+        name, _, value = declaration.partition(':')
+        value = value.partition('!')[0].strip()
+        if (name.strip().lower() == 'color' and value and
+                not any(char in value for char in '"<>')):
+            colour = value
+    return colour
+
+
+def cue_colours(
+        styles: typing.Iterable[Style]
+        ) -> typing.Dict[str, typing.Tuple[int, str]]:
+    """
+    Return the colours of the cue classes defined in the styles.
+
+    Only the ``color`` of ``::cue(.class)`` selectors is read. Each class is
+    mapped to the colour and the position of its rule, as when a cue has
+    more than one class with a colour, the rule that comes last applies.
+
+    :param styles: Iterable of `Style` objects
+    :returns: a dict of class name to (rule position, colour)
+    """
+    colours = {}
+    position = 0
+    for style in styles:
+        # split the rules on braces, as a regex for them is quadratic on
+        # text without braces
+        for rule in strip_css_comments(style.text).split('}'):
+            selectors, _, declarations = rule.rpartition('{')
+            colour = css_colour(declarations)
+            if colour is None:
+                continue
+            position += 1
+            for selector in selectors.split(','):
+                match = CUE_CLASS_SELECTOR.fullmatch(selector.strip())
+                if match:
+                    colours[match.group(1)] = (position, colour)
+    return colours
+
+
+def srt_tags(
+        tag: str,
+        colours: typing.Mapping[str, typing.Tuple[int, str]]
+        ) -> typing.Optional[typing.Tuple[str, str, str]]:
+    """
+    Return the SRT tags for a cue start tag.
+
+    :param tag: the content of the cue start tag
+    :param colours: the colours of the cue classes
+    :returns: the tag name and the SRT start and end tags, which are empty
+        when SRT has no tag for it, or None for a timestamp tag
+    """
+    name, *classes = (tag.split(maxsplit=1) or [''])[0].split('.')
+    # timestamp tags have no name
+    if not name.isalpha():
+        return None
+    # font tags of captions read from SRT are kept as they are
+    if name == 'font':
+        return name, f'<{tag}>', '</font>'
+    start_tags = end_tags = ''
+    if name in SRT_TAGS:
+        start_tags, end_tags = f'<{name}>', f'</{name}>'
+    matches = [colours[cls] for cls in classes if cls in colours]
+    if matches:
+        start_tags += f'<font color="{max(matches)[1]}">'
+        end_tags = '</font>' + end_tags
+    return name, start_tags, end_tags
+
+
+def close_tags(
+        open_tags: typing.List[typing.Tuple[str, str]],
+        name: str
+        ) -> typing.List[str]:
+    """
+    Close the last open tag with a name and the tags opened after it.
+
+    :param open_tags: the names and SRT end tags of the open tags, which
+        are removed when closed
+    :param name: the name of the cue end tag
+    :returns: the SRT end tags, or none when no tag with the name is open
+    """
+    names = [open_name for open_name, _ in open_tags]
+    if name not in names:
+        return []
+    index = len(names) - 1 - names[::-1].index(name)
+    closed = open_tags[index:]
+    del open_tags[index:]
+    return [end_tags for _, end_tags in reversed(closed)]
+
+
+def format_cue_text(
+        text: str,
+        colours: typing.Mapping[str, typing.Tuple[int, str]]
+        ) -> str:
+    """
+    Convert the cue tags of a cue text to SRT tags.
+
+    Bold, italic, underline and ``font`` tags are kept, and a class with a
+    colour adds a ``font`` tag with that colour. Other tags are removed,
+    keeping their text, and the tags left open at the end of the text are
+    closed. Tags are found in each line, as when the tags are removed from
+    the text, but stay open across lines.
+
+    :param text: the cue text
+    :param colours: the colours of the cue classes
+    :returns: the text with SRT tags
+    """
+    lines = []
+    open_tags: typing.List[typing.Tuple[str, str]] = []
+    for line in text.split('\n'):
+        output = []
+        for token, is_tag in _iter_cue_text_tokens(line):
+            if not is_tag:
+                output.append(token)
+            elif token.startswith('/'):
+                output.extend(close_tags(open_tags, token[1:].strip()))
+            else:
+                tags = srt_tags(token, colours)
+                if tags is not None:
+                    name, start_tags, end_tags = tags
+                    output.append(start_tags)
+                    open_tags.append((name, end_tags))
+        lines.append(''.join(output))
+    lines[-1] += ''.join(end_tags for _, end_tags in reversed(open_tags))
+    return '\n'.join(lines)
+
+
 def write(
         f: typing.IO[str],
-        captions: typing.Iterable[Caption]
+        captions: typing.Iterable[Caption],
+        styles: typing.Optional[typing.Iterable[Style]] = None
         ):
     """
     Write captions to an output.
 
     :param f: file or file-like object
     :param captions: Iterable of `Caption` objects
+    :param styles: Iterable of `Style` objects to keep the formatting of
+        the cue text, or None to write the text without cue tags
     """
+    colours = None if styles is None else cue_colours(styles)
     output = []
     for index, caption in enumerate(captions, start=1):
+        text = (caption.text if colours is None
+                else format_cue_text(caption.raw_text, colours))
         output.extend([
             f'{index}',
             '{} --> {}'.format(*map(lambda x: x.replace('.', ','),
                                     (caption.start, caption.end))
                                ),
-            *(line for line in caption.text.split('\n') if line.strip()),
+            *(line for line in text.split('\n') if line.strip()),
             ''
             ])
     f.write('\n'.join(output).rstrip())
