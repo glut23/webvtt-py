@@ -420,3 +420,17 @@ class TestSegmenter(unittest.TestCase):
                 '''
                 ).lstrip()
             )
+
+    def test_write_segments_error_keeps_file(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+        segment_file = output_folder / 'fileSequence0.webvtt'
+        segment_file.write_text('old')
+
+        with self.assertRaises(UnicodeEncodeError):
+            segmenter.write_segments(
+                output_folder,
+                [[Caption('00:00:00.000', '00:00:01.000', '\ud800')]],
+                segmenter.DEFAULT_MPEGTS
+                )
+
+        self.assertEqual(segment_file.read_text(), 'old')

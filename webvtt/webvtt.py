@@ -335,6 +335,10 @@ class WebVTT:
         """
         Save the WebVTT captions to a file.
 
+        The content is encoded before the file is opened, so an error while
+        encoding, such as a character the encoding cannot write, leaves an
+        existing file unchanged.
+
         :param output: destination path of the file
         :param encoding: encoding of the file
         :param add_bom: save the file with Byte Order Mark
@@ -345,17 +349,16 @@ class WebVTT:
         destination = self._get_destination_file(output)
         # build the content first so an invalid header leaves no file behind
         content = self.content
-        self.file = destination
         encoding = encoding or self.encoding
 
         if add_bom is None and self._has_bom:
             add_bom = True
 
-        with open(self.file, 'w', encoding=encoding) as f:
-            if add_bom and encoding in utils.CODEC_BOMS:
-                f.write(utils.CODEC_BOMS[encoding].decode(encoding))
+        if add_bom and encoding in utils.CODEC_BOMS:
+            content = utils.CODEC_BOMS[encoding].decode(encoding) + content
 
-            f.write(content)
+        utils.write_text_file(destination, content, encoding)
+        self.file = destination
 
     def save_as_srt(
             self,
@@ -366,6 +369,10 @@ class WebVTT:
         """
         Save the WebVTT captions to a file in SubRip format.
 
+        The content is encoded before the file is opened, so an error while
+        encoding, such as a character the encoding cannot write, leaves an
+        existing file unchanged.
+
         :param output: destination path of the file
         :param encoding: encoding of the file
         :param keep_formatting: keep bold, italic, underline and the colours
@@ -373,12 +380,15 @@ class WebVTT:
 
         :raises MissingFilenameError: if output cannot be determined
         """
-        self.file = self._get_destination_file(output, extension='srt')
-        with open(self.file, 'w', encoding=encoding) as f:
-            srt.write(f,
-                      self.captions,
-                      self.styles if keep_formatting else None
-                      )
+        destination = self._get_destination_file(output, extension='srt')
+        content = io.StringIO()
+        srt.write(content,
+                  self.captions,
+                  self.styles if keep_formatting else None
+                  )
+
+        utils.write_text_file(destination, content.getvalue(), encoding)
+        self.file = destination
 
     def write(
             self,
