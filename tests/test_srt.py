@@ -98,7 +98,7 @@ class TestSRTCueBlock(unittest.TestCase):
 
 class TestSRTModule(unittest.TestCase):
 
-    def test_parse_timestamp(self):
+    def test_parse_timestamps(self):
         for value, expected in (('00:00:07,500', '00:00:07.500'),
                                 ('00:00:07.500', '00:00:07.500'),
                                 ('0:0:7,500', '00:00:07.500'),
@@ -109,7 +109,8 @@ class TestSRTModule(unittest.TestCase):
                                 ('00:00:61,000', '00:01:01.000'),
                                 ('00:61:01,000', '01:01:01.000'),
                                 ('100:00:07,000', '100:00:07.000')):
-            self.assertEqual(str(srt.parse_timestamp(value)), expected)
+            captions = srt.parse(['1', f'{value} --> {value}', 'Caption'])
+            self.assertEqual(captions[0].start, expected)
 
     def test_parse_invalid_format(self):
         self.assertRaises(

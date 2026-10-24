@@ -912,6 +912,50 @@ class Caption:
         return None
 
 
+def _timing_in_milliseconds(value: str) -> int:
+    """
+    Return the milliseconds of a SRT or SBV timestamp.
+
+    As in most SRT readers, the separator before the milliseconds can be a
+    comma or a dot, the milliseconds are read as a number, so ``07,5`` is 5
+    milliseconds, and fields over their range carry over, so ``07,1500``
+    is 8.5 seconds.
+
+    :param value: the timestamp in ``hh:mm:ss,mmm`` format
+    :returns: the timestamp in milliseconds
+
+    :raises ValueError: if a field has too many digits to be read
+    """
+    hours, minutes, seconds, milliseconds = map(
+        int, re.split('[:,.]', value)
+        )
+    return ((hours * 60 + minutes) * 60 + seconds) * 1000 + milliseconds
+
+
+def _caption_from_timings(
+        start: str,
+        end: str,
+        lines: typing.Sequence[str]
+        ) -> typing.Optional[Caption]:
+    """
+    Return a caption from the cue timings of SRT or SBV.
+
+    :param start: the start time in ``hh:mm:ss,mmm`` format
+    :param end: the end time in ``hh:mm:ss,mmm`` format
+    :param lines: the lines of the caption text
+    :returns: a `Caption` instance, or None if a time cannot be read
+    """
+    try:
+        start_ms, end_ms = map(_timing_in_milliseconds, (start, end))
+    except ValueError:
+        return None
+
+    return Caption(str(Timestamp._from_milliseconds(start_ms)),
+                   str(Timestamp._from_milliseconds(end_ms)),
+                   lines
+                   )
+
+
 class Style:
     """Representation of a style."""
 
