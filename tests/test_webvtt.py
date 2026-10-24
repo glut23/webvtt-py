@@ -450,6 +450,13 @@ class TestWebVTT(unittest.TestCase):
             '00:00:11.890 00:00:16.320 Caption text #3'
             )
 
+    def test_read_buffer_for_sbv_content_with_long_hours(self):
+        buffer = io.StringIO('100:00:00.000,100:00:05.000\nCaption text\n')
+        vtt = webvtt.from_buffer(buffer, format='sbv')
+        self.assertEqual(len(vtt), 1)
+        self.assertEqual(vtt[0].start_time.hours, 100)
+        self.assertEqual(vtt[0].end, '100:00:05.000')
+
     def test_read_buffer_for_sbv_content(self):
         buffer = io.StringIO(textwrap.dedent('''\
             00:00:00.500,00:00:07.000\r

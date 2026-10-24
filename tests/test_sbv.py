@@ -120,6 +120,11 @@ class TestSBVCueBlock(unittest.TestCase):
                     Caption #1
                     ''').strip().split('\n')
                     ))
+        self.assertFalse(sbv.SBVCueBlock.is_valid(textwrap.dedent('''
+                    0:00:01.000,0:00:02x000
+                    Caption #1
+                    ''').strip().split('\n')
+                    ))
 
 
 class TestSBVModule(unittest.TestCase):
@@ -161,3 +166,28 @@ class TestSBVModule(unittest.TestCase):
             r'00:00:07.000 00:00:11.890 Caption #2 line 1\n'
             'Caption #2 line 2'
             )
+
+    def test_parse_skips_cue_with_malformed_timings(self):
+        captions = sbv.parse(
+            textwrap.dedent('''
+            00:00:00.500,00:00:07.000
+            Caption #1
+
+            00:00:07x000,00:00:11.890
+            Caption #2
+
+            00:00:11.890,00:00:16.320
+            Caption #3
+            ''').strip().split('\n')
+            )
+        self.assertEqual(
+            [caption.text for caption in captions],
+            ['Caption #1', 'Caption #3']
+            )
+
+    def test_parse_ignores_text_attached_to_end_timestamp(self):
+        for timings in ('0:00:01.000,0:00:02.0005',
+                        '0:00:01.000,0:00:02.000xyz'):
+            captions = sbv.parse([timings, 'Caption #1'])
+            self.assertEqual(len(captions), 1)
+            self.assertEqual(captions[0].end, '00:00:02.000')

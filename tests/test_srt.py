@@ -65,6 +65,11 @@ class TestSRTCueBlock(unittest.TestCase):
             ['1 ', '00:00:00,500 --> 00:00:07,000', 'Caption #1']
             ))
 
+    def test_is_valid_text_after_end_timestamp(self):
+        self.assertTrue(srt.SRTCueBlock.is_valid(
+            ['1', '00:00:00,500 --> 00:00:07,000 X1:100 X2:200', 'Caption #1']
+            ))
+
     def test_from_lines(self):
         cue_block = srt.SRTCueBlock.from_lines(textwrap.dedent('''
             1
@@ -290,6 +295,13 @@ class TestSRTModule(unittest.TestCase):
         self.assertEqual(len(captions), 2)
         self.assertEqual(captions[0].lines, ['Caption #1'])
         self.assertEqual(captions[1].lines, ['Caption #3'])
+
+    def test_parse_ignores_text_attached_to_end_timestamp(self):
+        for timings in ('00:00:00,500 --> 00:00:07,0005',
+                        '00:00:00,500 --> 00:00:07,000xyz'):
+            captions = srt.parse(['1', timings, 'Caption #1'])
+            self.assertEqual(len(captions), 1)
+            self.assertEqual(captions[0].end, '00:00:07.000')
 
     def test_parse_skips_cues_without_text(self):
         captions = srt.parse(
