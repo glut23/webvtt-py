@@ -448,6 +448,33 @@ Convert WebVTT captions to other formats:
     with open('captions.srt', 'w') as f:
         vtt.write(f, format='srt')
 
+The cue tags are removed when converting to SRT. To keep the formatting
+instead, use ``keep_formatting``. Bold, italic, underline and ``font`` tags are
+kept, and the cue classes with a ``color`` in the styles become ``font`` tags
+with that colour. Other cue tags are removed, keeping their text:
+
+.. code-block:: python
+
+    vtt = webvtt.from_string("""\
+    WEBVTT
+
+    STYLE
+    ::cue(.magenta) {
+      color: #ff00ff;
+    }
+
+    00:00:00.500 --> 00:00:07.000
+    <c.magenta><i>Hello</i> world</c>
+    """)
+    vtt.save_as_srt('captions.srt', keep_formatting=True)
+
+    # the caption is saved as:
+    # <font color="#ff00ff"><i>Hello</i> world</font>
+
+Only the ``color`` of ``::cue(.class)`` selectors is read. When a cue has more
+than one class with a colour, the rule that comes last in the styles applies.
+Character references such as ``&lt;`` are written as they are.
+
 
 Segmenting captions for HLS
 ---------------------------
