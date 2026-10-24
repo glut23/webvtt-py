@@ -744,6 +744,23 @@ class TestVTTModule(unittest.TestCase):
                 )
         self.assertIn('00:00:61.000', str(cm.exception))
 
+    def test_parse_ignores_too_many_digits_hours(self):
+        output = vtt.parse(
+            ['WEBVTT', '',
+             '1' * 5000 + ':00:00.000 --> 00:00:01.000', 'Caption text #1', '',
+             '00:00:04.300 --> 00:00:07.000', 'Caption text #2']
+            )
+        self.assertEqual(len(output.captions), 1)
+        self.assertEqual(output.captions[0].text, 'Caption text #2')
+
+    def test_parse_strict_too_many_digits_hours(self):
+        with self.assertRaises(MalformedCaptionError):
+            vtt.parse(
+                ['WEBVTT', '',
+                 '1' * 5000 + ':00:00.000 --> 00:00:01.000', 'Caption text'],
+                strict=True
+                )
+
     def test_parse_strict_malformed_cue_block(self):
         with self.assertRaises(MalformedCaptionError) as cm:
             vtt.parse(

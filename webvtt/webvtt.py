@@ -18,6 +18,7 @@ from .models import (
     _FrameRate,
     _Position,
     _offset_in_milliseconds,
+    _retime_captions,
     _sync_mapping,
     _framerate_mapping
     )
@@ -442,7 +443,8 @@ class WebVTT:
             timestamp
 
         :raises TypeError: if the offset is not a number or a ``timedelta``
-        :raises ValueError: if the offset is not finite
+        :raises ValueError: if the offset is not finite, or would move a
+            time after the largest timestamp, leaving the captions unchanged
         :raises MalformedCaptionError: if the start timestamp is not valid
         """
         offset_ms = _offset_in_milliseconds(offset)
@@ -450,8 +452,7 @@ class WebVTT:
         def mapping(milliseconds: int) -> int:
             return milliseconds + offset_ms
 
-        for caption in self.iter_slice(start=start):
-            caption._retime(mapping)
+        _retime_captions(self.iter_slice(start=start), mapping)
 
     def sync(self, *points: typing.Sequence[_Position]):
         """
@@ -472,13 +473,14 @@ class WebVTT:
         :raises TypeError: if a point is not a pair of supported values
         :raises ValueError: if there are fewer than two points, two points
             have the same ``from`` time, the ``to`` times are not in the
-            same order as the ``from`` times, or a time is not finite or is
-            before zero
+            same order as the ``from`` times, a time is not finite, is
+            before zero or is after the largest timestamp, or a caption
+            would be moved after the largest timestamp, leaving the captions
+            unchanged
         """
         mapping = _sync_mapping(points)
 
-        for caption in self.captions:
-            caption._retime(mapping)
+        _retime_captions(self.captions, mapping)
 
     def change_framerate(self, from_fps: _FrameRate, to_fps: _FrameRate):
         """
@@ -498,12 +500,13 @@ class WebVTT:
             ``fractions.Fraction``
 
         :raises TypeError: if a frame rate is not a number
-        :raises ValueError: if a frame rate is not finite or not above zero
+        :raises ValueError: if a frame rate is not finite or not above zero,
+            or a caption would be moved after the largest timestamp, leaving
+            the captions unchanged
         """
         mapping = _framerate_mapping(from_fps, to_fps)
 
-        for caption in self.captions:
-            caption._retime(mapping)
+        _retime_captions(self.captions, mapping)
 
     @property
     def total_length(self):

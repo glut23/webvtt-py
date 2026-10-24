@@ -509,6 +509,26 @@ class CLIShiftTestCase(CLICommandTestCase):
             f'webvtt: error: {vtt_file}: {os.strerror(errno.ENOENT)}\n'
             )
 
+    def test_after_largest_timestamp(self):
+        for argv in (['shift', self.vtt_file, '1e300', '-o', self.vtt_file],
+                     ['sync', self.vtt_file, '--fps', '1e300', '1',
+                      '-o', self.vtt_file]):
+            with self.subTest(command=argv[0]):
+                with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                    with self.assertRaises(SystemExit) as cm:
+                        main(argv)
+
+                self.assertEqual(cm.exception.code, 1)
+                self.assertEqual(
+                    stderr.getvalue(),
+                    f'webvtt: error: {self.vtt_file}: Time after the '
+                    'largest timestamp 9999999999:59:59.999\n'
+                    )
+                self.assertEqual(
+                    pathlib.Path(self.vtt_file).read_text(),
+                    self.CAPTIONS
+                    )
+
     def test_shift_invalid_file(self):
         vtt_file = str(
             pathlib.Path(__file__).resolve().parent
@@ -618,6 +638,8 @@ class CLISyncTestCase(CLICommandTestCase):
                  "argument -p/--point: invalid timestamp: 'x'"),
                 (['-p', '1', '2', '-p', 'nan', '3'],
                  "argument -p/--point: invalid timestamp: 'nan'"),
+                (['-p', '1', '2', '-p', '3', '1e300'],
+                 'Time after the largest timestamp 9999999999:59:59.999'),
                 (['-p', '1'],
                  'argument -p/--point: expected 2 arguments'),
                 (['--fps', '0', '25'],
