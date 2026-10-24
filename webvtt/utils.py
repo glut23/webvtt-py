@@ -1,5 +1,7 @@
 """Utils module."""
 
+import locale
+import os
 import re
 import typing
 import codecs
@@ -102,6 +104,33 @@ class FileWrapper:
                 if first_bytes.startswith(bom):
                     return encoding
         return None
+
+
+def write_text_file(
+        file_path: str,
+        text: str,
+        encoding: typing.Optional[str] = None
+        ):
+    """
+    Write text to a file, encoding all of it before the file is opened.
+
+    An error while encoding, such as a character the encoding cannot write
+    or an unknown encoding, is raised before the file is opened, so an
+    existing file is left unchanged. Line feeds are written as the line
+    separator of the platform, as in a file opened in text mode.
+
+    :param file_path: path to the file
+    :param text: the text to write
+    :param encoding: name of the encoding used to encode the text, the
+        preferred encoding of the locale if None, as in a file opened in
+        text mode
+    """
+    if encoding is None:
+        encoding = locale.getpreferredencoding(False)
+
+    data = text.replace('\n', os.linesep).encode(encoding)
+    with open(file_path, 'wb') as f:
+        f.write(data)
 
 
 def iter_blocks_of_lines(

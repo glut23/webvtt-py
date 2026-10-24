@@ -1,11 +1,15 @@
+import os
+import pathlib
 import unittest
 import tempfile
+from unittest import mock
 
 from webvtt.utils import (
     FileWrapper,
     CODEC_BOMS,
     iter_blocks_of_lines,
-    split_lines
+    split_lines,
+    write_text_file
     )
 
 
@@ -29,6 +33,42 @@ class TestUtils(unittest.TestCase):
                 with FileWrapper.open(f.name) as fw:
                     self.assertEqual(fw.file.read(), 'Hello test')
                     self.assertEqual(fw.file.encoding, encoding)
+
+    def test_write_text_file(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = pathlib.Path(temp_dir) / 'captions.vtt'
+            path.write_text('old')
+
+            write_text_file(str(path), 'WEBVTT\n\nCafé\n', 'utf-8')
+
+            self.assertEqual(
+                path.read_bytes(),
+                f'WEBVTT{os.linesep}{os.linesep}Café{os.linesep}'.encode()
+                )
+
+    def test_write_text_file_default_encoding(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = pathlib.Path(temp_dir) / 'captions.vtt'
+
+            with mock.patch('locale.getpreferredencoding',
+                            return_value='utf-16-le'):
+                write_text_file(str(path), 'Café')
+
+            self.assertEqual(path.read_bytes(), 'Café'.encode('utf-16-le'))
+
+    def test_write_text_file_encoding_error_keeps_file(self):
+        for encoding, error in (('ascii', UnicodeEncodeError),
+                                ('no-such-encoding', LookupError),
+                                ('', LookupError)):
+            with self.subTest(encoding=encoding):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    path = pathlib.Path(temp_dir) / 'captions.vtt'
+                    path.write_text('old')
+
+                    with self.assertRaises(error):
+                        write_text_file(str(path), 'Café', encoding)
+
+                    self.assertEqual(path.read_text(), 'old')
 
     def test_iter_blocks_of_lines(self):
         self.assertListEqual(

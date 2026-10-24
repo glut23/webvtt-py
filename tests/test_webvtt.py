@@ -1411,6 +1411,34 @@ class TestWebVTT(unittest.TestCase):
             with open(output, encoding='utf-8', newline='') as f:
                 self.assertEqual(f.read(), content)
 
+    def test_save_error_keeps_file(self):
+        with tempfile.TemporaryDirectory() as td:
+            vtt_file = os.path.join(td, 'captions.vtt')
+            srt_file = os.path.join(td, 'captions.srt')
+            vtt_content = textwrap.dedent('''
+                WEBVTT
+
+                00:00:00.500 --> 00:00:07.000
+                Café
+                ''').lstrip()
+            pathlib.Path(vtt_file).write_text(vtt_content, encoding='utf-8')
+            pathlib.Path(srt_file).write_text('old', encoding='utf-8')
+            vtt = webvtt.read(vtt_file)
+
+            for save in (lambda: vtt.save(encoding='ascii'),
+                         lambda: vtt.save_as_srt(srt_file, encoding='ascii')):
+                with self.assertRaises(UnicodeEncodeError):
+                    save()
+
+            self.assertEqual(
+                pathlib.Path(vtt_file).read_text(encoding='utf-8'),
+                vtt_content
+                )
+            self.assertEqual(pathlib.Path(srt_file).read_text(), 'old')
+            self.assertEqual(sorted(os.listdir(td)),
+                             ['captions.srt', 'captions.vtt'])
+            self.assertEqual(vtt.file, vtt_file)
+
     def test_save_invalid_metadata(self):
         vtt = webvtt.WebVTT(metadata=['Kind: captions', ''])
         with tempfile.TemporaryDirectory() as td:

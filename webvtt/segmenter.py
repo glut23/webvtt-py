@@ -5,7 +5,7 @@ import os
 import pathlib
 from math import floor
 
-from . import vtt
+from . import utils, vtt
 from .webvtt import WebVTT, Caption
 
 DEFAULT_MPEGTS = 900000
@@ -85,15 +85,16 @@ def write_segments(
     for index, segment in enumerate(segments):
         segment_file = output_folder / f'fileSequence{index}.webvtt'
 
-        with open(segment_file, 'w', encoding='utf-8') as f:
-            f.write('WEBVTT\n')
-            f.write(f'X-TIMESTAMP-MAP=MPEGTS:{mpegts},'
-                    'LOCAL:00:00:00.000\n'
-                    )
+        lines = [
+            'WEBVTT',
+            f'X-TIMESTAMP-MAP=MPEGTS:{mpegts},LOCAL:00:00:00.000'
+            ]
+        for caption in segment:
+            lines.extend(['', vtt.format_timings(caption), *caption.lines])
 
-            for caption in segment:
-                f.write(f'\n{vtt.format_timings(caption)}\n')
-                f.writelines(f'{line}\n' for line in caption.lines)
+        utils.write_text_file(str(segment_file), '\n'.join(lines) + '\n',
+                              'utf-8'
+                              )
 
 
 def write_manifest(
