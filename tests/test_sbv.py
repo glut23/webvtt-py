@@ -99,6 +99,28 @@ class TestSBVCueBlock(unittest.TestCase):
             '0:1:03.800'
             )
 
+    def test_from_lines_hours_with_more_than_two_digits(self):
+        cue_block = sbv.SBVCueBlock.from_lines(textwrap.dedent('''
+                    100:00:00.000,100:00:05.000
+                    Caption #1
+                    ''').strip().split('\n')
+                    )
+        self.assertEqual(
+            cue_block.start,
+            '100:00:00.000'
+            )
+        self.assertEqual(
+            cue_block.end,
+            '100:00:05.000'
+            )
+
+    def test_is_valid_requires_dot_before_milliseconds(self):
+        self.assertFalse(sbv.SBVCueBlock.is_valid(textwrap.dedent('''
+                    0:00:01x000,0:00:02.000
+                    Caption #1
+                    ''').strip().split('\n')
+                    ))
+
 
 class TestSBVModule(unittest.TestCase):
 
