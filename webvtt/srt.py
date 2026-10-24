@@ -113,12 +113,27 @@ def is_valid_content(lines: typing.Sequence[str]) -> bool:
 
 def is_cue_start(lines: typing.Sequence[str]) -> bool:
     """
-    Validate if the lines start with a cue index or cue timings.
+    Validate if the lines start with cue timings or a cue index and timings.
+
+    A line with only digits followed by caption text is not a cue start,
+    as caption text can have such a line, e.g. a year.
 
     :param lines: the lines to be validated
     :returns: true if the lines start a cue
     """
-    return lines[0].strip().isdigit() or '-->' in lines[0]
+    return '-->' in lines[0] or (
+        len(lines) > 1 and _is_index_and_timings(lines[0], lines[1])
+        )
+
+
+def _is_index(line: str) -> bool:
+    """Return whether a line can be a cue index, a line with only digits."""
+    return line.strip().isdigit()
+
+
+def _is_index_and_timings(line: str, next_line: str) -> bool:
+    """Return whether a line is a cue index followed by the cue timings."""
+    return _is_index(line) and '-->' in next_line
 
 
 def iter_cue_blocks(
@@ -128,15 +143,43 @@ def iter_cue_blocks(
     Iterate blocks of text, also splitting a block where a cue starts.
 
     A cue starts at a cue index followed by the cue timings, even without
-    an empty line before it.
+    an empty line before it. A block with only a cue index followed by a
+    block starting with the cue timings is joined with it, as the index of
+    that cue.
+
+    :param lines: lines of text
+    """
+    index_block: typing.Optional[typing.List[str]] = None
+
+    for block_lines in _iter_split_blocks(lines):
+        if index_block is not None:
+            if '-->' in block_lines[0]:
+                block_lines = index_block + block_lines
+            else:
+                yield index_block
+            index_block = None
+
+        if len(block_lines) == 1 and _is_index(block_lines[0]):
+            index_block = block_lines
+        else:
+            yield block_lines
+
+    if index_block is not None:
+        yield index_block
+
+
+def _iter_split_blocks(
+        lines: typing.Sequence[str]
+        ) -> typing.Generator[typing.List[str], None, None]:
+    """
+    Iterate blocks of text, splitting a block where a cue index follows.
 
     :param lines: lines of text
     """
     for block_lines in utils.iter_blocks_of_lines(lines):
         start = 0
         for i in range(1, len(block_lines) - 1):
-            if (block_lines[i].strip().isdigit() and
-                    '-->' in block_lines[i + 1]):
+            if _is_index_and_timings(block_lines[i], block_lines[i + 1]):
                 yield block_lines[start:i]
                 start = i
         yield block_lines[start:]
