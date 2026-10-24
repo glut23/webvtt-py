@@ -191,3 +191,19 @@ class TestSBVModule(unittest.TestCase):
             captions = sbv.parse([timings, 'Caption #1'])
             self.assertEqual(len(captions), 1)
             self.assertEqual(captions[0].end, '00:00:02.000')
+
+    def test_parse_timings_over_range(self):
+        captions = sbv.parse(['0:59:61.000,0:61:00.500', 'Caption #1'])
+        self.assertEqual(len(captions), 1)
+        self.assertEqual(captions[0].start, '01:00:01.000')
+        self.assertEqual(captions[0].end, '01:01:00.500')
+
+    def test_parse_skips_cue_with_too_many_digits(self):
+        captions = sbv.parse(
+            ['0:00:01.000,0:00:02.000', 'Caption #1', '',
+             '9' * 5000 + ':00:03.000,0:00:04.000', 'Caption #2']
+            )
+        self.assertEqual(
+            [caption.text for caption in captions],
+            ['Caption #1']
+            )

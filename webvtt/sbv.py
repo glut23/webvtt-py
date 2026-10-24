@@ -6,6 +6,7 @@ import re
 from . import utils
 from .models import Caption
 from .errors import MalformedFileError
+from .srt import parse_timestamp
 
 
 class SBVCueBlock:
@@ -101,6 +102,9 @@ def _parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
     """
     Parse captions from the text.
 
+    The cue timings are read as in SRT, so a field over its range carries
+    over, as in ``0:61:00.000``.
+
     :param lines: lines of text
     :returns: list of `Caption` objects
     """
@@ -111,9 +115,11 @@ def _parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
             continue
 
         cue_block = SBVCueBlock.from_lines(block_lines)
-        captions.append(Caption(cue_block.start,
-                                cue_block.end,
-                                cue_block.payload
-                                ))
+        try:
+            start, end = map(parse_timestamp,
+                             (cue_block.start, cue_block.end))
+        except ValueError:
+            continue
+        captions.append(Caption(str(start), str(end), cue_block.payload))
 
     return captions
