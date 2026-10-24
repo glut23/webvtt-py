@@ -15,11 +15,19 @@ from .utils import split_lines
 # of the caller
 _DECIMAL_CONTEXT = decimal.Context()
 
+# the largest timestamp, 9999999999:59:59.999, as hours have up to 10 digits,
+# far more than any video lasts, so times past it are rejected the same on
+# every Python version instead of converting huge numbers, which is slow
+# before Python 3.11 and raises ValueError after it
+_MAX_MILLISECONDS = 10 ** 10 * 3_600_000 - 1
+_OUT_OF_RANGE = 'Time after the largest timestamp 9999999999:59:59.999'
+
 
 class Timestamp:
     """Representation of a timestamp."""
 
-    PATTERN = re.compile(r'(?:(\d{1,}):)?(\d{1,2}):(\d{1,2})\.(\d{1,3})')
+    # hours have up to 10 digits, see _MAX_MILLISECONDS
+    PATTERN = re.compile(r'(?:(\d{1,10}):)?(\d{1,2}):(\d{1,2})\.(\d{1,3})')
 
     def __init__(
             self,
@@ -85,7 +93,8 @@ class Timestamp:
 
         The fields can be shorter than the WebVTT format requires, as in
         ``0:1:5.2``, and the fraction of a second is padded on the right so
-        ``.2`` is read as 200 milliseconds.
+        ``.2`` is read as 200 milliseconds. The hours can have up to 10
+        digits.
 
         :param value: the timestamp in ``[hh:]mm:ss.mmm`` format
         :returns: a `Timestamp` instance
@@ -122,17 +131,21 @@ class Timestamp:
         :returns: a `Timestamp` instance
 
         :raises MalformedCaptionError: if the value is not a finite number
-            of seconds greater than or equal to zero
+            of seconds greater than or equal to zero, or is after the
+            largest timestamp
         """
         if (
                 type(value) is bool or
                 not isinstance(value, (int, float)) or
-                not math.isfinite(value) or
+                not _is_finite(value) or
                 value < 0
                 ):
             raise MalformedCaptionError(f'Invalid timestamp {value!r}')
 
-        return cls._from_milliseconds(_in_milliseconds(value))
+        try:
+            return cls._from_milliseconds(_in_milliseconds(value))
+        except ValueError as error:
+            raise MalformedCaptionError(str(error)) from None
 
     @classmethod
     def _from_milliseconds(cls, value: int) -> 'Timestamp':
@@ -141,7 +154,12 @@ class Timestamp:
 
         :param value: the timestamp in milliseconds, zero or greater
         :returns: a `Timestamp` instance
+
+        :raises ValueError: if the value is after the largest timestamp
         """
+        if value > _MAX_MILLISECONDS:
+            raise ValueError(_OUT_OF_RANGE)
+
         hours, remainder = divmod(value, 3_600_000)
         minutes, remainder = divmod(remainder, 60_000)
         seconds, milliseconds = divmod(remainder, 1000)
@@ -165,6 +183,17 @@ class Timestamp:
         return self.in_seconds() * 1000 + self.milliseconds
 
 
+def _is_finite(value: typing.Union[float, fractions.Fraction]) -> bool:
+    """
+    Return whether a number is finite.
+
+    Integers and fractions are always finite, and are not passed to
+    ``math.isfinite``, which raises OverflowError for those too large to
+    convert to a float.
+    """
+    return not isinstance(value, float) or math.isfinite(value)
+
+
 def _in_milliseconds(value: typing.Union[float, datetime.timedelta]) -> int:
     """
     Return a number of seconds or a ``timedelta`` in milliseconds.
@@ -172,7 +201,9 @@ def _in_milliseconds(value: typing.Union[float, datetime.timedelta]) -> int:
     The value is rounded to the nearest millisecond with halves rounded away
     from zero. A float is rounded as written, from its shortest
     representation, so ``259.0395`` is 259040 milliseconds although the
-    closest float is slightly smaller.
+    closest float is slightly smaller. A number past the range of a
+    timestamp, in either direction, is returned as one millisecond past it,
+    as converting a huge number can overflow.
 
     :param value: a finite number of seconds or a ``timedelta``
     :returns: the value in milliseconds
@@ -181,6 +212,8 @@ def _in_milliseconds(value: typing.Union[float, datetime.timedelta]) -> int:
         seconds = decimal.Decimal(
             value // datetime.timedelta(microseconds=1)
             ).scaleb(-6, context=_DECIMAL_CONTEXT)
+    elif abs(value) >= (_MAX_MILLISECONDS + 1) // 1000:
+        return _MAX_MILLISECONDS + 1 if value > 0 else -_MAX_MILLISECONDS - 1
     elif isinstance(value, float):
         seconds = decimal.Decimal(float.__repr__(value))
     else:
@@ -215,7 +248,7 @@ def _offset_in_milliseconds(
     if type(offset) is bool or not isinstance(offset, (int, float)):
         raise TypeError(f'Invalid {name} {offset!r}')
 
-    if not math.isfinite(offset):
+    if not _is_finite(offset):
         raise ValueError(f'Invalid {name} {offset!r}')
 
     return _in_milliseconds(offset)
@@ -235,7 +268,8 @@ def _position_in_milliseconds(value: _Position) -> int:
 
     :raises MalformedCaptionError: if the timestamp string is not valid
     :raises TypeError: if the value is not of a supported type
-    :raises ValueError: if the value is not finite or is before zero
+    :raises ValueError: if the value is not finite, is before zero or is
+        after the largest timestamp
     """
     if isinstance(value, str):
         return Timestamp.from_string(value).in_milliseconds()
@@ -246,6 +280,8 @@ def _position_in_milliseconds(value: _Position) -> int:
     milliseconds = _offset_in_milliseconds(value, name='timestamp')
     if milliseconds < 0:
         raise ValueError(f'Invalid timestamp {value!r}')
+    if milliseconds > _MAX_MILLISECONDS:
+        raise ValueError(_OUT_OF_RANGE)
 
     return milliseconds
 
@@ -372,7 +408,7 @@ def _frame_rate(value: _FrameRate) -> fractions.Fraction:
             ):
         raise TypeError(f'Invalid frame rate {value!r}')
 
-    if not math.isfinite(value) or value <= 0:
+    if not _is_finite(value) or value <= 0:
         raise ValueError(f'Invalid frame rate {value!r}')
 
     if isinstance(value, float):
@@ -875,25 +911,34 @@ class Caption:
             values move the caption earlier
 
         :raises TypeError: if the offset is not a number or a ``timedelta``
-        :raises ValueError: if the offset is not finite
+        :raises ValueError: if the offset is not finite, or would move a
+            time after the largest timestamp, leaving the caption unchanged
         """
         offset_ms = _offset_in_milliseconds(offset)
-        self._retime(lambda milliseconds: milliseconds + offset_ms)
+        _retime_captions([self], lambda milliseconds: milliseconds + offset_ms)
 
-    def _retime(self, mapping: typing.Callable[[int], int]):
+    def _retimed(
+            self,
+            mapping: typing.Callable[[int], int]
+            ) -> typing.Tuple[Timestamp, Timestamp]:
         """
-        Change the start and end time of the caption with a mapping.
+        Return the start and end time of the caption mapped to new times.
 
         A time mapped before zero is set to ``00:00:00.000``.
 
         :param mapping: the function mapping a time in milliseconds to the
             new time in milliseconds
+        :returns: the new start and end time
+
+        :raises ValueError: if a time is mapped after the largest timestamp
         """
-        self.start_time = Timestamp._from_milliseconds(
-            max(mapping(self.start_time.in_milliseconds()), 0)
-            )
-        self.end_time = Timestamp._from_milliseconds(
-            max(mapping(self.end_time.in_milliseconds()), 0)
+        return (
+            Timestamp._from_milliseconds(
+                max(mapping(self.start_time.in_milliseconds()), 0)
+                ),
+            Timestamp._from_milliseconds(
+                max(mapping(self.end_time.in_milliseconds()), 0)
+                )
             )
 
     @property
@@ -930,6 +975,28 @@ class Caption:
         return None
 
 
+def _retime_captions(
+        captions: typing.Iterable[Caption],
+        mapping: typing.Callable[[int], int]
+        ):
+    """
+    Change the start and end time of the captions with a mapping.
+
+    The new times of every caption are computed before any caption is
+    changed, so the captions are left unchanged when one cannot be.
+
+    :param captions: the captions to change
+    :param mapping: the function mapping a time in milliseconds to the new
+        time in milliseconds
+
+    :raises ValueError: if a time is mapped after the largest timestamp
+    """
+    captions = list(captions)
+    times = [caption._retimed(mapping) for caption in captions]
+    for caption, (start_time, end_time) in zip(captions, times):
+        caption.start_time, caption.end_time = start_time, end_time
+
+
 def _timing_in_milliseconds(value: str) -> int:
     """
     Return the milliseconds of a SRT or SBV timestamp.
@@ -942,11 +1009,15 @@ def _timing_in_milliseconds(value: str) -> int:
     :param value: the timestamp in ``hh:mm:ss,mmm`` format
     :returns: the timestamp in milliseconds
 
-    :raises ValueError: if a field has too many digits to be read
+    :raises ValueError: if a field is past the range of a timestamp
     """
-    hours, minutes, seconds, milliseconds = map(
-        int, re.split('[:,.]', value)
-        )
+    fields = re.split('[:,.]', value)
+    # a field with more than 17 significant digits is past the largest
+    # timestamp whatever its unit, so it is rejected without converting it
+    if any(len(field.lstrip('0')) > 17 for field in fields):
+        raise ValueError(_OUT_OF_RANGE)
+
+    hours, minutes, seconds, milliseconds = map(int, fields)
     return ((hours * 60 + minutes) * 60 + seconds) * 1000 + milliseconds
 
 
@@ -961,17 +1032,18 @@ def _caption_from_timings(
     :param start: the start time in ``hh:mm:ss,mmm`` format
     :param end: the end time in ``hh:mm:ss,mmm`` format
     :param lines: the lines of the caption text
-    :returns: a `Caption` instance, or None if a time cannot be read
+    :returns: a `Caption` instance, or None if a time cannot be read or
+        is after the largest timestamp
     """
     try:
-        start_ms, end_ms = map(_timing_in_milliseconds, (start, end))
+        start_time, end_time = (
+            Timestamp._from_milliseconds(_timing_in_milliseconds(timing))
+            for timing in (start, end)
+            )
     except ValueError:
         return None
 
-    return Caption(str(Timestamp._from_milliseconds(start_ms)),
-                   str(Timestamp._from_milliseconds(end_ms)),
-                   lines
-                   )
+    return Caption(str(start_time), str(end_time), lines)
 
 
 class Style:

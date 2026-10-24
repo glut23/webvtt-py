@@ -56,6 +56,17 @@ class TestTimestamp(unittest.TestCase):
         self.assertEqual(timestamp.milliseconds, 670)
         self.assertEqual(str(timestamp), '100:24:11.670')
 
+    def test_from_string_ten_digits_hours(self):
+        timestamp = Timestamp.from_string('9999999999:00:00.000')
+        self.assertEqual(timestamp.hours, 9999999999)
+        self.assertEqual(str(timestamp), '9999999999:00:00.000')
+
+    def test_from_string_too_many_digits_hours(self):
+        for value in ('10000000000:00:00.000', '1' * 5000 + ':00:00.000'):
+            with self.subTest(digits=len(value) - 10):
+                with self.assertRaises(MalformedCaptionError):
+                    Timestamp.from_string(value)
+
     def test_from_string_wrong_minutes(self):
         with self.assertRaises(MalformedCaptionError):
             Timestamp.from_string('01:76:11.670')
@@ -196,6 +207,16 @@ class TestTimestamp(unittest.TestCase):
                                 (0.0004999, '00:00:00.000')):
             with self.subTest(value=value):
                 self.assertEqual(str(Timestamp.from_seconds(value)), expected)
+
+    def test_from_seconds_largest_timestamp(self):
+        self.assertEqual(str(Timestamp.from_seconds(35999999999999)),
+                         '9999999999:59:59.000')
+
+    def test_from_seconds_after_largest_timestamp(self):
+        for value in (36000000000000, 1e300, 10 ** 400, 10 ** 1000000):
+            with self.subTest(value=type(value).__name__):
+                with self.assertRaises(MalformedCaptionError):
+                    Timestamp.from_seconds(value)
 
     def test_from_seconds_invalid(self):
         for value in (-0.001, -1, float('nan'), float('inf'), '12', None,
@@ -408,6 +429,29 @@ class TestCaption(unittest.TestCase):
                     caption.shift(value)
                 self.assertEqual(caption.start, '00:00:07.000')
                 self.assertEqual(caption.end, '00:00:11.890')
+
+    def test_shift_to_largest_timestamp(self):
+        caption = Caption('00:00:07.000', '00:00:11.890')
+        caption.shift(datetime.timedelta(milliseconds=35999999999988109))
+        self.assertEqual(caption.end, '9999999999:59:59.999')
+
+    def test_shift_after_largest_timestamp(self):
+        for value in (datetime.timedelta(milliseconds=35999999999988110),
+                      1e300, 10 ** 400, 10 ** 1000000):
+            with self.subTest(value=type(value).__name__):
+                caption = Caption('00:00:07.000', '00:00:11.890')
+                with self.assertRaises(ValueError):
+                    caption.shift(value)
+                self.assertEqual(caption.start, '00:00:07.000')
+                self.assertEqual(caption.end, '00:00:11.890')
+
+    def test_shift_before_zero_by_a_huge_offset(self):
+        for value in (-1e300, -10 ** 400, -10 ** 1000000):
+            with self.subTest(value=type(value).__name__):
+                caption = Caption('00:00:07.000', '00:00:11.890')
+                caption.shift(value)
+                self.assertEqual(caption.start, '00:00:00.000')
+                self.assertEqual(caption.end, '00:00:00.000')
 
     def test_shift_not_finite(self):
         for value in (float('nan'), float('inf'), float('-inf')):

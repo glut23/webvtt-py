@@ -1143,6 +1143,39 @@ class TestWebVTT(unittest.TestCase):
 
         self.assertEqual(self.timings(vtt), before)
 
+    def test_change_framerate_larger_than_a_float(self):
+        for fps in (10 ** 400, fractions.Fraction(10 ** 400)):
+            with self.subTest(fps=type(fps).__name__):
+                vtt = webvtt.from_string(self.SYNC_CAPTIONS)
+                before = self.timings(vtt)
+
+                vtt.change_framerate(fps, fps)
+
+                self.assertEqual(self.timings(vtt), before)
+
+    def test_retime_after_largest_timestamp(self):
+        # only the end of the last caption is moved after the largest
+        # timestamp, 9999999999:59:59.999
+        offset = datetime.timedelta(milliseconds=35999999999899000)
+        for name, retime in (
+                ('shift', lambda vtt: vtt.shift(offset)),
+                ('sync', lambda vtt: vtt.sync((0, 0), (1, 10 ** 12))),
+                ('change_framerate',
+                 lambda vtt: vtt.change_framerate(10 ** 12, 1))):
+            with self.subTest(method=name):
+                vtt = webvtt.from_string(self.SYNC_CAPTIONS)
+                before = self.timings(vtt)
+
+                with self.assertRaises(ValueError):
+                    retime(vtt)
+
+                self.assertEqual(self.timings(vtt), before)
+
+    def test_sync_point_after_largest_timestamp(self):
+        vtt = webvtt.from_string(self.SYNC_CAPTIONS)
+        with self.assertRaises(ValueError):
+            vtt.sync((0, 0), (1, 36000000000000))
+
     def test_change_framerate_invalid(self):
         for fps, error in ((0, ValueError),
                            (-25, ValueError),

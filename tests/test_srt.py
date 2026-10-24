@@ -1,4 +1,3 @@
-import sys
 import unittest
 import io
 import textwrap
@@ -6,8 +5,6 @@ import textwrap
 from webvtt import srt
 from webvtt.errors import MalformedFileError
 from webvtt.models import Caption, Style
-
-INT_MAX_STR_DIGITS = getattr(sys, 'get_int_max_str_digits', lambda: 0)()
 
 
 class TestSRTCueBlock(unittest.TestCase):
@@ -351,9 +348,25 @@ class TestSRTModule(unittest.TestCase):
             ['1', '00:00:00,500 --> 00:00:07,000', 'Caption #1', '',
              '2', '00:00:07,000 --> 00:00:11,' + '9' * 5000, 'Caption #2']
             )
+        self.assertEqual(len(captions), 1)
         self.assertEqual(captions[0].text, 'Caption #1')
-        self.assertEqual(len(captions),
-                         1 if 0 < INT_MAX_STR_DIGITS < 5000 else 2)
+
+    def test_parse_timings_with_leading_zeros(self):
+        captions = srt.parse(
+            ['1', '00:00:00,' + '0' * 30 + '500 --> 00:00:07,000',
+             'Caption #1']
+            )
+        self.assertEqual(len(captions), 1)
+        self.assertEqual(captions[0].start, '00:00:00.500')
+
+    def test_parse_skips_cue_with_too_many_digits_hours(self):
+        captions = srt.parse(
+            ['1', '00:00:00,500 --> 00:00:07,000', 'Caption #1', '',
+             '2', '99999999999:00:07,000 --> 99999999999:00:11,890',
+             'Caption #2']
+            )
+        self.assertEqual(len(captions), 1)
+        self.assertEqual(captions[0].text, 'Caption #1')
 
     def test_parse_skips_cues_without_text(self):
         captions = srt.parse(

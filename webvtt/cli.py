@@ -164,6 +164,10 @@ def main(argv: typing.Optional[typing.Sequence] = None):
         message = f'{args.file}: cannot be decoded as {error.encoding}'
     except MalformedFileError:
         message = f'{args.file}: not a valid WebVTT file'
+    except ValueError as error:
+        # the captions cannot be moved as asked, e.g. after the largest
+        # timestamp
+        message = f'{args.file}: {error}'
     else:
         return
 
