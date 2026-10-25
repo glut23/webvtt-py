@@ -521,6 +521,101 @@ class TestVTTModule(unittest.TestCase):
                               ]
                              )
 
+    def test_to_str_rejects_text_not_read_back(self):
+        def caption(text='Caption', identifier=None):
+            return Caption('00:00:00.500', '00:00:07.000', text, identifier)
+
+        def with_comment(item, comment):
+            item.comments.append(comment)
+            return item
+
+        for name, items, message in (
+                ('empty line in caption text',
+                 {'captions': [caption('line 1\n\nline 2')]},
+                 'Caption text must not have empty lines'),
+                ('empty first line in caption text',
+                 {'captions': [caption(['', 'line 2'])]},
+                 'Caption text must not have empty lines'),
+                ('arrow in caption text',
+                 {'captions': [caption('a --> b')]},
+                 'Caption text must not have empty lines or "-->"'),
+                ('cue timings in caption text',
+                 {'captions': [caption('a\n00:00:08.000 --> 00:00:09.000')]},
+                 'Caption text must not have empty lines or "-->"'),
+                ('line break in identifier',
+                 {'captions': [caption(identifier='id\nmore')]},
+                 'Caption identifiers must be a single line'),
+                ('arrow in identifier',
+                 {'captions': [caption(identifier='a --> b')]},
+                 'Caption identifiers must be a single line without "-->"'),
+                ('empty line in style',
+                 {'styles': [Style('::cue {\n\n  color: red;\n}')]},
+                 'Style text must not have empty lines'),
+                ('arrow in style',
+                 {'styles': [Style('::cue { content: "-->"; }')]},
+                 'Style text must not have empty lines or "-->"'),
+                ('empty line in header comment',
+                 {'header_comments': ['line 1\n\nline 2']},
+                 'Comments must not have empty lines'),
+                ('arrow after first line of footer comment',
+                 {'footer_comments': ['line 1\na --> b']},
+                 '"-->" after the first line'),
+                ('cue timings in first line of comment',
+                 {'captions': [with_comment(
+                     caption(),
+                     '00:00:05.000 --> 00:00:06.000\nreview this'
+                     )]},
+                 'or be read as a cue'),
+                ('empty line in caption comment',
+                 {'captions': [with_comment(caption(), 'a\n\nb')]},
+                 'Comments must not have empty lines'),
+                ('empty line in style comment',
+                 {'styles': [with_comment(Style('::cue {}'), 'a\n\nb')]},
+                 'Comments must not have empty lines'),
+                ('empty line in region comment',
+                 {'regions': [with_comment(Region(id='r'), 'a\n\nb')]},
+                 'Comments must not have empty lines')):
+            with self.subTest(name):
+                arguments = {'captions': [], 'styles': [],
+                             'header_comments': [], 'footer_comments': [],
+                             **items}
+                with self.assertRaises(ValueError) as cm:
+                    vtt.to_str(**arguments)
+                self.assertIn(message, str(cm.exception))
+
+    def test_to_str_text_read_back(self):
+        captions = [
+            Caption('00:00:00.500', '00:00:01.000', 'line 1\n \nline 2', ' '),
+            Caption('00:00:01.000', '00:00:02.000', ''),
+            Caption('00:00:02.000', '00:00:03.000', 'a\n', 'id'),
+            # empty lines at the end only end the cue
+            Caption('00:00:03.000', '00:00:04.000', ['b', '', ''])
+            ]
+        captions[1].comments.append('a --> b\nsecond line')
+        styles = [Style('::cue {\n  color: red;\n}\n\n')]
+
+        output = vtt.parse(
+            vtt.to_str(captions, styles,
+                       ['a --> b', '00:00:05.000 --> 00:00:06.000'],
+                       ['footer\n\n']
+                       ).split('\n')
+            )
+
+        self.assertEqual(
+            [(c.identifier, c.raw_text, c.comments)
+             for c in output.captions],
+            [(' ', 'line 1\n \nline 2', []),
+             (None, '', ['a --> b\nsecond line']),
+             ('id', 'a', []),
+             (None, 'b', [])]
+            )
+        self.assertEqual([s.text for s in output.styles],
+                         ['::cue {\n  color: red;\n}'])
+        # cue timings in a single line comment are written after "NOTE "
+        self.assertEqual(output.header_comments,
+                         ['a --> b', '00:00:05.000 --> 00:00:06.000'])
+        self.assertEqual(output.footer_comments, ['footer'])
+
     def test_write(self):
         out = io.StringIO()
         captions = [

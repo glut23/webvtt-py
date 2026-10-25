@@ -1439,6 +1439,24 @@ class TestWebVTT(unittest.TestCase):
                              ['captions.srt', 'captions.vtt'])
             self.assertEqual(vtt.file, vtt_file)
 
+    def test_save_text_not_read_back_keeps_file(self):
+        with tempfile.TemporaryDirectory() as td:
+            vtt_file = os.path.join(td, 'captions.vtt')
+            pathlib.Path(vtt_file).write_text(
+                (PATH_TO_SAMPLES / 'one_caption.vtt').read_text()
+                )
+            vtt = webvtt.read(vtt_file)
+            vtt.captions[0].text = 'line 1\n\nline 2'
+
+            with self.assertRaises(ValueError):
+                vtt.save()
+
+            self.assertEqual(
+                pathlib.Path(vtt_file).read_text(),
+                (PATH_TO_SAMPLES / 'one_caption.vtt').read_text()
+                )
+            self.assertEqual(vtt.file, vtt_file)
+
     def test_save_invalid_metadata(self):
         vtt = webvtt.WebVTT(metadata=['Kind: captions', ''])
         with tempfile.TemporaryDirectory() as td:
