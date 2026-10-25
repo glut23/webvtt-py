@@ -5,7 +5,6 @@ import os
 import io
 import typing
 import warnings
-from functools import partial
 
 from . import vtt, utils
 from . import srt
@@ -43,6 +42,8 @@ class WebVTT:
 
     def __init__(
             self,
+            # NoReturn, so type checkers report positional arguments too
+            *args: typing.NoReturn,
             file: typing.Optional[str] = None,
             captions: typing.Optional[typing.List[Caption]] = None,
             styles: typing.Optional[typing.List[Style]] = None,
@@ -55,7 +56,13 @@ class WebVTT:
         """
         Initialize.
 
-        :param file: the path of the WebVTT file
+        The arguments are keyword only, and no file is read: use `read`,
+        `from_srt`, `from_sbv`, `from_buffer` or `from_string` to read
+        captions. The ``file`` attribute is the path the captions were read
+        from or last saved to, which `save` uses when no output is given,
+        and can be set to choose where they are saved.
+
+        :param file: DEPRECATED, set the ``file`` attribute instead
         :param captions: the list of captions
         :param styles: the list of styles
         :param header_comments: list of comments for the start of the file
@@ -64,7 +71,29 @@ class WebVTT:
         :param metadata: list of metadata lines following the "WEBVTT"
             line, e.g. ``X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:0``
         :param regions: the list of regions
+
+        :raises TypeError: if an argument is passed by position
         """
+        if args:
+            # WebVTT('captions.vtt') looks like it reads the file, but it
+            # only set the path where save() writes, so saving it replaced
+            # the file with no captions
+            raise TypeError(
+                f'{self.__class__.__name__}() takes keyword arguments only '
+                'and does not read files, use webvtt.read() to read '
+                'captions from a file'
+                )
+
+        if file is not None:
+            warnings.warn(
+                f'The file argument of {self.__class__.__name__}() is '
+                'deprecated, use webvtt.read() to read captions from a file '
+                'and set the file attribute, or pass the output to save(), '
+                'to choose where they are saved',
+                DeprecationWarning,
+                stacklevel=2
+                )
+
         self.file = file
         self.captions = captions or []
         self.styles = styles or []
@@ -167,15 +196,14 @@ class WebVTT:
             or if strict and a cue block is malformed
         :raises ValueError: if the format is not supported
         """
+        file = getattr(buffer, 'name', None)
+
         if isinstance(buffer, io.BytesIO):
             buffer = (line.decode('utf-8') for line in buffer)
 
-        _cls = partial(cls, file=getattr(buffer, 'name', None))
-
         if format == 'vtt':
             output = vtt.parse(cls._get_lines(buffer), strict)
-
-            return _cls(
+            instance = cls(
                 captions=output.captions,
                 styles=output.styles,
                 header_comments=output.header_comments,
@@ -184,18 +212,15 @@ class WebVTT:
                 metadata=output.metadata,
                 regions=output.regions
                 )
+        elif format == 'srt':
+            instance = cls(captions=srt.parse(cls._get_lines(buffer)))
+        elif format == 'sbv':
+            instance = cls(captions=sbv.parse(cls._get_lines(buffer)))
+        else:
+            raise ValueError(f'Format {format} is not supported.')
 
-        if format == 'srt':
-            return _cls(
-                captions=srt.parse(cls._get_lines(buffer))
-                )
-
-        if format == 'sbv':
-            return _cls(
-                captions=sbv.parse(cls._get_lines(buffer))
-                )
-
-        raise ValueError(f'Format {format} is not supported.')
+        instance.file = file
+        return instance
 
     @classmethod
     def from_srt(
@@ -214,10 +239,7 @@ class WebVTT:
         :raises MalformedCaptionError: if a caption has an invalid timestamp
         """
         with utils.FileWrapper.open(file, encoding=encoding) as fw:
-            return cls(
-                file=fw.file.name,
-                captions=srt.parse(cls._get_lines(fw.file))
-                )
+            return cls.from_buffer(fw.file, format='srt')
 
     @classmethod
     def from_sbv(
@@ -236,10 +258,7 @@ class WebVTT:
         :raises MalformedCaptionError: if a caption has an invalid timestamp
         """
         with utils.FileWrapper.open(file, encoding=encoding) as fw:
-            return cls(
-                file=fw.file.name,
-                captions=sbv.parse(cls._get_lines(fw.file)),
-                )
+            return cls.from_buffer(fw.file, format='sbv')
 
     @classmethod
     def from_string(cls, string: str, strict: bool = False) -> 'WebVTT':

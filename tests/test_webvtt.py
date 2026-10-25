@@ -615,6 +615,68 @@ class TestWebVTT(unittest.TestCase):
             webvtt.WebVTT().save
             )
 
+    def test_positional_arguments(self):
+        with tempfile.TemporaryDirectory() as td:
+            vtt_file = os.path.join(td, 'captions.vtt')
+            content = (PATH_TO_SAMPLES / 'one_caption.vtt').read_text()
+            pathlib.Path(vtt_file).write_text(content)
+
+            with self.assertRaises(TypeError) as cm:
+                webvtt.WebVTT(vtt_file)
+
+            self.assertIn('use webvtt.read()', str(cm.exception))
+            self.assertEqual(pathlib.Path(vtt_file).read_text(), content)
+
+    def test_deprecated_file_argument(self):
+        with warnings.catch_warnings(record=True) as warns:
+            warnings.simplefilter('always')
+            vtt = webvtt.WebVTT(file='captions.vtt')
+
+        self.assertEqual(vtt.file, 'captions.vtt')
+        self.assertEqual(len(warns), 1)
+        self.assertIs(warns[0].category, DeprecationWarning)
+        self.assertIn('The file argument of WebVTT() is deprecated',
+                      str(warns[0].message))
+        # the warning points to the code creating the instance
+        self.assertEqual(os.path.basename(warns[0].filename),
+                         os.path.basename(__file__))
+
+    def test_readers_set_file_without_warnings(self):
+        sample = str(PATH_TO_SAMPLES / 'sample.vtt')
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            with open(sample, encoding='utf-8') as f:
+                from_open_file = webvtt.from_buffer(f)
+
+            for vtt, expected in (
+                    (webvtt.read(sample), sample),
+                    (webvtt.from_srt(str(PATH_TO_SAMPLES / 'sample.srt')),
+                     str(PATH_TO_SAMPLES / 'sample.srt')),
+                    (webvtt.from_sbv(str(PATH_TO_SAMPLES / 'sample.sbv')),
+                     str(PATH_TO_SAMPLES / 'sample.sbv')),
+                    (from_open_file, sample),
+                    (webvtt.from_buffer(
+                        io.BytesIO(pathlib.Path(sample).read_bytes())
+                        ), None),
+                    (webvtt.from_string(pathlib.Path(sample).read_text()),
+                     None)):
+                with self.subTest(expected=expected):
+                    self.assertEqual(vtt.file, expected)
+
+    def test_save_to_file_attribute(self):
+        with tempfile.TemporaryDirectory() as td:
+            vtt = webvtt.WebVTT(
+                captions=[Caption('00:00:00.500', '00:00:07.000',
+                                  'Caption text #1')]
+                )
+            vtt.file = os.path.join(td, 'captions.vtt')
+            vtt.save()
+
+            self.assertEqual(
+                pathlib.Path(td, 'captions.vtt').read_text(),
+                'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCaption text #1\n'
+                )
+
     def test_save_with_path_to_dir_no_filename(self):
         with tempfile.TemporaryDirectory() as td:
             self.assertRaises(
