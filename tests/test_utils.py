@@ -8,8 +8,8 @@ from webvtt.utils import (
     FileWrapper,
     CODEC_BOMS,
     iter_blocks_of_lines,
-    split_lines,
-    write_text_file
+    _split_lines,
+    _write_text_file
     )
 
 
@@ -39,7 +39,7 @@ class TestUtils(unittest.TestCase):
             path = pathlib.Path(temp_dir) / 'captions.vtt'
             path.write_text('old')
 
-            write_text_file(str(path), 'WEBVTT\n\nCafé\n', 'utf-8')
+            _write_text_file(str(path), 'WEBVTT\n\nCafé\n', 'utf-8')
 
             self.assertEqual(
                 path.read_bytes(),
@@ -52,7 +52,7 @@ class TestUtils(unittest.TestCase):
 
             with mock.patch('locale.getpreferredencoding',
                             return_value='utf-16-le'):
-                write_text_file(str(path), 'Café')
+                _write_text_file(str(path), 'Café')
 
             self.assertEqual(path.read_bytes(), 'Café'.encode('utf-16-le'))
 
@@ -66,7 +66,7 @@ class TestUtils(unittest.TestCase):
                     path.write_text('old')
 
                     with self.assertRaises(error):
-                        write_text_file(str(path), 'Café', encoding)
+                        _write_text_file(str(path), 'Café', encoding)
 
                     self.assertEqual(path.read_text(), 'old')
 
@@ -88,10 +88,10 @@ class TestUtils(unittest.TestCase):
                      'line 1\r\r\n',
                      ):
             with self.subTest(text=text):
-                self.assertListEqual(split_lines(text), text.splitlines())
+                self.assertListEqual(_split_lines(text), text.splitlines())
 
     def test_split_lines_only_on_cr_and_lf(self):
         self.assertListEqual(
-            split_lines('a\x0bb\x0cc\x1cd\x1de\x1ef\x85g\u2028h\u2029i\nj'),
+            _split_lines('a\x0bb\x0cc\x1cd\x1de\x1ef\x85g\u2028h\u2029i\nj'),
             ['a\x0bb\x0cc\x1cd\x1de\x1ef\x85g\u2028h\u2029i', 'j']
             )

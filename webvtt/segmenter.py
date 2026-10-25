@@ -90,11 +90,11 @@ def write_segments(
             f'X-TIMESTAMP-MAP=MPEGTS:{mpegts},LOCAL:00:00:00.000'
             ]
         for caption in segment:
-            lines.extend(['', vtt.format_timings(caption), *caption.lines])
+            lines.extend(['', vtt._format_timings(caption), *caption.lines])
 
-        utils.write_text_file(str(segment_file), '\n'.join(lines) + '\n',
-                              'utf-8'
-                              )
+        utils._write_text_file(str(segment_file), '\n'.join(lines) + '\n',
+                               'utf-8'
+                               )
 
 
 def write_manifest(

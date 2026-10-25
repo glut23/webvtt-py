@@ -10,19 +10,19 @@ from .errors import MalformedFileError
 from . import utils
 
 
-TIMESTAMP = r'\d+:\d{1,2}:\d{1,2}[,.]\d+'
+_TIMESTAMP = r'\d+:\d{1,2}:\d{1,2}[,.]\d+'
 
-CUE_CLASS_SELECTOR = re.compile(r'::cue\(\s*\.([\w-]+)\s*\)')
+_CUE_CLASS_SELECTOR = re.compile(r'::cue\(\s*\.([\w-]+)\s*\)')
 
 # the cue tags that SRT players support
-SRT_TAGS = {'b', 'i', 'u'}
+_SRT_TAGS = {'b', 'i', 'u'}
 
 
 class SRTCueBlock:
     """Representation of a cue timing block."""
 
     CUE_TIMINGS_PATTERN = re.compile(
-        rf'\s*({TIMESTAMP})\s*-->\s*({TIMESTAMP})'
+        rf'\s*({_TIMESTAMP})\s*-->\s*({_TIMESTAMP})'
         )
 
     def __init__(
@@ -111,7 +111,7 @@ def is_valid_content(lines: typing.Sequence[str]) -> bool:
     )
 
 
-def is_cue_start(lines: typing.Sequence[str]) -> bool:
+def _is_cue_start(lines: typing.Sequence[str]) -> bool:
     """
     Validate if the lines start with cue timings or a cue index and timings.
 
@@ -136,7 +136,7 @@ def _is_index_and_timings(line: str, next_line: str) -> bool:
     return _is_index(line) and '-->' in next_line
 
 
-def iter_cue_blocks(
+def _iter_cue_blocks(
         lines: typing.Sequence[str]
         ) -> typing.Generator[typing.List[str], None, None]:
     """
@@ -199,8 +199,8 @@ def parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
     captions: typing.List[Caption] = []
     caption: typing.Optional[Caption] = None
 
-    for block_lines in iter_cue_blocks(lines):
-        if is_cue_start(block_lines):
+    for block_lines in _iter_cue_blocks(lines):
+        if _is_cue_start(block_lines):
             caption = None
             if SRTCueBlock.is_valid(block_lines):
                 cue_block = SRTCueBlock.from_lines(block_lines)
@@ -216,7 +216,7 @@ def parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
     return [caption for caption in captions if caption.lines]
 
 
-def strip_css_comments(css: str) -> str:
+def _strip_css_comments(css: str) -> str:
     """
     Remove the comments from CSS.
 
@@ -243,7 +243,7 @@ def strip_css_comments(css: str) -> str:
     return ''.join(parts)
 
 
-def css_colour(declarations: str) -> typing.Optional[str]:
+def _css_colour(declarations: str) -> typing.Optional[str]:
     """
     Return the colour in the declarations of a CSS rule.
 
@@ -263,7 +263,7 @@ def css_colour(declarations: str) -> typing.Optional[str]:
     return colour
 
 
-def cue_colours(
+def _cue_colours(
         styles: typing.Iterable[Style]
         ) -> typing.Dict[str, typing.Tuple[int, str]]:
     """
@@ -281,20 +281,20 @@ def cue_colours(
     for style in styles:
         # split the rules on braces, as a regex for them is quadratic on
         # text without braces
-        for rule in strip_css_comments(style.text).split('}'):
+        for rule in _strip_css_comments(style.text).split('}'):
             selectors, _, declarations = rule.rpartition('{')
-            colour = css_colour(declarations)
+            colour = _css_colour(declarations)
             if colour is None:
                 continue
             position += 1
             for selector in selectors.split(','):
-                match = CUE_CLASS_SELECTOR.fullmatch(selector.strip())
+                match = _CUE_CLASS_SELECTOR.fullmatch(selector.strip())
                 if match:
                     colours[match.group(1)] = (position, colour)
     return colours
 
 
-def srt_tags(
+def _srt_tags(
         tag: str,
         colours: typing.Mapping[str, typing.Tuple[int, str]]
         ) -> typing.Optional[typing.Tuple[str, str, str]]:
@@ -314,7 +314,7 @@ def srt_tags(
     if name == 'font':
         return name, f'<{tag}>', '</font>'
     start_tags = end_tags = ''
-    if name in SRT_TAGS:
+    if name in _SRT_TAGS:
         start_tags, end_tags = f'<{name}>', f'</{name}>'
     matches = [colours[cls] for cls in classes if cls in colours]
     if matches:
@@ -323,7 +323,7 @@ def srt_tags(
     return name, start_tags, end_tags
 
 
-def close_tags(
+def _close_tags(
         open_tags: typing.List[typing.Tuple[str, str]],
         name: str
         ) -> typing.List[str]:
@@ -344,7 +344,7 @@ def close_tags(
     return [end_tags for _, end_tags in reversed(closed)]
 
 
-def format_cue_text(
+def _format_cue_text(
         text: str,
         colours: typing.Mapping[str, typing.Tuple[int, str]]
         ) -> str:
@@ -369,9 +369,9 @@ def format_cue_text(
             if not is_tag:
                 output.append(token)
             elif token.startswith('/'):
-                output.extend(close_tags(open_tags, token[1:].strip()))
+                output.extend(_close_tags(open_tags, token[1:].strip()))
             else:
-                tags = srt_tags(token, colours)
+                tags = _srt_tags(token, colours)
                 if tags is not None:
                     name, start_tags, end_tags = tags
                     output.append(start_tags)
@@ -394,11 +394,11 @@ def write(
     :param styles: Iterable of `Style` objects to keep the formatting of
         the cue text, or None to write the text without cue tags
     """
-    colours = None if styles is None else cue_colours(styles)
+    colours = None if styles is None else _cue_colours(styles)
     output = []
     for index, caption in enumerate(captions, start=1):
         text = (caption.text if colours is None
-                else format_cue_text(caption.raw_text, colours))
+                else _format_cue_text(caption.raw_text, colours))
         output.extend([
             f'{index}',
             '{} --> {}'.format(*map(lambda x: x.replace('.', ','),

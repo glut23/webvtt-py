@@ -300,7 +300,7 @@ class WebVTT:
         cleaned_lines: typing.List[str] = []
         for item in lines:
             # an empty item is an empty line
-            cleaned_lines.extend(utils.split_lines(item) or [''])
+            cleaned_lines.extend(utils._split_lines(item) or [''])
         if cleaned_lines and cleaned_lines[0].startswith('\ufeff'):
             cleaned_lines[0] = cleaned_lines[0][1:]
         return cleaned_lines
@@ -378,7 +378,7 @@ class WebVTT:
         if add_bom and encoding in utils.CODEC_BOMS:
             content = utils.CODEC_BOMS[encoding].decode(encoding) + content
 
-        utils.write_text_file(destination, content, encoding)
+        utils._write_text_file(destination, content, encoding)
         self.file = destination
 
     def save_as_srt(
@@ -408,7 +408,7 @@ class WebVTT:
                   self.styles if keep_formatting else None
                   )
 
-        utils.write_text_file(destination, content.getvalue(), encoding)
+        utils._write_text_file(destination, content.getvalue(), encoding)
         self.file = destination
 
     def write(

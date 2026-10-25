@@ -629,7 +629,7 @@ class TestCueColours(unittest.TestCase):
             ]
 
         self.assertEqual(
-            srt.cue_colours(styles),
+            srt._cue_colours(styles),
             {'magenta': (2, '#ff00ff'),
              'blue': (4, '#0000ff'),
              'navy': (4, '#0000ff')
@@ -647,7 +647,7 @@ class TestCueColours(unittest.TestCase):
                 ''').strip())
             ]
 
-        self.assertEqual(srt.cue_colours(styles), {'green': (1, 'green')})
+        self.assertEqual(srt._cue_colours(styles), {'green': (1, 'green')})
 
     def test_cue_colours_later_rule_overrides(self):
         styles = [
@@ -655,17 +655,17 @@ class TestCueColours(unittest.TestCase):
             Style('::cue(.title) { color: blue; }')
             ]
 
-        self.assertEqual(srt.cue_colours(styles), {'title': (2, 'blue')})
+        self.assertEqual(srt._cue_colours(styles), {'title': (2, 'blue')})
 
     def test_cue_colours_last_declaration_applies(self):
         styles = [Style('::cue(.title) { color: red; COLOR : blue }')]
 
-        self.assertEqual(srt.cue_colours(styles), {'title': (1, 'blue')})
+        self.assertEqual(srt._cue_colours(styles), {'title': (1, 'blue')})
 
     def test_cue_colours_removes_important(self):
         styles = [Style('::cue(.title) { color: red !important; }')]
 
-        self.assertEqual(srt.cue_colours(styles), {'title': (1, 'red')})
+        self.assertEqual(srt._cue_colours(styles), {'title': (1, 'red')})
 
     def test_cue_colours_ignores_values_not_valid_in_font_tag(self):
         styles = [
@@ -673,10 +673,10 @@ class TestCueColours(unittest.TestCase):
             Style('::cue(.b) { color: <x> }')
             ]
 
-        self.assertEqual(srt.cue_colours(styles), {'a': (1, 'red')})
+        self.assertEqual(srt._cue_colours(styles), {'a': (1, 'red')})
 
     def test_cue_colours_without_styles(self):
-        self.assertEqual(srt.cue_colours([]), {})
+        self.assertEqual(srt._cue_colours([]), {})
 
 
 class TestFormatCueText(unittest.TestCase):
@@ -688,13 +688,13 @@ class TestFormatCueText(unittest.TestCase):
 
     def test_text_without_tags(self):
         self.assertEqual(
-            srt.format_cue_text('2 &lt; 3', self.COLOURS),
+            srt._format_cue_text('2 &lt; 3', self.COLOURS),
             '2 &lt; 3'
             )
 
     def test_nested_tags_with_colours(self):
         self.assertEqual(
-            srt.format_cue_text(
+            srt._format_cue_text(
                 '<c.magenta.bg_black><i.blue>Some italic</i> and normal</c>',
                 self.COLOURS
                 ),
@@ -704,13 +704,13 @@ class TestFormatCueText(unittest.TestCase):
 
     def test_class_of_later_rule_applies(self):
         self.assertEqual(
-            srt.format_cue_text('<c.blue.magenta>text</c>', self.COLOURS),
+            srt._format_cue_text('<c.blue.magenta>text</c>', self.COLOURS),
             '<font color="#0000ff">text</font>'
             )
 
     def test_removes_tags_not_supported_by_srt(self):
         self.assertEqual(
-            srt.format_cue_text(
+            srt._format_cue_text(
                 '<v.loud Esme>Hi <lang en>there</lang>, '
                 '<ruby>漢<rt>kan</rt></ruby> <c.unknown>you</c></v>',
                 self.COLOURS
@@ -720,7 +720,7 @@ class TestFormatCueText(unittest.TestCase):
 
     def test_removes_timestamp_tags(self):
         self.assertEqual(
-            srt.format_cue_text(
+            srt._format_cue_text(
                 'Like a <00:19.000>big-a <00:00:19.500><b>pizza</b>',
                 self.COLOURS
                 ),
@@ -729,37 +729,37 @@ class TestFormatCueText(unittest.TestCase):
 
     def test_closes_tags_left_open(self):
         self.assertEqual(
-            srt.format_cue_text('<c.magenta><b>open', self.COLOURS),
+            srt._format_cue_text('<c.magenta><b>open', self.COLOURS),
             '<font color="#ff00ff"><b>open</b></font>'
             )
 
     def test_end_tag_closes_inner_tags(self):
         self.assertEqual(
-            srt.format_cue_text('<u><i>both</u> neither</i>', self.COLOURS),
+            srt._format_cue_text('<u><i>both</u> neither</i>', self.COLOURS),
             '<u><i>both</i></u> neither'
             )
 
     def test_ignores_end_tag_without_start_tag(self):
         self.assertEqual(
-            srt.format_cue_text('<b>bold</i></b>', self.COLOURS),
+            srt._format_cue_text('<b>bold</i></b>', self.COLOURS),
             '<b>bold</b>'
             )
 
     def test_tags_across_lines(self):
         self.assertEqual(
-            srt.format_cue_text('<i.blue>line 1\nline 2</i>', self.COLOURS),
+            srt._format_cue_text('<i.blue>line 1\nline 2</i>', self.COLOURS),
             '<i><font color="#0000ff">line 1\nline 2</font></i>'
             )
 
     def test_tags_are_found_in_each_line(self):
         self.assertEqual(
-            srt.format_cue_text('if a < b\nthen b > a', self.COLOURS),
+            srt._format_cue_text('if a < b\nthen b > a', self.COLOURS),
             'if a < b\nthen b > a'
             )
 
     def test_keeps_font_tags(self):
         self.assertEqual(
-            srt.format_cue_text(
+            srt._format_cue_text(
                 '<font color="red">x</font> <b>y</b> <font color=blue>z',
                 self.COLOURS
                 ),
@@ -768,7 +768,7 @@ class TestFormatCueText(unittest.TestCase):
 
     def test_less_than_without_greater_than_is_text(self):
         self.assertEqual(
-            srt.format_cue_text('<b>bold</b> 2 < 3 <i', self.COLOURS),
+            srt._format_cue_text('<b>bold</b> 2 < 3 <i', self.COLOURS),
             '<b>bold</b> 2 < 3 <i'
             )
 
@@ -777,15 +777,15 @@ class TestStripCSSComments(unittest.TestCase):
 
     def test_strip_css_comments(self):
         self.assertEqual(
-            srt.strip_css_comments('a /* one */b/**/ c /* two\n*/'),
+            srt._strip_css_comments('a /* one */b/**/ c /* two\n*/'),
             'a b c '
             )
 
     def test_comment_without_end_runs_to_the_end(self):
         self.assertEqual(
-            srt.strip_css_comments('a /* b */ c /* d'),
+            srt._strip_css_comments('a /* b */ c /* d'),
             'a  c '
             )
 
     def test_comment_end_is_not_in_comment_start(self):
-        self.assertEqual(srt.strip_css_comments('a /*/ b */ c'), 'a  c')
+        self.assertEqual(srt._strip_css_comments('a /*/ b */ c'), 'a  c')
