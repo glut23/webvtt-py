@@ -1,6 +1,47 @@
 History
 =======
 
+0.6.0 (unreleased)
+------------------
+
+This is the last release supporting Python 3.7, 3.8 and 3.9.
+
+Changes that may need updates to the code using the library:
+
+* ``WebVTT`` takes keyword arguments only and does not read files, so ``WebVTT('captions.vtt')`` raises ``TypeError``: use ``webvtt.read`` to read captions from a file (#123)
+* Writing WebVTT raises ``ValueError`` for text that could not be read back, such as an empty line or ``-->`` in the text of a caption (#122)
+* Malformed cues are skipped when reading, instead of raising ``MalformedCaptionError``, unless ``strict=True`` (#93, #99)
+* Timestamps are limited to ``9999999999:59:59.999``: cues past it are skipped when reading, and ``shift``, ``sync`` and ``change_framerate`` raise ``ValueError`` instead of moving captions past it (#119)
+* The segment duration must be a whole number above zero, and the MPEG-TS value from 0 to 8589934591 (#125)
+
+Changes:
+
+* Added WebVTT regions (#108)
+* Added cue settings to captions (#107)
+* Added shift to captions, WebVTT and the CLI (#101)
+* Added sync and change_framerate to WebVTT and the CLI (#102)
+* Added Timestamp.from_seconds and Timestamp.in_milliseconds (#100)
+* Added strict option to raise on malformed cue blocks (#93)
+* Added keep_formatting to keep bold, italic, underline and the colours of the cue classes when saving SRT, thanks to `@darodi <https://github.com/darodi>`_ (#39, #118)
+* Added manpage and documentation for the webvtt command (#95)
+* Added py.typed marker for type checkers (#92)
+* Added support for Python 3.13, 3.14 and 3.15, and tests on Windows and macOS (#84, #126)
+* Improved parsing to follow the WebVTT spec for blocks (#98)
+* Improved parsing to accept non-padded timestamps such as ``0:0:7.5``, as in Microsoft Teams transcripts, thanks to `@apetresc <https://github.com/apetresc>`_ (#45, #99)
+* Improved writing to keep the header text and metadata (#103)
+* Improved splitting text into lines to only break on CR, LF and CRLF (#104, #105)
+* Improved reading of SRT cue timings to work as most SRT readers do (#114), and of SBV cue timings to carry over fields over their range (#115)
+* Allowed more than two digits for timestamp hours, thanks to `@hlecnt <https://github.com/hlecnt>`_ (#80) and `@uzumakienes <https://github.com/uzumakienes>`_ for SBV (#111)
+* Improved performance of Caption.text on long lines, thanks to `@BrianWillows <https://github.com/BrianWillows>`_ (#81), and of Caption.voice, thanks to `@uzumakienes <https://github.com/uzumakienes>`_ (#112)
+* Improved segments to keep the styles, regions and identifiers of the captions (#125)
+* Deprecated the file argument of WebVTT in favor of the file attribute (#123)
+* Fixed reading buffers with a leading BOM, thanks to `@natesute <https://github.com/natesute>`_ (#82)
+* Fixed the HLS playlist to use the configured segment duration, thanks to `@shkyyy18 <https://github.com/shkyyy18>`_ (#83)
+* Fixed IndexError in slice_segments when the last caption ends on a segment boundary, thanks to `@t-hiroishi <https://github.com/t-hiroishi>`_ (#70), and when the captions are not sorted by end time, thanks to `@uzumakienes <https://github.com/uzumakienes>`_ (#110)
+* Fixed SRT caption text lost after empty lines (#109) and after lines with only digits (#120)
+* Fixed saving leaving an empty file when the captions cannot be encoded (#121)
+* Fixed the API reference, the documentation of the exceptions and the examples (#90, #91, #127), and a docstring typo, thanks to `@Frenzie <https://github.com/Frenzie>`_ (#72)
+
 0.5.1 (30-05-2024)
 ------------------
 
