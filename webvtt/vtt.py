@@ -6,10 +6,10 @@ from dataclasses import dataclass, field
 
 from .errors import MalformedFileError, MalformedCaptionError
 from .models import Caption, CueSettings, Region, Style
-from .utils import split_lines
+from .utils import _split_lines
 
-TIMESTAMP = r'(?:\d+:)?\d{1,2}:\d{1,2}\.\d{1,3}'
-STRICT_TIMESTAMP = r'(?:\d{2,}:)?\d{2}:\d{2}\.\d{3}'
+_TIMESTAMP = r'(?:\d+:)?\d{1,2}:\d{1,2}\.\d{1,3}'
+_STRICT_TIMESTAMP = r'(?:\d{2,}:)?\d{2}:\d{2}\.\d{3}'
 
 
 @dataclass
@@ -49,10 +49,10 @@ class WebVTTCueBlock:
     """Representation of a cue timing block."""
 
     CUE_TIMINGS_PATTERN = re.compile(
-        rf'\s*({TIMESTAMP})\s*-->\s*({TIMESTAMP})'
+        rf'\s*({_TIMESTAMP})\s*-->\s*({_TIMESTAMP})'
         )
     STRICT_CUE_TIMINGS_PATTERN = re.compile(
-        rf'\s*({STRICT_TIMESTAMP})\s*-->\s*({STRICT_TIMESTAMP})(?=\s|$)'
+        rf'\s*({_STRICT_TIMESTAMP})\s*-->\s*({_STRICT_TIMESTAMP})(?=\s|$)'
         )
 
     def __init__(
@@ -168,12 +168,12 @@ class WebVTTCueBlock:
         return [
             '',
             *(identifier for identifier in {caption.identifier} if identifier),
-            format_timings(caption),
+            _format_timings(caption),
             *caption.lines
         ]
 
 
-def format_timings(caption: Caption) -> str:
+def _format_timings(caption: Caption) -> str:
     """
     Return the cue timings line of a caption.
 
@@ -232,7 +232,7 @@ class WebVTTCommentBlock:
         :param lines: comment lines
         :returns: list of lines for a comment block
         """
-        list_of_lines = split_lines(lines) or ['']
+        list_of_lines = _split_lines(lines) or ['']
 
         if len(list_of_lines) == 1:
             return [f'NOTE {list_of_lines[0]}']
@@ -345,8 +345,8 @@ def parse(
         raise MalformedFileError('Invalid format')
 
     output = parse_items(lines, strict)
-    output.header_text, output.metadata = parse_header(
-        next(iter_blocks_of_lines(lines))
+    output.header_text, output.metadata = _parse_header(
+        next(_iter_blocks_of_lines(lines))
         )
     return output
 
@@ -361,7 +361,7 @@ def is_valid_content(lines: typing.Sequence[str]) -> bool:
     return bool(lines and lines[0].startswith('WEBVTT'))
 
 
-def iter_blocks_of_lines(
+def _iter_blocks_of_lines(
         lines: typing.Iterable[str],
         strict: bool = False
         ) -> typing.Generator[typing.List[str], None, None]:
@@ -447,7 +447,7 @@ def parse_items(
     comments: typing.List[WebVTTCommentBlock] = []
     seen_cue = False
 
-    for block_lines in iter_blocks_of_lines(lines, strict):
+    for block_lines in _iter_blocks_of_lines(lines, strict):
         item = parse_item(block_lines, strict, seen_cue)
         if not seen_cue:
             seen_cue = _has_arrow(block_lines)
@@ -473,7 +473,7 @@ def parse_items(
         )
 
 
-def parse_header(
+def _parse_header(
         lines: typing.Sequence[str]
         ) -> typing.Tuple[str, typing.List[str]]:
     """
@@ -490,7 +490,7 @@ def parse_header(
     return text, list(lines[1:])
 
 
-def validate_header(header_text: str, metadata: typing.Iterable[str]):
+def _validate_header(header_text: str, metadata: typing.Iterable[str]):
     """
     Validate the header text and metadata lines before writing them.
 
@@ -533,7 +533,7 @@ def _lines_with_content(text: str) -> typing.List[str]:
     :param text: the text
     :returns: the lines up to the last one that is not empty
     """
-    lines = split_lines(text)
+    lines = _split_lines(text)
     while lines and not lines[-1]:
         lines.pop()
     return lines
@@ -726,7 +726,7 @@ def to_str(
         the text of a caption, style or comment could not be read back
     """
     metadata = list(metadata)
-    validate_header(header_text, metadata)
+    _validate_header(header_text, metadata)
 
     output = [f'WEBVTT {header_text}' if header_text else 'WEBVTT',
               *metadata

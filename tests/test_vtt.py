@@ -1141,13 +1141,13 @@ class TestVTTModule(unittest.TestCase):
     def test_format_timings(self):
         caption = Caption('00:00:00.500', '00:00:04.300', 'Caption text')
         self.assertEqual(
-            vtt.format_timings(caption),
+            vtt._format_timings(caption),
             '00:00:00.500 --> 00:00:04.300'
             )
         caption.settings.line = '0'
         caption.settings.align = 'start'
         self.assertEqual(
-            vtt.format_timings(caption),
+            vtt._format_timings(caption),
             '00:00:00.500 --> 00:00:04.300 line:0 align:start'
             )
 

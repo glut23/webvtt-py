@@ -15,10 +15,10 @@ CODEC_BOMS = {
 }
 
 # the line terminators of WebVTT, characters like U+2028 do not break lines
-LINE_TERMINATOR = re.compile(r'\r\n|\r|\n')
+_LINE_TERMINATOR = re.compile(r'\r\n|\r|\n')
 
 
-def split_lines(text: str) -> typing.List[str]:
+def _split_lines(text: str) -> typing.List[str]:
     """
     Split text into lines on CR, LF and CRLF.
 
@@ -29,7 +29,7 @@ def split_lines(text: str) -> typing.List[str]:
     :returns: the list of lines, without a final empty line when the text
         ends with a line terminator
     """
-    lines = LINE_TERMINATOR.split(text)
+    lines = _LINE_TERMINATOR.split(text)
     if not lines[-1]:
         lines.pop()
     return lines
@@ -106,7 +106,7 @@ class FileWrapper:
         return None
 
 
-def write_text_file(
+def _write_text_file(
         file_path: str,
         text: str,
         encoding: typing.Optional[str] = None

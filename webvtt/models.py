@@ -9,7 +9,7 @@ import re
 import typing
 
 from .errors import MalformedCaptionError
-from .utils import split_lines
+from .utils import _split_lines
 
 # a context of our own, so rounding does not depend on the decimal context
 # of the caller
@@ -816,7 +816,7 @@ class Caption:
         self.end = end or '00:00:00.000'
         self.identifier = identifier
         self._settings = _to_cue_settings(settings)
-        self.lines = (split_lines(text)
+        self.lines = (_split_lines(text)
                       if isinstance(text, str)
                       else
                       list(text)
@@ -962,7 +962,7 @@ class Caption:
                 f'String value expected but received {value}.'
                 )
 
-        self.lines = split_lines(value)
+        self.lines = _split_lines(value)
 
     @property
     def voice(self) -> typing.Optional[str]:
@@ -1054,7 +1054,7 @@ class Style:
 
         :param: text: the style text
         """
-        self.lines = split_lines(text) if isinstance(text, str) else text
+        self.lines = _split_lines(text) if isinstance(text, str) else text
         self.comments: typing.List[str] = []
 
     @property
