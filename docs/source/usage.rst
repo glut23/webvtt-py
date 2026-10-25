@@ -167,7 +167,19 @@ such as U+2028 or a form feed stay in the line.
 
 A ``WebVTT`` object created from scratch has no filename, so ``save()``
 requires an output path. Calling it without one raises
-``MissingFilenameError``.
+``MissingFilenameError``. The ``file`` attribute holds the path the
+captions were read from or last saved to, and can be set to choose where
+``save()`` writes:
+
+.. code-block:: python
+
+    vtt.file = 'captions.vtt'
+    vtt.save()
+
+``WebVTT`` takes keyword arguments only and does not read files, so
+``WebVTT('captions.vtt')`` raises ``TypeError``: use ``webvtt.read()`` to
+read captions from a file. The ``file`` argument of ``WebVTT`` is
+deprecated in favor of the ``file`` attribute.
 
 
 Manipulating captions
