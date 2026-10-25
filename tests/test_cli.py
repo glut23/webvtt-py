@@ -303,10 +303,13 @@ class CLITestCase(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             output = os.path.join(temp_dir, 'output')
             pathlib.Path(output).touch()
+            # the message of the error depends on the platform
+            with self.assertRaises(FileExistsError) as cm:
+                os.makedirs(output, exist_ok=True)
 
             self.assert_cli_error(
                 ['segment', vtt_file, '-o', output],
-                f'{output}: {os.strerror(errno.EEXIST)}'
+                f'{output}: {cm.exception.strerror}'
                 )
 
     def test_cli_requires_command(self):
@@ -486,9 +489,11 @@ class CLIShiftTestCase(CLICommandTestCase):
 
         self.run_cli(['shift', self.vtt_file, '1', '-o', self.vtt_file])
 
+        # lines end with the line separator of the platform
         self.assertTrue(
             pathlib.Path(self.vtt_file).read_bytes().startswith(
-                b'\xef\xbb\xbfWEBVTT\n\n00:00:01.500 --> 00:00:02.000'
+                b'\xef\xbb\xbfWEBVTT' + os.linesep.encode() * 2 +
+                b'00:00:01.500 --> 00:00:02.000'
                 )
             )
 

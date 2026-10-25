@@ -734,7 +734,9 @@ class TestWebVTT(unittest.TestCase):
             vtt = webvtt.read(PATH_TO_SAMPLES / 'netflix_chicas_del_cable.vtt')
             vtt.save(f.name)
 
-            lines = pathlib.Path(f.name).read_text().splitlines()
+            lines = pathlib.Path(f.name).read_text(
+                encoding='utf-8'
+                ).splitlines()
             self.assertIn(
                 '00:00:07.960 --> 00:00:09.480 position:50.00%,middle '
                 'align:middle size:80.00% line:84.67%',
@@ -889,7 +891,7 @@ class TestWebVTT(unittest.TestCase):
         test_file = PATH_TO_SAMPLES / 'sample.vtt'
         self.assertEqual(
             repr(webvtt.read(test_file)),
-            f"<WebVTT file='{test_file}' encoding='utf-8'>"
+            f"<WebVTT file={str(test_file)!r} encoding='utf-8'>"
             )
 
     def test_str(self):
@@ -1475,7 +1477,8 @@ class TestWebVTT(unittest.TestCase):
             output = os.path.join(td, 'output.vtt')
             vtt.save(output)
             with open(output, encoding='utf-8', newline='') as f:
-                self.assertEqual(f.read(), content)
+                # lines end with the line separator of the platform
+                self.assertEqual(f.read(), content.replace('\n', os.linesep))
 
     def test_save_error_keeps_file(self):
         with tempfile.TemporaryDirectory() as td:
@@ -2208,14 +2211,15 @@ class TestParseSBV(unittest.TestCase):
             ).save(f.name,
                    encoding='utf-32-le'
                    )
+            # lines end with the line separator of the platform
             self.assertEqual(
                 f.read().decode('utf-32-le'),
-                textwrap.dedent('''
+                (textwrap.dedent('''
                     WEBVTT
 
                     00:00:00.500 --> 00:00:07.000
                     Caption text #1
-                    ''').strip() + '\n'
+                    ''').strip() + '\n').replace('\n', os.linesep)
                 )
 
     def test_save_file_with_encoding_and_bom(self):
@@ -2226,14 +2230,15 @@ class TestParseSBV(unittest.TestCase):
                    encoding='utf-32-le',
                    add_bom=True
                    )
+            # lines end with the line separator of the platform
             self.assertEqual(
                 f.read().decode('utf-32-le'),
-                textwrap.dedent(f'''
+                (textwrap.dedent(f'''
                     {CODEC_BOMS['utf-32-le'].decode('utf-32-le')}WEBVTT
 
                     00:00:00.500 --> 00:00:07.000
                     Caption text #1
-                    ''').strip() + '\n'
+                    ''').strip() + '\n').replace('\n', os.linesep)
                 )
 
     def test_save_new_file_utf_8_default_encoding_no_bom(self):
