@@ -456,6 +456,9 @@ class WebVTT:
         """
         Iterate a slice of the captions based on a time range.
 
+        Only the captions within the range are returned: a caption that
+        starts before ``start`` or ends after ``end`` is left out.
+
         :param start: start timestamp of the range
         :param end: end timestamp of the range
         :returns: generator of Captions
@@ -555,7 +558,13 @@ class WebVTT:
 
     @property
     def total_length(self):
-        """Returns the total length of the captions."""
+        """
+        Return the total length of the captions in seconds.
+
+        It is the time from the start of the first caption to the end of
+        the last one, in whole seconds as the milliseconds of both are left
+        out, so the captions are expected in order of time.
+        """
         if not self.captions:
             return 0
         return (
@@ -566,7 +575,7 @@ class WebVTT:
     @property
     def content(self) -> str:
         """
-        Return the webvtt capions as string.
+        Return the webvtt captions as string.
 
         This property is useful in cases where the webvtt content is needed
         but no file-like destination is required. Storage in DB for instance.
