@@ -1,6 +1,6 @@
 """Main webvtt package."""
 
-__version__ = '0.5.1'
+__version__ = '0.6.0'
 __author__ = 'Alejandro Mendez'
 __author_email__ = 'amendez23@gmail.com'
 

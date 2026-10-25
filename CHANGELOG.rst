@@ -1,7 +1,7 @@
 History
 =======
 
-0.6.0 (unreleased)
+0.6.0 (25-10-2026)
 ------------------
 
 This is the last release supporting Python 3.7, 3.8 and 3.9.
