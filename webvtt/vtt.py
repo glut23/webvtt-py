@@ -523,6 +523,99 @@ def _has_line_break(text: str) -> bool:
     return '\n' in text or '\r' in text
 
 
+def _lines_with_content(text: str) -> typing.List[str]:
+    """
+    Return the lines of a text up to its last line that is not empty.
+
+    Empty lines at the end only end the block where the text is written,
+    so they do not change how the text and the blocks after it are read.
+
+    :param text: the text
+    :returns: the lines up to the last one that is not empty
+    """
+    lines = split_lines(text)
+    while lines and not lines[-1]:
+        lines.pop()
+    return lines
+
+
+def _ends_block_early(lines: typing.Sequence[str]) -> bool:
+    """
+    Return whether lines written in a block would end it or start a cue.
+
+    :param lines: the lines of the text written in the block
+    :returns: true if a line is empty or contains "-->"
+    """
+    return not all(lines) or _has_arrow(lines)
+
+
+def _validate_caption(caption: Caption):
+    """
+    Validate the identifier and text of a caption before writing it.
+
+    A line break or "-->" in the identifier, or an empty line or "-->" in
+    the text, would end the cue or start another one when it is read.
+
+    :param caption: the `Caption` instance
+
+    :raises ValueError: if the identifier contains a line break or "-->",
+        or the text has an empty line or contains "-->"
+    """
+    identifier = caption.identifier
+    if identifier and (_has_line_break(identifier) or '-->' in identifier):
+        raise ValueError(
+            'Caption identifiers must be a single line without "-->": '
+            f'{identifier!r}'
+            )
+
+    if _ends_block_early(_lines_with_content(caption.raw_text)):
+        raise ValueError(
+            'Caption text must not have empty lines or "-->": '
+            f'{caption.raw_text!r}'
+            )
+
+
+def _validate_style(style: Style):
+    """
+    Validate the text of a style before writing it.
+
+    An empty line would end the style block when it is read, and a style
+    block cannot contain "-->".
+
+    :param style: the `Style` instance
+
+    :raises ValueError: if the text has an empty line or contains "-->"
+    """
+    if _ends_block_early(_lines_with_content(style.text)):
+        raise ValueError(
+            f'Style text must not have empty lines or "-->": {style.text!r}'
+            )
+
+
+def _validate_comment(comment: str):
+    """
+    Validate the text of a comment before writing it.
+
+    An empty line would end the comment block when it is read, and "-->"
+    after its first line would start a cue. A comment of more lines is
+    written after a line with only "NOTE", so if its first line is cue
+    timings, the block would be read as a cue with "NOTE" as identifier.
+
+    :param comment: the text of the comment
+
+    :raises ValueError: if the text has an empty line, "-->" after its
+        first line, or would be read as a cue
+    """
+    lines = _lines_with_content(comment)
+    if (not all(lines) or
+            _has_arrow(lines[1:]) or
+            WebVTTCueBlock.is_valid(WebVTTCommentBlock.format_lines(comment))):
+        raise ValueError(
+            'Comments must not have empty lines, "-->" after the first '
+            f'line, or be read as a cue: {comment!r}'
+            )
+
+
 def parse_item(
         lines: typing.Sequence[str],
         strict: bool = False,
@@ -593,7 +686,8 @@ def write(
     :param metadata: the metadata lines of the header
     :param regions: Iterable of `Region` objects
 
-    :raises ValueError: if the header text or metadata are not valid
+    :raises ValueError: if the header text or metadata are not valid, or
+        the text of a caption, style or comment could not be read back
     """
     f.write(
         to_str(captions,
@@ -628,7 +722,8 @@ def to_str(
     :param regions: the iterable of `Region` objects
     :returns: String of the content in WebVTT format.
 
-    :raises ValueError: if the header text or metadata are not valid
+    :raises ValueError: if the header text or metadata are not valid, or
+        the text of a caption, style or comment could not be read back
     """
     metadata = list(metadata)
     validate_header(header_text, metadata)
@@ -644,10 +739,12 @@ def to_str(
         output.extend(['', *WebVTTRegionBlock.format_lines(region)])
 
     for style in styles:
+        _validate_style(style)
         output.extend(_format_comments(style.comments))
         output.extend(['', *WebVTTStyleBlock.format_lines(style.lines)])
 
     for caption in captions:
+        _validate_caption(caption)
         output.extend(_format_comments(caption.comments))
         output.extend(WebVTTCueBlock.format_lines(caption))
 
@@ -665,9 +762,11 @@ def _format_comments(comments: typing.Iterable[str]) -> typing.List[str]:
 
     :param comments: the text of the comments
     :returns: list of lines for the comment blocks
+
+    :raises ValueError: if the text of a comment could not be read back
     """
-    return [
-        line
-        for comment in comments
-        for line in ['', *WebVTTCommentBlock.format_lines(comment)]
-        ]
+    lines = []
+    for comment in comments:
+        _validate_comment(comment)
+        lines.extend(['', *WebVTTCommentBlock.format_lines(comment)])
+    return lines

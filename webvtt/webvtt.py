@@ -344,7 +344,9 @@ class WebVTT:
         :param add_bom: save the file with Byte Order Mark
 
         :raises MissingFilenameError: if output cannot be determined
-        :raises ValueError: if the header text or metadata are not valid
+        :raises ValueError: if the header text or metadata are not valid,
+            or the text of a caption, style or comment could not be read
+            back, leaving an existing file unchanged
         """
         destination = self._get_destination_file(output)
         # build the content first so an invalid header leaves no file behind
@@ -405,8 +407,9 @@ class WebVTT:
             underline and the colours of the cue classes in the styles,
             instead of removing the cue tags
 
-        :raises ValueError: if the format is not supported, or the header
-            text or metadata are not valid
+        :raises ValueError: if the format is not supported, or when
+            writing WebVTT, the header text or metadata are not valid or the
+            text of a caption, style or comment could not be read back
         """
         if format == 'vtt':
             return vtt.write(f,
@@ -549,7 +552,9 @@ class WebVTT:
         This property is useful in cases where the webvtt content is needed
         but no file-like destination is required. Storage in DB for instance.
 
-        :raises ValueError: if the header text or metadata are not valid
+        :raises ValueError: if the header text or metadata are not valid,
+            or the text of a caption, style or comment could not be read
+            back
         """
         return vtt.to_str(
             self.captions,
