@@ -127,6 +127,10 @@ Iterating over a slice of captions
         print(caption.end)
         print(caption.text)
 
+Only the captions within the range are returned: a caption that starts
+before ``start`` or ends after ``end`` is left out, even if part of it is in
+the range.
+
 
 Creating captions
 -----------------
@@ -165,6 +169,15 @@ Creating captions
 As in WebVTT, only CR, LF and CRLF break text into lines. Other characters
 such as U+2028 or a form feed stay in the line.
 
+Text that could not be read back from the file raises ``ValueError`` when
+saving or writing the captions or getting their ``content``, and an existing
+file is left unchanged:
+
+* an empty line followed by more text, or ``-->``, in a caption or a style
+* a line break or ``-->`` in an identifier
+* in a comment, an empty line followed by more text, ``-->`` after its first
+  line, or cue timings in the first line of a comment of more than one line
+
 A ``WebVTT`` object created from scratch has no filename, so ``save()``
 requires an output path. Calling it without one raises
 ``MissingFilenameError``. The ``file`` attribute holds the path the
@@ -173,7 +186,12 @@ captions were read from or last saved to, and can be set to choose where
 
 .. code-block:: python
 
-    vtt.file = 'captions.vtt'
+    import webvtt
+
+    vtt = webvtt.from_srt('captions.srt')
+
+    # save() would write captions.vtt, next to the file that was read
+    vtt.file = 'new_captions.vtt'
     vtt.save()
 
 ``WebVTT`` takes keyword arguments only and does not read files, so
@@ -467,6 +485,8 @@ with that colour. Other cue tags are removed, keeping their text:
 
 .. code-block:: python
 
+    import webvtt
+
     vtt = webvtt.from_string("""\
     WEBVTT
 
@@ -530,12 +550,10 @@ Add a BOM to a file without it:
 
     import webvtt
 
-    vtt = webvtt.read('captions_without_bom.vtt',
-                      add_bom=True
-                      )
+    vtt = webvtt.read('captions_without_bom.vtt')
 
     # saved file has a BOM
-    vtt.save()
+    vtt.save(add_bom=True)
 
 
 Remove the BOM from a file:

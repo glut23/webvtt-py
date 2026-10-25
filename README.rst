@@ -73,8 +73,9 @@ Supported formats:
 
   import webvtt
 
-  webvtt = webvtt.from_srt('captions.srt')
-  webvtt.save()
+  # write captions.vtt next to captions.srt
+  vtt = webvtt.from_srt('captions.srt')
+  vtt.save()
 
   # alternatively in a single line
   webvtt.from_sbv('captions.sbv').save()
