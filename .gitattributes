@@ -1,0 +1,3 @@
+# check out the sample files as they are on every platform, so the tests
+# read the same bytes on Windows, where Git converts line endings by default
+tests/samples/** -text

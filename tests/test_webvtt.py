@@ -13,6 +13,8 @@ from webvtt.models import Caption, Region, Style, Timestamp
 from webvtt.utils import CODEC_BOMS
 from webvtt.errors import MalformedFileError, MalformedCaptionError
 
+from .helpers import named_temporary_file
+
 PATH_TO_SAMPLES = pathlib.Path(__file__).resolve().parent / 'samples'
 
 
@@ -143,7 +145,7 @@ class TestWebVTT(unittest.TestCase):
             )
 
     def test_save_captions(self):
-        with tempfile.NamedTemporaryFile('w', suffix='.vtt') as f:
+        with named_temporary_file('w', suffix='.vtt') as f:
             f.write((PATH_TO_SAMPLES / 'one_caption.vtt').read_text())
             f.flush()
 
@@ -693,7 +695,7 @@ class TestWebVTT(unittest.TestCase):
             )
 
     def test_save_identifiers(self):
-        with tempfile.NamedTemporaryFile('w', suffix='.vtt') as f:
+        with named_temporary_file('w', suffix='.vtt') as f:
             webvtt.read(
                 PATH_TO_SAMPLES / 'using_identifiers.vtt'
                 ).save(
@@ -728,11 +730,13 @@ class TestWebVTT(unittest.TestCase):
                 )
 
     def test_save_cue_settings(self):
-        with tempfile.NamedTemporaryFile('w', suffix='.vtt') as f:
+        with named_temporary_file('w', suffix='.vtt') as f:
             vtt = webvtt.read(PATH_TO_SAMPLES / 'netflix_chicas_del_cable.vtt')
             vtt.save(f.name)
 
-            lines = pathlib.Path(f.name).read_text().splitlines()
+            lines = pathlib.Path(f.name).read_text(
+                encoding='utf-8'
+                ).splitlines()
             self.assertIn(
                 '00:00:07.960 --> 00:00:09.480 position:50.00%,middle '
                 'align:middle size:80.00% line:84.67%',
@@ -802,7 +806,9 @@ class TestWebVTT(unittest.TestCase):
         vtt.write(output, keep_formatting=True)
         self.assertEqual(
             output.getvalue(),
-            (PATH_TO_SAMPLES / 'styles_colours.vtt').read_text()
+            (PATH_TO_SAMPLES / 'styles_colours.vtt').read_text(
+                encoding='utf-8'
+                )
             )
 
     def test_save_updated_identifiers(self):
@@ -817,7 +823,7 @@ class TestWebVTT(unittest.TestCase):
         last_caption.identifier = 'last caption'
         vtt.captions.append(last_caption)
 
-        with tempfile.NamedTemporaryFile('w', suffix='.vtt') as f:
+        with named_temporary_file('w', suffix='.vtt') as f:
             vtt.save(f.name)
 
             self.assertListEqual(
@@ -885,7 +891,7 @@ class TestWebVTT(unittest.TestCase):
         test_file = PATH_TO_SAMPLES / 'sample.vtt'
         self.assertEqual(
             repr(webvtt.read(test_file)),
-            f"<WebVTT file='{test_file}' encoding='utf-8'>"
+            f"<WebVTT file={str(test_file)!r} encoding='utf-8'>"
             )
 
     def test_str(self):
@@ -1471,7 +1477,8 @@ class TestWebVTT(unittest.TestCase):
             output = os.path.join(td, 'output.vtt')
             vtt.save(output)
             with open(output, encoding='utf-8', newline='') as f:
-                self.assertEqual(f.read(), content)
+                # lines end with the line separator of the platform
+                self.assertEqual(f.read(), content.replace('\n', os.linesep))
 
     def test_save_error_keeps_file(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1610,7 +1617,7 @@ class TestWebVTT(unittest.TestCase):
         self.assertEqual(len(vtt.regions), 2)
 
     def test_save_regions(self):
-        with tempfile.NamedTemporaryFile('w', suffix='.vtt') as f:
+        with named_temporary_file('w', suffix='.vtt') as f:
             webvtt.read(PATH_TO_SAMPLES / 'regions.vtt').save(f.name)
             self.assertEqual(
                 pathlib.Path(f.name).read_text(encoding='utf-8'),
@@ -1789,7 +1796,7 @@ class TestWebVTT(unittest.TestCase):
             )
 
     def test_comments_in_new_file(self):
-        with tempfile.NamedTemporaryFile('r', suffix='.vtt') as f:
+        with named_temporary_file('r', suffix='.vtt', encoding='utf-8') as f:
             vtt = webvtt.WebVTT()
             vtt.header_comments.append('This is a header comment')
             vtt.header_comments.append(
@@ -2113,7 +2120,7 @@ class TestParseSBV(unittest.TestCase):
             )
 
     def test_convert_from_srt_to_vtt_and_back_gives_same_file(self):
-        with tempfile.NamedTemporaryFile('w', suffix='.srt') as f:
+        with named_temporary_file('w', suffix='.srt') as f:
             webvtt.from_srt(
                 PATH_TO_SAMPLES / 'sample.srt'
                 ).save_as_srt(f.name)
@@ -2124,7 +2131,7 @@ class TestParseSBV(unittest.TestCase):
                 )
 
     def test_convert_to_srt_keeping_formatting(self):
-        with tempfile.NamedTemporaryFile('w', suffix='.srt') as f:
+        with named_temporary_file('w', suffix='.srt') as f:
             webvtt.read(
                 PATH_TO_SAMPLES / 'styles_colours.vtt'
                 ).save_as_srt(f.name, keep_formatting=True)
@@ -2135,7 +2142,7 @@ class TestParseSBV(unittest.TestCase):
                 )
 
     def test_save_file_with_bom(self):
-        with tempfile.NamedTemporaryFile('r', suffix='.vtt') as f:
+        with named_temporary_file('r', suffix='.vtt', encoding='utf-8') as f:
             webvtt.read(
                 PATH_TO_SAMPLES / 'one_caption.vtt'
                 ).save(f.name, add_bom=True)
@@ -2150,7 +2157,7 @@ class TestParseSBV(unittest.TestCase):
                 )
 
     def test_save_file_with_bom_keeps_bom(self):
-        with tempfile.NamedTemporaryFile('r', suffix='.vtt') as f:
+        with named_temporary_file('r', suffix='.vtt', encoding='utf-8') as f:
             webvtt.read(
                 PATH_TO_SAMPLES / 'captions_with_bom.vtt'
             ).save(f.name)
@@ -2174,7 +2181,7 @@ class TestParseSBV(unittest.TestCase):
                 )
 
     def test_save_file_with_bom_removes_bom_if_requested(self):
-        with tempfile.NamedTemporaryFile('r', suffix='.vtt') as f:
+        with named_temporary_file('r', suffix='.vtt', encoding='utf-8') as f:
             webvtt.read(
                 PATH_TO_SAMPLES / 'captions_with_bom.vtt'
             ).save(f.name, add_bom=False)
@@ -2198,42 +2205,44 @@ class TestParseSBV(unittest.TestCase):
                 )
 
     def test_save_file_with_encoding(self):
-        with tempfile.NamedTemporaryFile('rb', suffix='.vtt') as f:
+        with named_temporary_file('rb', suffix='.vtt') as f:
             webvtt.read(
                 PATH_TO_SAMPLES / 'one_caption.vtt'
             ).save(f.name,
                    encoding='utf-32-le'
                    )
+            # lines end with the line separator of the platform
             self.assertEqual(
                 f.read().decode('utf-32-le'),
-                textwrap.dedent('''
+                (textwrap.dedent('''
                     WEBVTT
 
                     00:00:00.500 --> 00:00:07.000
                     Caption text #1
-                    ''').strip() + '\n'
+                    ''').strip() + '\n').replace('\n', os.linesep)
                 )
 
     def test_save_file_with_encoding_and_bom(self):
-        with tempfile.NamedTemporaryFile('rb', suffix='.vtt') as f:
+        with named_temporary_file('rb', suffix='.vtt') as f:
             webvtt.read(
                 PATH_TO_SAMPLES / 'one_caption.vtt'
             ).save(f.name,
                    encoding='utf-32-le',
                    add_bom=True
                    )
+            # lines end with the line separator of the platform
             self.assertEqual(
                 f.read().decode('utf-32-le'),
-                textwrap.dedent(f'''
+                (textwrap.dedent(f'''
                     {CODEC_BOMS['utf-32-le'].decode('utf-32-le')}WEBVTT
 
                     00:00:00.500 --> 00:00:07.000
                     Caption text #1
-                    ''').strip() + '\n'
+                    ''').strip() + '\n').replace('\n', os.linesep)
                 )
 
     def test_save_new_file_utf_8_default_encoding_no_bom(self):
-        with tempfile.NamedTemporaryFile('r', suffix='.vtt') as f:
+        with named_temporary_file('r', suffix='.vtt', encoding='utf-8') as f:
             vtt = webvtt.WebVTT()
             vtt.captions.append(
                 Caption(start='00:00:00.500',
@@ -2254,7 +2263,7 @@ class TestParseSBV(unittest.TestCase):
                 )
 
     def test_save_new_file_utf_8_default_encoding_with_bom(self):
-        with tempfile.NamedTemporaryFile('r', suffix='.vtt') as f:
+        with named_temporary_file('r', suffix='.vtt', encoding='utf-8') as f:
             vtt = webvtt.WebVTT()
             vtt.captions.append(
                 Caption(start='00:00:00.500',

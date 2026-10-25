@@ -8,6 +8,9 @@ on:
     branches:
       - master
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -16,36 +19,61 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
         include:
           # Python 3.7 is not available on current ubuntu-latest images
           - os: ubuntu-22.04
             python-version: '3.7'
+          # Python 3.8 and 3.9 have no builds for Ubuntu images newer
+          # than 24.04
+          - os: ubuntu-24.04
+            python-version: '3.8'
+          - os: ubuntu-24.04
+            python-version: '3.9'
+          # files are written with the line separator of the platform, and
+          # before Python 3.15 open() defaults to the cp1252 encoding
+          - os: windows-latest
+            python-version: '3.12'
+          - os: windows-latest
+            python-version: '3.15'
+          - os: macos-latest
+            python-version: '3.15'
 
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
 
+    # pip 26.2.2 no longer trusts the certificates of the eMudhra/emSign
+    # CA incident, and needs Python 3.10 or later
+    - name: Upgrade pip
+      shell: bash
+      run: |
+        if python -c 'import sys; sys.exit(sys.version_info < (3, 10))'; then
+          python -m pip install --upgrade 'pip>=26.2.2'
+        else
+          python -m pip install --upgrade pip
+        fi
+
     - name: Install tox
-      run: pip install tox
+      run: python -m pip install tox
 
     - name: Run tox
       run: tox
 
     - name: Check manpage is up to date
-      if: matrix.python-version == '3.12'
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
       run: |
         pip install -r docs/requirements.txt
         make man
         git diff --exit-code -I '^\.TH' man/webvtt.1
 
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v4.0.1
+      uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        file: coverage.xml
+        files: coverage.xml
