@@ -54,14 +54,14 @@ def main(argv: typing.Optional[typing.Sequence] = None):
     segment_command.add_argument(
         '-d', '--target-duration',
         metavar='NUMBER',
-        type=int,
+        type=_duration,
         default=segmenter.DEFAULT_SECONDS,
         help='target duration of each segment in seconds, default: %(default)s'
         )
     segment_command.add_argument(
         '-m', '--mpegts',
         metavar='NUMBER',
-        type=int,
+        type=_mpegts,
         default=segmenter.DEFAULT_MPEGTS,
         help=('MPEG-TS value for the X-TIMESTAMP-MAP header of each segment, '
               'default: %(default)s')
@@ -286,6 +286,28 @@ def _fps(value: str) -> fractions.Fraction:
         raise argparse.ArgumentTypeError(f'invalid frame rate: {value!r}')
 
     return fps
+
+
+def _duration(value: str) -> int:
+    """Return the segment duration of a command line argument."""
+    try:
+        seconds = int(value)
+        segmenter._check_seconds(seconds)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f'invalid duration: {value!r}')
+
+    return seconds
+
+
+def _mpegts(value: str) -> int:
+    """Return the MPEG-TS value of a command line argument."""
+    try:
+        mpegts = int(value)
+        segmenter._check_mpegts(mpegts)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f'invalid MPEG-TS value: {value!r}')
+
+    return mpegts
 
 
 def _number(value: str) -> float:

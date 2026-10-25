@@ -725,6 +725,30 @@ def to_str(
     :raises ValueError: if the header text or metadata are not valid, or
         the text of a caption, style or comment could not be read back
     """
+    return _to_str(captions, styles, header_comments, footer_comments,
+                   header_text, metadata, regions
+                   )
+
+
+def _to_str(
+        captions: typing.Iterable[Caption],
+        styles: typing.Iterable[Style],
+        header_comments: typing.Iterable[str],
+        footer_comments: typing.Iterable[str],
+        header_text: str = '',
+        metadata: typing.Iterable[str] = (),
+        regions: typing.Iterable[Region] = (),
+        item_comments: bool = True
+        ) -> str:
+    """
+    Convert captions to a string with webvtt format, as `to_str`.
+
+    :param item_comments: write the comments of the captions, styles and
+        regions, false to leave them out as in the segments for HLS
+
+    :raises ValueError: if the header text or metadata are not valid, or
+        the text of a caption, style or comment could not be read back
+    """
     metadata = list(metadata)
     _validate_header(header_text, metadata)
 
@@ -735,17 +759,20 @@ def to_str(
     output.extend(_format_comments(header_comments))
 
     for region in regions:
-        output.extend(_format_comments(region.comments))
+        if item_comments:
+            output.extend(_format_comments(region.comments))
         output.extend(['', *WebVTTRegionBlock.format_lines(region)])
 
     for style in styles:
         _validate_style(style)
-        output.extend(_format_comments(style.comments))
+        if item_comments:
+            output.extend(_format_comments(style.comments))
         output.extend(['', *WebVTTStyleBlock.format_lines(style.lines)])
 
     for caption in captions:
         _validate_caption(caption)
-        output.extend(_format_comments(caption.comments))
+        if item_comments:
+            output.extend(_format_comments(caption.comments))
         output.extend(WebVTTCueBlock.format_lines(caption))
 
     if not footer_comments:

@@ -200,6 +200,58 @@ class CLITestCase(unittest.TestCase):
             stderr.getvalue()
             )
 
+    def test_cli_segment_duration_and_mpegts(self):
+        vtt_file = str(
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'one_caption.vtt'
+            )
+
+        for mpegts in ('0', '8589934591'):
+            with self.subTest(mpegts=mpegts):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    main(['segment', vtt_file, '-o', temp_dir,
+                          '-d', '5', '-m', mpegts])
+
+                    output = pathlib.Path(temp_dir)
+                    self.assertIn(
+                        '#EXT-X-TARGETDURATION:5',
+                        (output / 'prog_index.m3u8').read_text()
+                        )
+                    self.assertIn(
+                        f'X-TIMESTAMP-MAP=MPEGTS:{mpegts},',
+                        (output / 'fileSequence0.webvtt').read_text()
+                        )
+
+    def test_cli_segment_invalid_arguments(self):
+        vtt_file = str(
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'sample.vtt'
+            )
+
+        for argv, expected_message in (
+                (['-d', '0'], "argument -d/--target-duration: invalid "
+                              "duration: '0'"),
+                (['-d', '-5'], "argument -d/--target-duration: invalid "
+                               "duration: '-5'"),
+                (['-d', '2.5'], "argument -d/--target-duration: invalid "
+                                "duration: '2.5'"),
+                (['-m', '-1'], "argument -m/--mpegts: invalid MPEG-TS "
+                               "value: '-1'"),
+                (['-m', '8589934592'], "argument -m/--mpegts: invalid "
+                                       "MPEG-TS value: '8589934592'"),
+                (['-m', 'x'], "argument -m/--mpegts: invalid MPEG-TS "
+                              "value: 'x'")):
+            with self.subTest(argv=argv):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    output = os.path.join(temp_dir, 'output')
+                    with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                        with self.assertRaises(SystemExit) as cm:
+                            main(['segment', vtt_file, '-o', output, *argv])
+
+                    self.assertEqual(cm.exception.code, 2)
+                    self.assertIn(expected_message, stderr.getvalue())
+                    self.assertFalse(os.path.exists(output))
+
     def assert_cli_error(self, argv, expected_message):
         with contextlib.redirect_stderr(io.StringIO()) as stderr:
             with self.assertRaises(SystemExit) as cm:

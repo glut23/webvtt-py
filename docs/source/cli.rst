@@ -27,7 +27,9 @@ the segment index starting at 0, along with a playlist named
 
 A caption whose time span crosses a segment boundary is included in every
 segment it overlaps, so players display it regardless of which segment they
-load.
+load. Every segment also has the ``STYLE`` and ``REGION`` blocks of ``PATH``,
+which its captions use, and the captions keep their identifiers and cue
+settings. Comments are not written to the segments.
 
 Every segment starts with an ``X-TIMESTAMP-MAP`` header that maps the local
 caption time ``00:00:00.000`` to an MPEG-TS presentation timestamp, so the
@@ -79,13 +81,14 @@ Segment options
     Required.
 
 ``-d NUMBER``, ``--target-duration NUMBER``
-    Target duration of each segment in seconds. Also used for the
-    ``#EXT-X-TARGETDURATION`` and ``#EXTINF`` values of the playlist.
-    Default: ``10``.
+    Target duration of each segment in seconds, a whole number above zero.
+    Also used for the ``#EXT-X-TARGETDURATION`` and ``#EXTINF`` values of
+    the playlist. Default: ``10``.
 
 ``-m NUMBER``, ``--mpegts NUMBER``
-    MPEG-TS value written to the ``X-TIMESTAMP-MAP`` header of each segment.
-    Default: ``900000`` (10 seconds at the 90 kHz MPEG-TS clock).
+    MPEG-TS value written to the ``X-TIMESTAMP-MAP`` header of each segment,
+    a whole number from 0 to 8589934591, as MPEG-TS timestamps have 33
+    bits. Default: ``900000`` (10 seconds at the 90 kHz MPEG-TS clock).
 
 Shift options
 ~~~~~~~~~~~~~
