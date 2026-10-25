@@ -396,6 +396,130 @@ class TestSegmenter(unittest.TestCase):
                 ).lstrip()
             )
 
+    def test_segmentation_keeps_styles_regions_and_identifiers(self):
+        webvtt_path = pathlib.Path(self.temp_dir.name) / 'captions.vtt'
+        webvtt_path.write_text(textwrap.dedent('''
+            WEBVTT
+
+            REGION
+            id:fred
+            width:40%
+
+            NOTE comment of the style
+
+            STYLE
+            ::cue(.yellow) {
+              color: yellow;
+            }
+
+            NOTE comment of the first caption
+
+            intro
+            00:00:00.500 --> 00:00:07.000 region:fred
+            <c.yellow>Caption text #1</c>
+
+            00:00:12.000 --> 00:00:14.000
+            Caption text #2
+            ''').lstrip())
+        output_path = pathlib.Path(self.temp_dir.name) / 'output'
+
+        segmenter.segment(webvtt_path, output_path)
+
+        header = textwrap.dedent('''
+            WEBVTT
+            X-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000
+
+            REGION
+            id:fred
+            width:40%
+
+            STYLE
+            ::cue(.yellow) {
+              color: yellow;
+            }
+            ''').lstrip()
+        self.assertEqual(
+            (output_path / 'fileSequence0.webvtt').read_text(),
+            header + textwrap.dedent('''
+                intro
+                00:00:00.500 --> 00:00:07.000 region:fred
+                <c.yellow>Caption text #1</c>
+                ''')
+            )
+        self.assertEqual(
+            (output_path / 'fileSequence1.webvtt').read_text(),
+            header + textwrap.dedent('''
+                00:00:12.000 --> 00:00:14.000
+                Caption text #2
+                ''')
+            )
+
+    def test_segment_invalid_arguments(self):
+        webvtt_path = PATH_TO_SAMPLES / 'sample.vtt'
+        output_path = pathlib.Path(self.temp_dir.name) / 'output'
+
+        for arguments, error in (({'seconds': 0}, ValueError),
+                                 ({'seconds': -10}, ValueError),
+                                 ({'seconds': 2.5}, TypeError),
+                                 ({'seconds': '10'}, TypeError),
+                                 ({'seconds': True}, TypeError),
+                                 ({'mpegts': -1}, ValueError),
+                                 ({'mpegts': 2 ** 33}, ValueError),
+                                 ({'mpegts': 9e5}, TypeError),
+                                 ({'mpegts': None}, TypeError)):
+            with self.subTest(arguments=arguments):
+                with self.assertRaises(error):
+                    segmenter.segment(webvtt_path, output_path, **arguments)
+                self.assertFalse(output_path.exists())
+
+    def test_segment_functions_validate_arguments(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+        captions = [Caption('00:00:00.500', '00:00:07.000', 'Caption')]
+
+        for call, error in (
+                (lambda: segmenter.slice_segments(captions, 0), ValueError),
+                (lambda: segmenter.write_manifest(output_folder, [], 2.5),
+                 TypeError),
+                (lambda: segmenter.write_segments(output_folder, [captions],
+                                                  -1), ValueError)):
+            with self.assertRaises(error):
+                call()
+
+        self.assertEqual(os.listdir(output_folder), [])
+
+    def test_write_segments_rejected_caption_writes_no_files(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+        for index in range(3):
+            (output_folder / f'fileSequence{index}.webvtt').write_text(
+                f'previous run {index}'
+                )
+
+        with self.assertRaises(ValueError):
+            segmenter.write_segments(
+                output_folder,
+                [[Caption('00:00:01.000', '00:00:02.000', 'Caption')],
+                 [],
+                 [Caption('00:00:21.000', '00:00:22.000', 'a\n\nb')]],
+                segmenter.DEFAULT_MPEGTS
+                )
+
+        for index in range(3):
+            self.assertEqual(
+                (output_folder / f'fileSequence{index}.webvtt').read_text(),
+                f'previous run {index}'
+                )
+
+    def test_segmentation_mpegts_range(self):
+        output_path = pathlib.Path(self.temp_dir.name) / 'output'
+
+        segmenter.segment(PATH_TO_SAMPLES / 'one_caption.vtt', output_path,
+                          mpegts=2 ** 33 - 1)
+
+        self.assertIn(
+            'X-TIMESTAMP-MAP=MPEGTS:8589934591,LOCAL:00:00:00.000',
+            (output_path / 'fileSequence0.webvtt').read_text()
+            )
+
     def test_segment_with_no_captions(self):
         segmenter.segment(
             webvtt_path=PATH_TO_SAMPLES / 'no_captions.vtt',

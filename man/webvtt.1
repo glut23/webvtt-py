@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "WEBVTT" "1" "Oct 18, 2026" "0.5.1" "webvtt-py"
+.TH "WEBVTT" "1" "Oct 25, 2026" "0.5.1" "webvtt-py"
 .SH NAME
 webvtt \- segment, shift and sync WebVTT captions
 .SH SYNOPSIS
@@ -56,7 +56,9 @@ the segment index starting at 0, along with a playlist named
 .sp
 A caption whose time span crosses a segment boundary is included in every
 segment it overlaps, so players display it regardless of which segment they
-load.
+load. Every segment also has the \fBSTYLE\fP and \fBREGION\fP blocks of \fBPATH\fP,
+which its captions use, and the captions keep their identifiers and cue
+settings. Comments are not written to the segments.
 .sp
 Every segment starts with an \fBX\-TIMESTAMP\-MAP\fP header that maps the local
 caption time \fB00:00:00.000\fP to an MPEG\-TS presentation timestamp, so the
@@ -105,13 +107,14 @@ it does not exist. Existing files with the same names are overwritten.
 Required.
 .TP
 .B \fB\-d NUMBER\fP, \fB\-\-target\-duration NUMBER\fP
-Target duration of each segment in seconds. Also used for the
-\fB#EXT\-X\-TARGETDURATION\fP and \fB#EXTINF\fP values of the playlist.
-Default: \fB10\fP\&.
+Target duration of each segment in seconds, a whole number above zero.
+Also used for the \fB#EXT\-X\-TARGETDURATION\fP and \fB#EXTINF\fP values of
+the playlist. Default: \fB10\fP\&.
 .TP
 .B \fB\-m NUMBER\fP, \fB\-\-mpegts NUMBER\fP
-MPEG\-TS value written to the \fBX\-TIMESTAMP\-MAP\fP header of each segment.
-Default: \fB900000\fP (10 seconds at the 90 kHz MPEG\-TS clock).
+MPEG\-TS value written to the \fBX\-TIMESTAMP\-MAP\fP header of each segment,
+a whole number from 0 to 8589934591, as MPEG\-TS timestamps have 33
+bits. Default: \fB900000\fP (10 seconds at the 90 kHz MPEG\-TS clock).
 .UNINDENT
 .SS Shift options
 .INDENT 0.0
