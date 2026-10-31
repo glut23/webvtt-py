@@ -10,6 +10,7 @@ Changes that may need updates to the code using the library:
 * Strict parsing raises ``MalformedCaptionError`` for cues whose end time is not after the start time, for blocks that are not a cue, comment, style or region, such as text without cue timings, for comments where ``NOTE`` is not followed by a space, a tab or a line break, or with ``-->``, and for styles after the first cue (#97, #133)
 * Writing WebVTT raises ``ValueError`` for ``-->`` in a comment or in the header text, which WebVTT does not allow (#134, #135)
 * ``NOTE`` blocks with ``-->`` are not read as comments, and header text with ``-->`` is read as empty, as WebVTT does, so the file can be saved again (#134, #135)
+* Removed ``Caption.CUE_TEXT_TAGS``, which is no longer used (#139, #153)
 
 Changes:
 
@@ -20,6 +21,7 @@ Changes:
 * Fixed comparing a ``Timestamp`` with other types raising ``AttributeError``: ``==`` returns ``False`` and ordering comparisons raise ``TypeError`` (#137, #150)
 * Fixed the SRT output not ending with a line break (#138, #151)
 * Fixed HLS segments repeating a cue that ends on a segment boundary, and the playlist having no segments for captions without cues, thanks to `@radixun <https://github.com/radixun>`_ (#145, #149)
+* Fixed the ``read_buffer`` deprecation warning pointing at the library instead of the code calling it (#139, #153)
 
 0.6.0 (25-10-2026)
 ------------------

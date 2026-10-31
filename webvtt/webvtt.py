@@ -168,7 +168,8 @@ class WebVTT:
         """
         warnings.warn(
             'Deprecated: use from_buffer instead.',
-            DeprecationWarning
+            DeprecationWarning,
+            stacklevel=2
             )
         return cls.from_buffer(buffer)
 
