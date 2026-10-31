@@ -291,10 +291,15 @@ class TestWebVTT(unittest.TestCase):
                 vtt = webvtt.read_buffer(f)
 
                 self.assertIsInstance(vtt.captions, list)
+                self.assertEqual(len(warns), 1)
+                self.assertIs(warns[0].category, DeprecationWarning)
                 self.assertEqual(
                     'Deprecated: use from_buffer instead.',
-                    str(warns[-1].message)
+                    str(warns[0].message)
                     )
+                # the warning points to the code calling read_buffer
+                self.assertEqual(os.path.basename(warns[0].filename),
+                                 os.path.basename(__file__))
 
     def test_read_memory_buffer(self):
         buffer = io.StringIO(
