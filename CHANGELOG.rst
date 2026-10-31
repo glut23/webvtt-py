@@ -13,6 +13,7 @@ Changes that may need updates to the code using the library:
 
 Changes:
 
+* HLS segments no longer repeat a cue that ends on a boundary. Files without captions produce one empty segment (#145).
 * Fixed reading SRT files with whitespace around the first cue index, thanks to `@youdie006 <https://github.com/youdie006>`_ (#130)
 * Fixed WebVTT styles ignored when ``STYLE`` is followed by whitespace (#133)
 * Fixed WebVTT regions ignored after header text with ``-->`` (#135)
