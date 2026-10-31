@@ -11,6 +11,7 @@ Changes that may need updates to the code using the library:
 * Writing WebVTT raises ``ValueError`` for ``-->`` in a comment or in the header text, which WebVTT does not allow (#134, #135)
 * ``NOTE`` blocks with ``-->`` are not read as comments, and header text with ``-->`` is read as empty, as WebVTT does, so the file can be saved again (#134, #135)
 * Removed ``Caption.CUE_TEXT_TAGS``, which is no longer used (#139, #153)
+* ``save``, ``save_as_srt`` and the ``-o`` option of the CLI write a path with an extension as given, instead of adding ``.vtt`` or ``.srt`` to it, so ``captions.webvtt`` is no longer saved as ``captions.webvtt.vtt`` (#144, #156)
 
 Changes:
 

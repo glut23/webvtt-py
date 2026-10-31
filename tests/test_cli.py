@@ -470,6 +470,14 @@ class CLIShiftTestCase(CLICommandTestCase):
             self.CAPTIONS
             )
 
+    def test_shift_to_output_file_with_other_extension(self):
+        output = os.path.join(self.temp_dir.name, 'shifted.txt')
+
+        self.run_cli(['shift', self.vtt_file, '3', '-o', output])
+
+        self.assertTrue(os.path.exists(output))
+        self.assertFalse(os.path.exists(f'{output}.vtt'))
+
     def test_shift_in_place(self):
         self.run_cli(['shift', self.vtt_file, '-s', '00:00:04.000', '1',
                       '-o', self.vtt_file])

@@ -399,7 +399,7 @@ Saving captions
     # save to a different file
     vtt.save('new_captions.vtt')
 
-    # save to a file path, the .vtt extension is added when missing
+    # save to a file path, the .vtt extension is added when it has none
     vtt.save('other/folder/new_captions')
 
     # save to a folder, keeping the name of the file that was read

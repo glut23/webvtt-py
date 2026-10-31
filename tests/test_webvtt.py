@@ -258,6 +258,27 @@ class TestWebVTT(unittest.TestCase):
                 os.path.exists(pathlib.Path(td) / 'one_caption_new.vtt')
                 )
 
+    def test_save_specific_filename_other_extension(self):
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'one_caption.vtt')
+        for name in ('captions.webvtt', 'captions.txt', 'captions.VTT'):
+            with self.subTest(name=name), \
+                    tempfile.TemporaryDirectory() as td:
+                output = pathlib.Path(td) / name
+                vtt.save(output)
+
+                self.assertEqual(os.listdir(td), [name])
+                self.assertEqual(vtt.file, str(output))
+
+    def test_save_as_srt_extension(self):
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'one_caption.vtt')
+        for name, saved in (('captions', 'captions.srt'),
+                            ('captions.txt', 'captions.txt')):
+            with self.subTest(name=name), \
+                    tempfile.TemporaryDirectory() as td:
+                vtt.save_as_srt(pathlib.Path(td) / name)
+
+                self.assertEqual(os.listdir(td), [saved])
+
     def test_from_buffer(self):
         with open(PATH_TO_SAMPLES / 'sample.vtt', 'r', encoding='utf-8') as f:
             vtt = webvtt.from_buffer(f)

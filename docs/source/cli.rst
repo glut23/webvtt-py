@@ -100,8 +100,9 @@ Shift options
 ``-o OUTPUT``, ``--output OUTPUT``
     File where the shifted captions are written, keeping the encoding and
     Byte Order Mark of the input file. It can be the input file itself to
-    shift it in place. A ``.vtt`` extension is added if missing, and if it
-    is a directory the file is written there with the input file name.
+    shift it in place. A ``.vtt`` extension is added if it has no
+    extension, and if it is a directory the file is written there with the
+    input file name.
     Default: standard output.
 
 ``-s TIMESTAMP``, ``--start TIMESTAMP``
