@@ -13,13 +13,13 @@ Changes that may need updates to the code using the library:
 
 Changes:
 
-* HLS segments no longer repeat a cue that ends on a boundary. Files without captions produce one empty segment (#145).
 * Fixed reading SRT files with whitespace around the first cue index, thanks to `@youdie006 <https://github.com/youdie006>`_ (#130)
 * Fixed WebVTT styles ignored when ``STYLE`` is followed by whitespace (#133)
 * Fixed WebVTT regions ignored after header text with ``-->`` (#135)
 * Fixed non-ASCII digits read as numbers in timestamps and SRT cue indexes, thanks to `@emirmrkaljevic <https://github.com/emirmrkaljevic>`_ (#140, #147)
 * Fixed comparing a ``Timestamp`` with other types raising ``AttributeError``: ``==`` returns ``False`` and ordering comparisons raise ``TypeError`` (#137, #150)
 * Fixed the SRT output not ending with a line break (#138, #151)
+* Fixed HLS segments repeating a cue that ends on a segment boundary, and the playlist having no segments for captions without cues, thanks to `@radixun <https://github.com/radixun>`_ (#145, #149)
 
 0.6.0 (25-10-2026)
 ------------------
