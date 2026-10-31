@@ -1,7 +1,15 @@
 """Errors module."""
 
 
-class MalformedFileError(Exception):
+class WebVTTError(Exception):
+    """
+    Base class of the errors of webvtt-py.
+
+    Catching it catches every error defined in this module.
+    """
+
+
+class MalformedFileError(WebVTTError, ValueError):
     """
     File is not in the right format.
 
@@ -11,7 +19,7 @@ class MalformedFileError(Exception):
     """
 
 
-class MalformedCaptionError(Exception):
+class MalformedCaptionError(WebVTTError, ValueError):
     """
     Caption not in the right format.
 
@@ -23,7 +31,7 @@ class MalformedCaptionError(Exception):
     """
 
 
-class MissingFilenameError(Exception):
+class MissingFilenameError(WebVTTError):
     """
     Missing a filename when saving to disk.
 
