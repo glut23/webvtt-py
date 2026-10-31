@@ -10,12 +10,6 @@ You can install ``webvtt-py`` with pip:
 
     $ pip install webvtt-py
 
-To install with easy_install:
-
-::
-
-    $ easy_install webvtt-py
-
 Requirements
 ------------
 
