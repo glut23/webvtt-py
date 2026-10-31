@@ -207,9 +207,8 @@ class WebVTTCommentBlock:
         Validate the lines for a match of a comment block.
 
         A comment starts with ``NOTE`` and no line contains ``-->``, as
-        WebVTT reads a block with ``-->`` in its first line as a cue. When
-        strict, ``NOTE`` must be followed by a space, a tab or the end of
-        the line.
+        WebVTT reads a line with ``-->`` as cue timings. When strict,
+        ``NOTE`` must be followed by a space, a tab or the end of the line.
 
         :param lines: the lines to be validated
         :param strict: only accept comments in the WebVTT format

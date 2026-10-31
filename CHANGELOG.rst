@@ -14,6 +14,7 @@ Changes:
 
 * Fixed reading SRT files with whitespace around the first cue index, thanks to `@youdie006 <https://github.com/youdie006>`_ (#130)
 * Fixed WebVTT styles ignored when ``STYLE`` is followed by whitespace (#133)
+* Fixed WebVTT regions ignored after header text with ``-->`` (#135)
 
 0.6.0 (25-10-2026)
 ------------------
