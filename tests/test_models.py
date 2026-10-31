@@ -75,6 +75,13 @@ class TestTimestamp(unittest.TestCase):
         with self.assertRaises(MalformedCaptionError):
             Timestamp.from_string('01:24:87.670')
 
+    def test_from_string_non_ascii_digits(self):
+        for value in ('\u0660\u0660:\u0660\u0661.\u0665\u0660\u0660',
+                      '00:0\uff11.500'):
+            with self.subTest(value=value):
+                with self.assertRaises(MalformedCaptionError):
+                    Timestamp.from_string(value)
+
     def test_from_string_wrong_type(self):
         with self.assertRaises(MalformedCaptionError):
             Timestamp.from_string(1234)

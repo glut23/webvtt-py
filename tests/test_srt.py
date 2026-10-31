@@ -65,6 +65,17 @@ class TestSRTCueBlock(unittest.TestCase):
             ['1 ', '00:00:00,500 --> 00:00:07,000', 'Caption #1']
             ))
 
+    def test_is_valid_non_ascii_digits(self):
+        for index, timings in (
+                ('\u0661', '00:00:00,500 --> 00:00:07,000'),
+                ('\u00b2', '00:00:00,500 --> 00:00:07,000'),
+                ('1', '00:00:00,\u0665\u0660\u0660 --> 00:00:07,000'),
+                ):
+            with self.subTest(index=index, timings=timings):
+                self.assertFalse(srt.SRTCueBlock.is_valid(
+                    [index, timings, 'Caption #1']
+                    ))
+
     def test_is_valid_text_after_end_timestamp(self):
         self.assertTrue(srt.SRTCueBlock.is_valid(
             ['1', '00:00:00,500 --> 00:00:07,000 X1:100 X2:200', 'Caption #1']

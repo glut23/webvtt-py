@@ -72,6 +72,11 @@ class TestWebVTTCueBlock(unittest.TestCase):
                 vtt.WebVTTCueBlock.is_valid([timings, 'Caption #1'])
                 )
 
+    def test_is_valid_non_ascii_digits(self):
+        lines = ['00:00:0\u0661.500 --> 00:00:07.000', 'Caption #1']
+        self.assertFalse(vtt.WebVTTCueBlock.is_valid(lines))
+        self.assertFalse(vtt.WebVTTCueBlock.is_valid(lines, strict=True))
+
     def test_is_valid_non_padded_timestamps(self):
         lines = ['0:0:13.540 --> 0:0:17.85', 'Caption #1']
         self.assertTrue(vtt.WebVTTCueBlock.is_valid(lines))

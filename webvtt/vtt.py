@@ -8,8 +8,8 @@ from .errors import MalformedFileError, MalformedCaptionError
 from .models import Caption, CueSettings, Region, Style
 from .utils import _split_lines
 
-_TIMESTAMP = r'(?:\d+:)?\d{1,2}:\d{1,2}\.\d{1,3}'
-_STRICT_TIMESTAMP = r'(?:\d{2,}:)?\d{2}:\d{2}\.\d{3}'
+_TIMESTAMP = r'(?:[0-9]+:)?[0-9]{1,2}:[0-9]{1,2}\.[0-9]{1,3}'
+_STRICT_TIMESTAMP = r'(?:[0-9]{2,}:)?[0-9]{2}:[0-9]{2}\.[0-9]{3}'
 
 
 @dataclass
