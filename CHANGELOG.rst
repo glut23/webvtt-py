@@ -17,7 +17,7 @@ Changes:
 * Fixed WebVTT styles ignored when ``STYLE`` is followed by whitespace (#133)
 * Fixed WebVTT regions ignored after header text with ``-->`` (#135)
 * Fixed non-ASCII digits read as numbers in timestamps and SRT cue indexes, thanks to `@emirmrkaljevic <https://github.com/emirmrkaljevic>`_ (#140, #147)
-* Fixed comparing a ``Timestamp`` with other types raising ``AttributeError``: ``==`` returns ``False`` and ordering comparisons raise ``TypeError`` (#137)
+* Fixed comparing a ``Timestamp`` with other types raising ``AttributeError``: ``==`` returns ``False`` and ordering comparisons raise ``TypeError`` (#137, #150)
 
 0.6.0 (25-10-2026)
 ------------------
