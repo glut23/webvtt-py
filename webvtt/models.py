@@ -4,6 +4,7 @@ import bisect
 import datetime
 import decimal
 import fractions
+import functools
 import math
 import re
 import typing
@@ -23,6 +24,7 @@ _MAX_MILLISECONDS = 10 ** 10 * 3_600_000 - 1
 _OUT_OF_RANGE = 'Time after the largest timestamp 9999999999:59:59.999'
 
 
+@functools.total_ordering
 class Timestamp:
     """Representation of a timestamp."""
 
@@ -66,27 +68,15 @@ class Timestamp:
 
     def __eq__(self, other):
         """Compare equality with other object."""
+        if not isinstance(other, Timestamp):
+            return NotImplemented
         return self.to_tuple() == other.to_tuple()
 
-    def __ne__(self, other):
-        """Compare a not equality with other object."""
-        return self.to_tuple() != other.to_tuple()
-
-    def __gt__(self, other):
-        """Compare greater than with other object."""
-        return self.to_tuple() > other.to_tuple()
-
-    def __lt__(self, other):
+    def __lt__(self, other: 'Timestamp') -> bool:
         """Compare less than with other object."""
+        if not isinstance(other, Timestamp):
+            return NotImplemented
         return self.to_tuple() < other.to_tuple()
-
-    def __ge__(self, other):
-        """Compare greater or equal with other object."""
-        return self.to_tuple() >= other.to_tuple()
-
-    def __le__(self, other):
-        """Compare less or equal with other object."""
-        return self.to_tuple() <= other.to_tuple()
 
     @classmethod
     def from_string(cls, value: str) -> 'Timestamp':

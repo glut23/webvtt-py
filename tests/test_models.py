@@ -163,6 +163,35 @@ class TestTimestamp(unittest.TestCase):
             Timestamp.from_string('01:12:23.600')
             )
 
+    def test_equality_other_types(self):
+        timestamp = Timestamp(seconds=1)
+        for other in (None, '00:00:01.000', 1, (0, 0, 1, 0)):
+            with self.subTest(other=other):
+                self.assertFalse(timestamp == other)
+                self.assertTrue(timestamp != other)
+        self.assertNotIn(None, [timestamp])
+
+    def test_ordering_other_types(self):
+        timestamp = Timestamp(seconds=1)
+        for other in (None, '00:00:01.000', 1):
+            with self.subTest(other=other):
+                with self.assertRaises(TypeError):
+                    timestamp < other
+                with self.assertRaises(TypeError):
+                    timestamp > other
+                with self.assertRaises(TypeError):
+                    timestamp <= other
+                with self.assertRaises(TypeError):
+                    timestamp >= other
+                with self.assertRaises(TypeError):
+                    other < timestamp
+
+    def test_sort(self):
+        self.assertEqual(
+            sorted([Timestamp(seconds=2), Timestamp(), Timestamp(seconds=1)]),
+            [Timestamp(), Timestamp(seconds=1), Timestamp(seconds=2)]
+            )
+
     def test_repr(self):
         timestamp = Timestamp(
             hours=1,
