@@ -175,8 +175,8 @@ file is left unchanged:
 
 * an empty line followed by more text, or ``-->``, in a caption or a style
 * a line break or ``-->`` in an identifier
-* in a comment, an empty line followed by more text, ``-->`` after its first
-  line, or cue timings in the first line of a comment of more than one line
+* an empty line followed by more text, or ``-->``, in a comment
+* a line break or ``-->`` in the header text
 
 A ``WebVTT`` object created from scratch has no filename, so ``save()``
 requires an output path. Calling it without one raises
@@ -711,8 +711,10 @@ reading and written back when saving:
 Metadata lines are kept as they are, in order. Shifting or synchronizing the
 captions does not change them, so ``X-TIMESTAMP-MAP`` keeps mapping the file
 to the same media time. Saving, writing or getting the ``content`` raises
-``ValueError`` if the header text has a line break, or if a metadata line is
-empty, has a line break or contains ``-->``, since that would break the file.
+``ValueError`` if the header text has a line break or contains ``-->``, or if
+a metadata line is empty, has a line break or contains ``-->``, since that
+would break the file. Header text with ``-->`` is not valid WebVTT and is
+read as empty, or raises ``MalformedCaptionError`` with strict parsing.
 
 
 WebVTT comments
@@ -740,6 +742,10 @@ Comments can be added to or retrieved from different items:
 
     # comments are just a list of strings
     vtt.captions[5].comments.append('caption for review')
+
+A ``NOTE`` block containing ``-->`` is not a comment as per the WebVTT
+specification, so it is ignored when reading, or raises
+``MalformedCaptionError`` with strict parsing.
 
 
 Handling errors

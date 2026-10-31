@@ -206,20 +206,17 @@ class WebVTTCommentBlock:
         """
         Validate the lines for a match of a comment block.
 
-        Any block starting with ``NOTE`` is a comment unless strict, which
-        follows WebVTT: ``NOTE`` is followed by a space, a tab or the end of
-        the line, and no line contains ``-->``.
+        A comment starts with ``NOTE`` and no line contains ``-->``, as
+        WebVTT reads a line with ``-->`` as cue timings. When strict,
+        ``NOTE`` must be followed by a space, a tab or the end of the line.
 
         :param lines: the lines to be validated
         :param strict: only accept comments in the WebVTT format
         :returns: true for a matching comment block
         """
-        if not (lines and lines[0].startswith('NOTE')):
+        if not (lines and lines[0].startswith('NOTE')) or _has_arrow(lines):
             return False
-        return not strict or (
-            lines[0][len('NOTE'):][:1] in ('', ' ', '\t') and
-            not _has_arrow(lines)
-            )
+        return not strict or lines[0][len('NOTE'):][:1] in ('', ' ', '\t')
 
     @classmethod
     def from_lines(
@@ -468,8 +465,8 @@ def parse_items(
         instead of ignoring them
     :returns: an object `ParserOutput` with all parsed items
 
-    :raises MalformedCaptionError: if strict and a block other than the
-        header is not a valid cue, comment, style or region
+    :raises MalformedCaptionError: if strict and the header contains "-->",
+        or another block is not a valid cue, comment, style or region
     """
     header_comments: typing.List[str] = []
     items: typing.List[typing.Union[Caption, Style, Region]] = []
@@ -477,6 +474,8 @@ def parse_items(
     seen_cue = False
 
     for index, block_lines in enumerate(_iter_blocks_of_lines(lines, strict)):
+        if _is_header(index, block_lines, strict):
+            continue
         item = parse_item(block_lines, strict, seen_cue)
         if not seen_cue:
             seen_cue = _has_arrow(block_lines)
@@ -486,7 +485,7 @@ def parse_items(
             items.append(item)
         elif WebVTTCommentBlock.is_valid(block_lines, strict):
             comments.append(WebVTTCommentBlock.from_lines(block_lines))
-        elif strict and not _is_header(index, block_lines):
+        elif strict:
             raise _invalid_block_error(block_lines)
 
     if items:
@@ -500,16 +499,26 @@ def parse_items(
         )
 
 
-def _is_header(index: int, lines: typing.Sequence[str]) -> bool:
+def _is_header(
+        index: int,
+        lines: typing.Sequence[str],
+        strict: bool = False
+        ) -> bool:
     """
     Return whether a block is the header block of the file.
 
     :param index: the position of the block in the file
     :param lines: the lines of the block
-    :returns: true for the first block when it starts with "WEBVTT" and
-        has no "-->", which the header cannot contain
+    :param strict: raise an error if the header contains "-->"
+    :returns: true for the first block when it starts with "WEBVTT"
+
+    :raises MalformedCaptionError: if strict and the header contains "-->"
     """
-    return index == 0 and is_valid_content(lines) and not _has_arrow(lines)
+    if index != 0 or not is_valid_content(lines):
+        return False
+    if strict and _has_arrow(lines):
+        raise _invalid_block_error(lines)
+    return True
 
 
 def _invalid_block_error(
@@ -533,12 +542,15 @@ def _parse_header(
 
     :param lines: lines of the header block, the first one starting with
         "WEBVTT"
-    :returns: the text following "WEBVTT" in the first line and the
-        metadata lines that follow it
+    :returns: the text following "WEBVTT" in the first line, empty if it
+        contains "-->" as WebVTT ignores it and it cannot be written, and
+        the metadata lines that follow it
     """
     text = lines[0][len('WEBVTT'):]
     if text[:1] in (' ', '\t'):
         text = text[1:]
+    if '-->' in text:
+        text = ''
     return text, list(lines[1:])
 
 
@@ -549,12 +561,13 @@ def _validate_header(header_text: str, metadata: typing.Iterable[str]):
     :param header_text: the text following "WEBVTT" in the first line
     :param metadata: the metadata lines of the header
 
-    :raises ValueError: if the header text contains a line break, or a
-        metadata line is empty, contains a line break or contains "-->"
+    :raises ValueError: if the header text contains a line break or "-->",
+        or a metadata line is empty, contains a line break or contains "-->"
     """
-    if _has_line_break(header_text):
+    if _has_line_break(header_text) or '-->' in header_text:
         raise ValueError(
-            f'Header text must be a single line: {header_text!r}'
+            f'Header text must be a single line without "-->": '
+            f'{header_text!r}'
             )
 
     for line in metadata:
@@ -648,23 +661,17 @@ def _validate_comment(comment: str):
     """
     Validate the text of a comment before writing it.
 
-    An empty line would end the comment block when it is read, and "-->"
-    after its first line would start a cue. A comment of more lines is
-    written after a line with only "NOTE", so if its first line is cue
-    timings, the block would be read as a cue with "NOTE" as identifier.
+    An empty line would end the comment block when it is read, and a
+    comment cannot contain "-->", as WebVTT would read it as a cue.
 
     :param comment: the text of the comment
 
-    :raises ValueError: if the text has an empty line, "-->" after its
-        first line, or would be read as a cue
+    :raises ValueError: if the text has an empty line or contains "-->"
     """
     lines = _lines_with_content(comment)
-    if (not all(lines) or
-            _has_arrow(lines[1:]) or
-            WebVTTCueBlock.is_valid(WebVTTCommentBlock.format_lines(comment))):
+    if not all(lines) or _has_arrow(lines):
         raise ValueError(
-            'Comments must not have empty lines, "-->" after the first '
-            f'line, or be read as a cue: {comment!r}'
+            f'Comments must not have empty lines or "-->": {comment!r}'
             )
 
 
