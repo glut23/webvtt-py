@@ -761,6 +761,13 @@ module:
 * ``MissingFilenameError``: captions are saved without an output path
   and there is no file to derive it from.
 
+They all subclass ``WebVTTError``, so it catches any of them.
+``MalformedFileError`` and ``MalformedCaptionError`` are also subclasses of
+``ValueError``, like the other errors for values that are not valid, such
+as text that could not be read back when saving. Those other errors are
+the built-in ``ValueError`` and ``TypeError``, which ``WebVTTError`` does
+not catch.
+
 .. code-block:: python
 
     import webvtt

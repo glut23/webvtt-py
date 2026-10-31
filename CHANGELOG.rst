@@ -14,6 +14,7 @@ Changes that may need updates to the code using the library:
 
 Changes:
 
+* Added ``WebVTTError`` as the base class of the errors, and made ``MalformedFileError`` and ``MalformedCaptionError`` subclasses of ``ValueError`` (#146, #155)
 * Fixed reading SRT files with whitespace around the first cue index, thanks to `@youdie006 <https://github.com/youdie006>`_ (#130)
 * Fixed WebVTT styles ignored when ``STYLE`` is followed by whitespace (#133)
 * Fixed WebVTT regions ignored after header text with ``-->`` (#135)
