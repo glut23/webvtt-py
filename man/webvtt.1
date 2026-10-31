@@ -126,8 +126,9 @@ Negative values move the captions earlier, as in \fB\-1.5\fP\&. Required.
 .B \fB\-o OUTPUT\fP, \fB\-\-output OUTPUT\fP
 File where the shifted captions are written, keeping the encoding and
 Byte Order Mark of the input file. It can be the input file itself to
-shift it in place. A \fB\&.vtt\fP extension is added if missing, and if it
-is a directory the file is written there with the input file name.
+shift it in place. A \fB\&.vtt\fP extension is added if it has no
+extension, and if it is a directory the file is written there with the
+input file name.
 Default: standard output.
 .TP
 .B \fB\-s TIMESTAMP\fP, \fB\-\-start TIMESTAMP\fP
