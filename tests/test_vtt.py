@@ -559,13 +559,22 @@ class TestVTTModule(unittest.TestCase):
                  'Comments must not have empty lines'),
                 ('arrow after first line of footer comment',
                  {'footer_comments': ['line 1\na --> b']},
-                 '"-->" after the first line'),
+                 'Comments must not have empty lines or "-->"'),
+                ('arrow in single line header comment',
+                 {'header_comments': ['a --> b']},
+                 'Comments must not have empty lines or "-->"'),
                 ('cue timings in first line of comment',
                  {'captions': [with_comment(
                      caption(),
                      '00:00:05.000 --> 00:00:06.000\nreview this'
                      )]},
-                 'or be read as a cue'),
+                 'Comments must not have empty lines or "-->"'),
+                ('cue timings in single line comment',
+                 {'footer_comments': ['00:00:05.000 --> 00:00:06.000']},
+                 'Comments must not have empty lines or "-->"'),
+                ('arrow in header text',
+                 {'header_text': 'a --> b'},
+                 'Header text must be a single line without "-->"'),
                 ('empty line in caption comment',
                  {'captions': [with_comment(caption(), 'a\n\nb')]},
                  'Comments must not have empty lines'),
@@ -591,12 +600,12 @@ class TestVTTModule(unittest.TestCase):
             # empty lines at the end only end the cue
             Caption('00:00:03.000', '00:00:04.000', ['b', '', ''])
             ]
-        captions[1].comments.append('a --> b\nsecond line')
+        captions[1].comments.append('first line\nsecond line')
         styles = [Style('::cue {\n  color: red;\n}\n\n')]
 
         output = vtt.parse(
             vtt.to_str(captions, styles,
-                       ['a --> b', '00:00:05.000 --> 00:00:06.000'],
+                       ['header', 'NOTE in a comment'],
                        ['footer\n\n']
                        ).split('\n')
             )
@@ -605,15 +614,14 @@ class TestVTTModule(unittest.TestCase):
             [(c.identifier, c.raw_text, c.comments)
              for c in output.captions],
             [(' ', 'line 1\n \nline 2', []),
-             (None, '', ['a --> b\nsecond line']),
+             (None, '', ['first line\nsecond line']),
              ('id', 'a', []),
              (None, 'b', [])]
             )
         self.assertEqual([s.text for s in output.styles],
                          ['::cue {\n  color: red;\n}'])
-        # cue timings in a single line comment are written after "NOTE "
         self.assertEqual(output.header_comments,
-                         ['a --> b', '00:00:05.000 --> 00:00:06.000'])
+                         ['header', 'NOTE in a comment'])
         self.assertEqual(output.footer_comments, ['footer'])
 
     def test_write(self):
@@ -1457,6 +1465,46 @@ class TestVTTModule(unittest.TestCase):
         self.assertIn("Invalid cue block ['WEBVTT a --> b']",
                       str(cm.exception))
 
+    def test_parse_ignores_comments_with_cue_timings_arrow(self):
+        for block in (['NOTE a --> b'], ['NOTE', 'a --> b'],
+                      ['NOTE 00:00:05.000 --> 00:00:06.000']):
+            with self.subTest(block=block):
+                output = vtt.parse(
+                    ['WEBVTT', '', 'NOTE kept', '', *block, '',
+                     '00:00:00.500 --> 00:00:04.300', 'Caption text', '',
+                     *block]
+                    )
+                self.assertListEqual(output.header_comments, ['kept'])
+                self.assertListEqual(output.captions[0].comments, [])
+                self.assertListEqual(output.footer_comments, [])
+
+    def test_parse_header_text_with_cue_timings_arrow(self):
+        output = vtt.parse(
+            ['WEBVTT a --> b', 'Kind: captions', '',
+             'REGION', 'id:fred', '',
+             '00:00:00.500 --> 00:00:04.300', 'Caption text']
+            )
+        self.assertEqual(output.header_text, '')
+        self.assertListEqual(output.metadata, ['Kind: captions'])
+        self.assertListEqual([region.id for region in output.regions],
+                             ['fred'])
+        self.assertEqual(len(output.captions), 1)
+
+    def test_parse_and_write_back_cue_timings_arrows(self):
+        output = vtt.parse(
+            ['WEBVTT a --> b', '', 'NOTE a --> b', '',
+             '00:00:00.500 --> 00:00:04.300', 'Caption text']
+            )
+        content = vtt.to_str(
+            output.captions, output.styles, output.header_comments,
+            output.footer_comments, output.header_text, output.metadata,
+            output.regions
+            )
+        self.assertEqual(
+            content,
+            'WEBVTT\n\n00:00:00.500 --> 00:00:04.300\nCaption text\n'
+            )
+
     def test_parse_style_with_whitespace_after_style(self):
         output = vtt.parse(
             ['WEBVTT', '', 'STYLE \t', '::cue { color: papayawhip; }', '',
@@ -1723,7 +1771,8 @@ class TestVTTModule(unittest.TestCase):
         self.assertEqual(vtt.parse(content.split('\n')), output)
 
     def test_to_str_invalid_header_text(self):
-        for header_text in ('title\nmore', 'title\r', 'title\r\nmore'):
+        for header_text in ('title\nmore', 'title\r', 'title\r\nmore',
+                            'a --> b'):
             with self.subTest(header_text=header_text):
                 with self.assertRaises(ValueError):
                     vtt.to_str([], [], [], [], header_text)
