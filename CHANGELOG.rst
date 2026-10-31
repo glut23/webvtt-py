@@ -12,10 +12,12 @@ Changes that may need updates to the code using the library:
 * ``NOTE`` blocks with ``-->`` are not read as comments, and header text with ``-->`` is read as empty, as WebVTT does, so the file can be saved again (#134, #135)
 * Removed ``Caption.CUE_TEXT_TAGS``, which is no longer used (#139, #153)
 * ``save``, ``save_as_srt`` and the ``-o`` option of the CLI write a path with an extension as given, instead of adding ``.vtt`` or ``.srt`` to it, so ``captions.webvtt`` is no longer saved as ``captions.webvtt.vtt`` (#144, #156)
+* ``from_buffer`` raises ``TypeError`` for a string or bytes, instead of ``MalformedFileError``: use ``from_string`` to read a string, or ``io.BytesIO`` to read bytes (#143, #157)
 
 Changes:
 
 * Added ``WebVTTError`` as the base class of the errors, and made ``MalformedFileError`` and ``MalformedCaptionError`` subclasses of ``ValueError`` (#146, #155)
+* Added reading binary file-like objects with ``from_buffer``, such as files opened in ``'rb'`` mode, with the encoding of their Byte Order Mark, kept when saving, or the new ``encoding`` argument (#143, #157)
 * Fixed reading SRT files with whitespace around the first cue index, thanks to `@youdie006 <https://github.com/youdie006>`_ (#130)
 * Fixed WebVTT styles ignored when ``STYLE`` is followed by whitespace (#133)
 * Fixed WebVTT regions ignored after header text with ``-->`` (#135)

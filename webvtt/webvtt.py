@@ -176,34 +176,41 @@ class WebVTT:
     @classmethod
     def from_buffer(
             cls,
-            buffer: typing.Union[typing.Iterable[str], io.BytesIO],
+            buffer: typing.Union[typing.Iterable[str], typing.BinaryIO],
             format: str = 'vtt',
-            strict: bool = False
+            strict: bool = False,
+            encoding: typing.Optional[str] = None
             ) -> 'WebVTT':
         """
         Read WebVTT captions from a file-like object.
 
-        Such file-like object may be the return of an io.open call,
-        io.StringIO object, tempfile.TemporaryFile object, etc.
+        Such file-like object may be the return of an io.open call, in text
+        or binary mode, io.StringIO or io.BytesIO object,
+        tempfile.TemporaryFile object, etc. Binary data is decoded with the
+        encoding of its Byte Order Mark, if any, or else with ``encoding``.
 
-        :param buffer: the file-like object to read captions from
+        :param buffer: the file-like object to read captions from, or an
+            iterable of lines
         :param format: the format of the data (vtt, srt or sbv)
         :param strict: raise an error on blocks that are not valid WebVTT
             instead of ignoring them, only for the vtt format
+        :param encoding: encoding of binary data without a Byte Order Mark,
+            UTF-8 by default
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the data is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp,
             or if strict and a block is not valid WebVTT
         :raises ValueError: if the format is not supported
+        :raises UnicodeDecodeError: if binary data cannot be decoded
+        :raises TypeError: if the buffer is a string or bytes, use
+            from_string to read a string or io.BytesIO to read bytes
         """
         file = getattr(buffer, 'name', None)
-
-        if isinstance(buffer, io.BytesIO):
-            buffer = (line.decode('utf-8') for line in buffer)
+        lines, bom_encoding = cls._read_buffer(buffer, encoding)
 
         if format == 'vtt':
-            output = vtt.parse(cls._get_lines(buffer), strict)
+            output = vtt.parse(cls._get_lines(lines), strict)
             instance = cls(
                 captions=output.captions,
                 styles=output.styles,
@@ -214,14 +221,60 @@ class WebVTT:
                 regions=output.regions
                 )
         elif format == 'srt':
-            instance = cls(captions=srt.parse(cls._get_lines(buffer)))
+            instance = cls(captions=srt.parse(cls._get_lines(lines)))
         elif format == 'sbv':
-            instance = cls(captions=sbv.parse(cls._get_lines(buffer)))
+            instance = cls(captions=sbv.parse(cls._get_lines(lines)))
         else:
             raise ValueError(f'Format {format} is not supported.')
 
         instance.file = file
+        if bom_encoding:
+            instance.encoding = bom_encoding
+            instance._has_bom = True
         return instance
+
+    @staticmethod
+    def _read_buffer(
+            buffer: typing.Union[typing.Iterable[str], typing.BinaryIO],
+            encoding: typing.Optional[str]
+            ) -> typing.Tuple[typing.Iterable[str], typing.Optional[str]]:
+        """
+        Return the lines of a buffer and the encoding of its BOM.
+
+        A file-like object is read whole, and binary data is decoded with
+        the encoding of its BOM, if any, or else with ``encoding``.
+
+        :param buffer: the file-like object, or an iterable of lines
+        :param encoding: encoding of binary data without a BOM
+        :returns: the lines and the encoding of the BOM of binary data, or
+            None
+
+        :raises TypeError: if the buffer is a string or bytes
+        """
+        if isinstance(buffer, str):
+            raise TypeError(
+                'from_buffer reads a file-like object, not a string: '
+                'use from_string to read a string'
+                )
+
+        if isinstance(buffer, (bytes, bytearray)):
+            raise TypeError(
+                'from_buffer reads a file-like object, not bytes: '
+                'use io.BytesIO to read bytes'
+                )
+
+        read = getattr(buffer, 'read', None)
+        if read is None:
+            return typing.cast(typing.Iterable[str], buffer), None
+
+        data = read()
+        if isinstance(data, str):
+            return [data], None
+
+        bom_encoding = utils._bom_encoding(data)
+        if bom_encoding:
+            data = data[len(utils.CODEC_BOMS[bom_encoding]):]
+        return [data.decode(bom_encoding or encoding or 'utf-8')], bom_encoding
 
     @classmethod
     def from_srt(
