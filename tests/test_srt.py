@@ -122,6 +122,13 @@ class TestSRTModule(unittest.TestCase):
                 ''').strip().split('\n')
             )
 
+    def test_parse_invalid_format_first_line_not_an_index(self):
+        self.assertRaises(
+            MalformedFileError,
+            srt.parse,
+            ['Caption #1', '00:00:00,500 --> 00:00:07,000', 'Caption #2']
+            )
+
     def test_parse_captions(self):
         captions = srt.parse(
             textwrap.dedent('''
@@ -377,6 +384,21 @@ class TestSRTModule(unittest.TestCase):
              'Caption #1',
              '',
              ' 2 ',
+             '00:00:07,000 --> 00:00:11,890',
+             'Caption #2'
+             ]
+            )
+        self.assertEqual(len(captions), 2)
+        self.assertEqual(captions[0].lines, ['Caption #1'])
+        self.assertEqual(captions[1].lines, ['Caption #2'])
+
+    def test_parse_captions_with_whitespace_around_first_index(self):
+        captions = srt.parse(
+            [' 1 ',
+             '00:00:00,500 --> 00:00:07,000',
+             'Caption #1',
+             '',
+             '2',
              '00:00:07,000 --> 00:00:11,890',
              'Caption #2'
              ]

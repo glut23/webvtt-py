@@ -106,7 +106,7 @@ def is_valid_content(lines: typing.Sequence[str]) -> bool:
     """
     return bool(
         len(lines) >= 3 and
-        lines[0].isdigit() and
+        _is_index(lines[0]) and
         '-->' in lines[1]
     )
 
