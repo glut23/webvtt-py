@@ -6,6 +6,7 @@ Unreleased
 
 Changes that may need updates to the code using the library:
 
+* Requires Python 3.10 or later, as Python 3.7, 3.8 and 3.9 are end-of-life (#136, #147)
 * Strict parsing raises ``MalformedCaptionError`` for cues whose end time is not after the start time, for blocks that are not a cue, comment, style or region, such as text without cue timings, for comments where ``NOTE`` is not followed by a space, a tab or a line break, or with ``-->``, and for styles after the first cue (#97, #133)
 * Writing WebVTT raises ``ValueError`` for ``-->`` in a comment or in the header text, which WebVTT does not allow (#134, #135)
 * ``NOTE`` blocks with ``-->`` are not read as comments, and header text with ``-->`` is read as empty, as WebVTT does, so the file can be saved again (#134, #135)

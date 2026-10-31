@@ -19,7 +19,7 @@ To install with easy_install:
 Requirements
 ------------
 
-This module requires Python 3.7+.
+This module requires Python 3.10+.
 
 
 Source code
