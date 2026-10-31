@@ -148,6 +148,42 @@ class TestSBVModule(unittest.TestCase):
                 ''').strip().split('\n')
                 )
 
+    def test_parse_invalid_format_only_blank_lines(self):
+        for lines in ([], [''], ['', ' ', '']):
+            with self.subTest(lines=lines):
+                with self.assertRaises(MalformedFileError):
+                    sbv.parse(lines)
+
+    def test_parse_leading_blank_lines(self):
+        for blank_lines in ([''], ['', ''], [' ', '\t']):
+            with self.subTest(blank_lines=blank_lines):
+                captions = sbv.parse(
+                    blank_lines + ['0:00:01.000,0:00:02.000', 'Caption #1']
+                    )
+
+                self.assertEqual(
+                    [(c.start, c.text) for c in captions],
+                    [('00:00:01.000', 'Caption #1')]
+                    )
+
+    def test_parse_cue_without_text(self):
+        self.assertEqual(sbv.parse(['0:00:01.000,0:00:02.000']), [])
+
+    def test_parse_first_cue_without_text(self):
+        captions = sbv.parse(
+            textwrap.dedent('''
+            0:00:01.000,0:00:02.000
+
+            0:00:03.000,0:00:04.000
+            Caption #2
+            ''').strip().split('\n')
+            )
+
+        self.assertEqual(
+            [(c.start, c.text) for c in captions],
+            [('00:00:03.000', 'Caption #2')]
+            )
+
     def test_parse_captions(self):
         captions = sbv.parse(
             textwrap.dedent('''

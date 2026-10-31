@@ -27,7 +27,7 @@ class SRTCueBlock:
 
     def __init__(
             self,
-            index: str,
+            index: typing.Optional[str],
             start: str,
             end: str,
             payload: typing.Sequence[str]
@@ -35,6 +35,7 @@ class SRTCueBlock:
         """
         Initialize.
 
+        :param index: cue index, or None for a cue without an index
         :param start: start time
         :param end: end time
         :param payload: caption text
@@ -52,13 +53,16 @@ class SRTCueBlock:
         """
         Validate the lines for a match of a cue time block.
 
+        The cue index is optional, as most SRT players read cues without
+        one.
+
         :param lines: the lines to be validated
         :returns: true for a matching cue time block
         """
+        timings = _timings_line(lines)
         return bool(
-          len(lines) >= 2 and
-          _is_index(lines[0]) and
-          re.match(cls.CUE_TIMINGS_PATTERN, lines[1])
+          len(lines) > timings and
+          re.match(cls.CUE_TIMINGS_PATTERN, lines[timings])
           )
 
     @classmethod
@@ -72,12 +76,13 @@ class SRTCueBlock:
         :param lines: the lines of text
         :returns: `SRTCueBlock` instance
         """
-        index = lines[0]
+        timings = _timings_line(lines)
+        index = lines[0] if timings else None
 
-        match = re.match(cls.CUE_TIMINGS_PATTERN, lines[1])
+        match = re.match(cls.CUE_TIMINGS_PATTERN, lines[timings])
         assert match is not None
 
-        payload = lines[2:]
+        payload = lines[timings + 1:]
 
         return cls(index, match.group(1), match.group(2), payload)
 
@@ -101,13 +106,18 @@ def is_valid_content(lines: typing.Sequence[str]) -> bool:
     """
     Validate lines of text for valid SRT content.
 
+    The content is valid when it starts with a cue index and the cue
+    timings, after any blank lines. The first cue can have no text.
+
     :param lines: lines of text
     :returns: true for a valid SRT content
     """
+    start = next((i for i, line in enumerate(lines) if line.strip()),
+                 len(lines))
     return bool(
-        len(lines) >= 3 and
-        _is_index(lines[0]) and
-        '-->' in lines[1]
+        len(lines) >= start + 2 and
+        _is_index(lines[start]) and
+        '-->' in lines[start + 1]
     )
 
 
@@ -130,6 +140,11 @@ def _is_index(line: str) -> bool:
     """Return whether a line can be a cue index, a line with only digits."""
     line = line.strip()
     return line.isascii() and line.isdigit()
+
+
+def _timings_line(lines: typing.Sequence[str]) -> int:
+    """Return the position of the cue timings, after the index if any."""
+    return 1 if lines and _is_index(lines[0]) else 0
 
 
 def _is_index_and_timings(line: str, next_line: str) -> bool:

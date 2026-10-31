@@ -13,6 +13,7 @@ Changes that may need updates to the code using the library:
 * Removed ``Caption.CUE_TEXT_TAGS``, which is no longer used (#139, #153)
 * ``save``, ``save_as_srt`` and the ``-o`` option of the CLI write a path with an extension as given, instead of adding ``.vtt`` or ``.srt`` to it, so ``captions.webvtt`` is no longer saved as ``captions.webvtt.vtt`` (#144, #156)
 * ``from_buffer`` raises ``TypeError`` for a string or bytes, instead of ``MalformedFileError``: use ``from_string`` to read a string, or ``io.BytesIO`` to read bytes (#143, #157)
+* SRT cues without an index are read, as most SRT players do, instead of skipped (#142, #158)
 
 Changes:
 
@@ -27,6 +28,7 @@ Changes:
 * Fixed HLS segments repeating a cue that ends on a segment boundary, and the playlist having no segments for captions without cues, thanks to `@radixun <https://github.com/radixun>`_ (#145, #149)
 * Fixed the ``read_buffer`` deprecation warning pointing at the library instead of the code calling it (#139, #153)
 * Fixed segmenting raising ``IndexError`` for a cue that ends before it starts, which is now written to the segment it starts in (#152, #154)
+* Fixed reading SRT and SBV files that start with blank lines or with a cue without text, which raised ``MalformedFileError`` (#142, #158)
 
 0.6.0 (25-10-2026)
 ------------------

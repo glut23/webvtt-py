@@ -25,7 +25,8 @@ class TestSRTCueBlock(unittest.TestCase):
             ''').strip().split('\n'))
             )
 
-        self.assertFalse(srt.SRTCueBlock.is_valid(textwrap.dedent('''
+        # a cue without an index
+        self.assertTrue(srt.SRTCueBlock.is_valid(textwrap.dedent('''
             00:00:00,500 --> 00:00:07,000
             Caption #1
             ''').strip().split('\n'))
@@ -55,7 +56,7 @@ class TestSRTCueBlock(unittest.TestCase):
             ''').strip().split('\n'))
             )
 
-        self.assertFalse(srt.SRTCueBlock.is_valid(textwrap.dedent('''
+        self.assertTrue(srt.SRTCueBlock.is_valid(textwrap.dedent('''
             00:00:00,500 --> 00:00:07,000
             ''').strip().split('\n'))
             )
@@ -80,6 +81,19 @@ class TestSRTCueBlock(unittest.TestCase):
         self.assertTrue(srt.SRTCueBlock.is_valid(
             ['1', '00:00:00,500 --> 00:00:07,000 X1:100 X2:200', 'Caption #1']
             ))
+
+    def test_from_lines_without_index(self):
+        cue_block = srt.SRTCueBlock.from_lines(
+            ['00:00:00,500 --> 00:00:07,000', 'Caption #1 line 1',
+             'Caption #1 line 2']
+            )
+        self.assertIsNone(cue_block.index)
+        self.assertEqual(cue_block.start, '00:00:00,500')
+        self.assertEqual(cue_block.end, '00:00:07,000')
+        self.assertEqual(
+            cue_block.payload,
+            ['Caption #1 line 1', 'Caption #1 line 2']
+            )
 
     def test_from_lines(self):
         cue_block = srt.SRTCueBlock.from_lines(textwrap.dedent('''
@@ -138,6 +152,48 @@ class TestSRTModule(unittest.TestCase):
             MalformedFileError,
             srt.parse,
             ['Caption #1', '00:00:00,500 --> 00:00:07,000', 'Caption #2']
+            )
+
+    def test_parse_invalid_format_only_blank_lines(self):
+        for lines in ([], [''], ['', ' ', '']):
+            with self.subTest(lines=lines):
+                with self.assertRaises(MalformedFileError):
+                    srt.parse(lines)
+
+    def test_parse_leading_blank_lines(self):
+        for blank_lines in ([''], ['', ''], [' ', '\t']):
+            with self.subTest(blank_lines=blank_lines):
+                captions = srt.parse(
+                    blank_lines +
+                    ['1', '00:00:01,000 --> 00:00:02,000', 'Caption #1']
+                    )
+
+                self.assertEqual(
+                    [(c.start, c.text) for c in captions],
+                    [('00:00:01.000', 'Caption #1')]
+                    )
+
+    def test_parse_cue_without_text(self):
+        self.assertEqual(
+            srt.parse(['1', '00:00:01,000 --> 00:00:02,000']),
+            []
+            )
+
+    def test_parse_first_cue_without_text(self):
+        captions = srt.parse(
+            textwrap.dedent('''
+            1
+            00:00:01,000 --> 00:00:02,000
+
+            2
+            00:00:03,000 --> 00:00:04,000
+            Caption #2
+            ''').strip().split('\n')
+            )
+
+        self.assertEqual(
+            [(c.start, c.text) for c in captions],
+            [('00:00:03.000', 'Caption #2')]
             )
 
     def test_parse_captions(self):
@@ -418,7 +474,7 @@ class TestSRTModule(unittest.TestCase):
         self.assertEqual(captions[0].lines, ['Caption #1'])
         self.assertEqual(captions[1].lines, ['Caption #2'])
 
-    def test_parse_skips_cue_without_index(self):
+    def test_parse_cue_without_index(self):
         captions = srt.parse(
             textwrap.dedent('''
             1
@@ -433,9 +489,11 @@ class TestSRTModule(unittest.TestCase):
             Caption #3
             ''').strip().split('\n')
             )
-        self.assertEqual(len(captions), 2)
-        self.assertEqual(captions[0].lines, ['Caption #1'])
-        self.assertEqual(captions[1].lines, ['Caption #3'])
+        self.assertEqual(
+            [caption.lines for caption in captions],
+            [['Caption #1'], ['Caption #2'], ['Caption #3']]
+            )
+        self.assertEqual(captions[1].start, '00:00:07.000')
 
     def test_parse_ignores_text_attached_to_end_timestamp(self):
         captions = srt.parse(
