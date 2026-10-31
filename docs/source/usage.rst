@@ -803,10 +803,17 @@ malformed timings such as ``00:00:00.-004 --> 00:00:04.300`` or out of
 range ones such as ``00:00:61.000 --> 00:00:62.000`` is skipped.
 To validate the content, pass ``strict=True`` to ``read``,
 ``from_buffer`` or ``from_string`` and a ``MalformedCaptionError`` is
-raised instead. Strict parsing also raises the error for timestamps that
-are not in the WebVTT format, for cue and region settings that are not
-known, not valid or repeated, and when a cue is not separated from the
-previous cue, comment or style by an empty line:
+raised instead. Strict parsing also raises the error for:
+
+* timestamps that are not in the WebVTT format
+* cues whose end time is not after the start time
+* cue and region settings that are not known, not valid or repeated
+* blocks after the header that are not a cue, comment, style or region,
+  such as text without cue timings, or a comment that does not start with
+  ``NOTE`` followed by a space, a tab or a line break, or contains ``-->``
+* styles and regions after the first cue
+* a cue that is not separated from the previous cue, comment or style by
+  an empty line
 
 .. code-block:: python
 
@@ -816,4 +823,4 @@ previous cue, comment or style by an empty line:
     try:
         vtt = webvtt.read('captions.vtt', strict=True)
     except MalformedCaptionError as e:
-        print(f'captions.vtt has a malformed cue: {e}')
+        print(f'captions.vtt is not valid WebVTT: {e}')

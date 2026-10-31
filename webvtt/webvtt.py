@@ -135,13 +135,13 @@ class WebVTT:
 
         :param file: the file path
         :param encoding: encoding of the file
-        :param strict: raise an error on malformed cue blocks instead of
-            ignoring them
+        :param strict: raise an error on blocks that are not valid WebVTT
+            instead of ignoring them
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the file is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp,
-            or if strict and a cue block is malformed
+            or if strict and a block is not valid WebVTT
         """
         with utils.FileWrapper.open(file, encoding=encoding) as fw:
             instance = cls.from_buffer(fw.file, strict=strict)
@@ -187,13 +187,13 @@ class WebVTT:
 
         :param buffer: the file-like object to read captions from
         :param format: the format of the data (vtt, srt or sbv)
-        :param strict: raise an error on malformed cue blocks instead of
-            ignoring them, only for the vtt format
+        :param strict: raise an error on blocks that are not valid WebVTT
+            instead of ignoring them, only for the vtt format
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the data is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp,
-            or if strict and a cue block is malformed
+            or if strict and a block is not valid WebVTT
         :raises ValueError: if the format is not supported
         """
         file = getattr(buffer, 'name', None)
@@ -266,13 +266,13 @@ class WebVTT:
         Read captions from a string.
 
         :param string: the captions in a string
-        :param strict: raise an error on malformed cue blocks instead of
-            ignoring them
+        :param strict: raise an error on blocks that are not valid WebVTT
+            instead of ignoring them
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the string is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp,
-            or if strict and a cue block is malformed
+            or if strict and a block is not valid WebVTT
         """
         output = vtt.parse(cls._get_lines([string]), strict)
         return cls(

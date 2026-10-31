@@ -1347,6 +1347,12 @@ class TestWebVTT(unittest.TestCase):
         vtt = webvtt.read(PATH_TO_SAMPLES / 'missing_timeframe.vtt')
         self.assertEqual(len(vtt.captions), 6)
 
+    def test_caption_without_timeframe_strict(self):
+        with self.assertRaises(MalformedCaptionError) as cm:
+            webvtt.read(PATH_TO_SAMPLES / 'missing_timeframe.vtt',
+                        strict=True)
+        self.assertIn('Caption text #2', str(cm.exception))
+
     def test_caption_without_cue_text(self):
         vtt = webvtt.read(PATH_TO_SAMPLES / 'missing_caption_text.vtt')
         self.assertEqual(len(vtt.captions), 5)
