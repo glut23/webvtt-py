@@ -19,6 +19,7 @@ Changes:
 * Fixed non-ASCII digits read as numbers in timestamps and SRT cue indexes, thanks to `@emirmrkaljevic <https://github.com/emirmrkaljevic>`_ (#140, #147)
 * Fixed comparing a ``Timestamp`` with other types raising ``AttributeError``: ``==`` returns ``False`` and ordering comparisons raise ``TypeError`` (#137, #150)
 * Fixed the SRT output not ending with a line break (#138, #151)
+* Fixed HLS segments repeating a cue that ends on a segment boundary, and the playlist having no segments for captions without cues, thanks to `@radixun <https://github.com/radixun>`_ (#145, #149)
 
 0.6.0 (25-10-2026)
 ------------------

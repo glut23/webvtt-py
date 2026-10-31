@@ -100,7 +100,7 @@ def slice_segments(
     _check_seconds(seconds)
 
     total_segments = (
-        0
+        1
         if not captions else
         floor(max(c.end_in_seconds for c in captions) / seconds) + 1
     )
@@ -114,10 +114,15 @@ def slice_segments(
         segments[segment_index_start].append(c)
 
         # Also include a caption in other segments based on the end time.
-        segment_index_end = floor(c.end_in_seconds / seconds)
+        segment_index_end = (
+            (c.end_time.in_milliseconds() - 1) // (seconds * 1000)
+            )
         if segment_index_end > segment_index_start:
             for i in range(segment_index_start + 1, segment_index_end + 1):
                 segments[i].append(c)
+
+    if len(segments) > 1 and not segments[-1]:
+        segments.pop()
 
     return segments
 

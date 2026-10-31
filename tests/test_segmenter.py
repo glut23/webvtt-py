@@ -345,17 +345,42 @@ class TestSegmenter(unittest.TestCase):
 
         self.assertEqual(
             [[c.text for c in segment] for segment in segments],
-            [['first', 'second'], ['second']]
+            [['first', 'second']]
             )
 
-    def test_slice_segments_last_caption_ends_mid_second(self):
-        captions = [Caption('00:00.000', '00:10.500', 'only')]
+    def test_slice_segments_caption_ends_on_internal_boundary(self):
+        captions = [
+            Caption('00:01.000', '00:10.000', 'first'),
+            Caption('00:10.000', '00:10.001', 'second'),
+            ]
 
         segments = segmenter.slice_segments(captions, 10)
 
         self.assertEqual(
             [[c.text for c in segment] for segment in segments],
-            [['only'], ['only']]
+            [['first'], ['second']]
+            )
+
+    def test_slice_segments_last_caption_ends_mid_second(self):
+        for end in ('00:10.001', '00:10.500'):
+            with self.subTest(end=end):
+                captions = [Caption('00:00.000', end, 'only')]
+
+                segments = segmenter.slice_segments(captions, 10)
+
+                self.assertEqual(
+                    [[c.text for c in segment] for segment in segments],
+                    [['only'], ['only']]
+                    )
+
+    def test_slice_segments_zero_duration_caption_on_boundary(self):
+        captions = [Caption('00:10.000', '00:10.000', 'only')]
+
+        segments = segmenter.slice_segments(captions, 10)
+
+        self.assertEqual(
+            [[c.text for c in segment] for segment in segments],
+            [[], ['only']]
             )
 
     def test_slice_segments_caption_ends_after_last_caption(self):
@@ -529,8 +554,15 @@ class TestSegmenter(unittest.TestCase):
         _, dirs, files = next(os.walk(self.temp_dir.name))
 
         self.assertEqual(len(dirs), 0)
-        self.assertEqual(len(files), 1)
+        self.assertEqual(len(files), 2)
         self.assertIn('prog_index.m3u8', files)
+        self.assertIn('fileSequence0.webvtt', files)
+
+        self.assertEqual(
+            (pathlib.Path(self.temp_dir.name) / 'fileSequence0.webvtt').read_text(),
+            'WEBVTT\n'
+            'X-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000\n'
+            )
 
         self.assertEqual(
             (pathlib.Path(self.temp_dir.name) / 'prog_index.m3u8').read_text(),
@@ -540,6 +572,8 @@ class TestSegmenter(unittest.TestCase):
                 #EXT-X-TARGETDURATION:10
                 #EXT-X-VERSION:3
                 #EXT-X-PLAYLIST-TYPE:VOD
+                #EXTINF:10.00000,
+                fileSequence0.webvtt
                 #EXT-X-ENDLIST
                 '''
                 ).lstrip()
