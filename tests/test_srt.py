@@ -541,7 +541,29 @@ class TestSRTModule(unittest.TestCase):
                 00:00:07,000 --> 00:00:11,890
                 Caption #2 line 1
                 Caption #2 line 2
-            ''').strip()
+            ''').strip() + '\n'
+            )
+
+    def test_write_no_captions(self):
+        out = io.StringIO()
+
+        srt.write(out, [])
+
+        self.assertEqual(out.getvalue(), '')
+
+    def test_write_keeps_trailing_spaces_of_the_last_caption(self):
+        out = io.StringIO()
+        captions = [
+            Caption(start='00:00:01.000', end='00:00:02.000', text='a  '),
+            Caption(start='00:00:02.000', end='00:00:03.000', text='b  ')
+            ]
+
+        srt.write(out, captions)
+
+        self.assertEqual(
+            out.getvalue(),
+            '1\n00:00:01,000 --> 00:00:02,000\na  \n\n'
+            '2\n00:00:02,000 --> 00:00:03,000\nb  \n'
             )
 
     def test_write_skips_whitespace_lines(self):
@@ -571,7 +593,7 @@ class TestSRTModule(unittest.TestCase):
                 2
                 00:00:05,660 --> 00:00:05,670
                 Caption #1
-            ''').strip()
+            ''').strip() + '\n'
             )
 
     def test_write_without_styles_removes_cue_tags(self):
@@ -587,7 +609,7 @@ class TestSRTModule(unittest.TestCase):
 
         self.assertEqual(
             out.getvalue(),
-            '1\n00:00:00,500 --> 00:00:07,000\nCaption #1'
+            '1\n00:00:00,500 --> 00:00:07,000\nCaption #1\n'
             )
 
     def test_write_with_styles_keeps_formatting(self):
@@ -619,7 +641,7 @@ class TestSRTModule(unittest.TestCase):
                 2
                 00:00:07,000 --> 00:00:11,890
                 Caption #2
-            ''').strip()
+            ''').strip() + '\n'
             )
 
     def test_write_with_empty_styles_keeps_bold_italic_underline(self):
@@ -636,7 +658,7 @@ class TestSRTModule(unittest.TestCase):
         self.assertEqual(
             out.getvalue(),
             '1\n00:00:00,500 --> 00:00:07,000\n'
-            '<b>bold</b> <i>italic</i> <u>underline</u>'
+            '<b>bold</b> <i>italic</i> <u>underline</u>\n'
             )
 
 
