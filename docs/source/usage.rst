@@ -455,6 +455,11 @@ is read as ``00:00:08.500``. The hours and the milliseconds are required, and
 a cue without them is skipped. The cue timings of SBV carry over in the same
 way, so ``0:61:00.000`` is read as ``01:01:00.000``.
 
+Blank lines at the start of SRT and SBV files are skipped, and cues without
+text are skipped, so a file whose first cue has no text is read. SRT cues
+without an index are read, as most SRT players do, but the first cue of the
+file needs one for the content to be read as SRT.
+
 Convert WebVTT captions to other formats:
 
 * SubRip (.srt)

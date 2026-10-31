@@ -88,14 +88,17 @@ def _is_valid_content(lines: typing.Sequence[str]) -> bool:
     """
     Validate lines of text for valid SBV content.
 
+    The content is valid when it starts with the cue timings, after any
+    blank lines. The first cue can have no text.
+
     :param lines: lines of text
     :returns: true for a valid SBV content
     """
-    if len(lines) < 2:
-        return False
-
-    first_block = next(utils.iter_blocks_of_lines(lines))
-    return bool(first_block and SBVCueBlock.is_valid(first_block))
+    first_block = next(utils.iter_blocks_of_lines(lines), None)
+    return bool(
+        first_block and
+        re.match(SBVCueBlock.CUE_TIMINGS_PATTERN, first_block[0])
+        )
 
 
 def _parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
