@@ -1,3 +1,4 @@
+import codecs
 import datetime
 import fractions
 import unittest
@@ -528,6 +529,85 @@ class TestWebVTT(unittest.TestCase):
                         [(c.start, c.end, c.text) for c in actual],
                         [(c.start, c.end, c.text) for c in expected]
                         )
+
+    def test_from_buffer_binary_file(self):
+        for format in ('vtt', 'srt', 'sbv'):
+            sample = PATH_TO_SAMPLES / ('sample.' + format)
+            expected = webvtt.from_buffer(
+                io.StringIO(sample.read_text()), format=format
+                )
+            with self.subTest(format=format), open(sample, 'rb') as f:
+                actual = webvtt.from_buffer(f, format=format)
+
+                self.assertEqual(
+                    [(c.start, c.end, c.text) for c in actual],
+                    [(c.start, c.end, c.text) for c in expected]
+                    )
+                self.assertEqual(actual.file, str(sample))
+                self.assertFalse(f.closed)
+
+    def test_from_buffer_binary_with_bom(self):
+        content = 'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCaption ñ\n'
+        for encoding in CODEC_BOMS:
+            with self.subTest(encoding=encoding):
+                vtt = webvtt.from_buffer(io.BytesIO(
+                    CODEC_BOMS[encoding] + content.encode(encoding)
+                    ))
+
+                self.assertEqual(vtt[0].text, 'Caption ñ')
+                self.assertEqual(vtt.encoding, encoding)
+                self.assertEqual(vtt.content, content)
+
+    def test_from_buffer_binary_with_bom_saves_bom(self):
+        content = 'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCaption ñ\n'
+        vtt = webvtt.from_buffer(io.BytesIO(
+            codecs.BOM_UTF16_LE + content.encode('utf-16-le')
+            ))
+        with tempfile.TemporaryDirectory() as td:
+            output = os.path.join(td, 'captions.vtt')
+            vtt.save(output)
+
+            self.assertTrue(
+                pathlib.Path(output).read_bytes().startswith(
+                    codecs.BOM_UTF16_LE
+                    )
+                )
+
+    def test_from_buffer_binary_encoding(self):
+        content = 'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCaption ñ\n'
+        buffer = io.BytesIO(content.encode('latin-1'))
+
+        vtt = webvtt.from_buffer(buffer, encoding='latin-1')
+
+        self.assertEqual(vtt[0].text, 'Caption ñ')
+        self.assertEqual(vtt.encoding, webvtt.webvtt.DEFAULT_ENCODING)
+
+        buffer.seek(0)
+        with self.assertRaises(UnicodeDecodeError):
+            webvtt.from_buffer(buffer)
+
+    def test_from_buffer_bom_before_encoding(self):
+        content = 'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCaption ñ\n'
+        vtt = webvtt.from_buffer(
+            io.BytesIO(codecs.BOM_UTF8 + content.encode('utf-8')),
+            encoding='latin-1'
+            )
+
+        self.assertEqual(vtt[0].text, 'Caption ñ')
+        self.assertEqual(vtt.encoding, 'utf-8')
+
+    def test_from_buffer_string(self):
+        content = 'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCaption\n'
+        for buffer, hint in (
+                (content, 'use from_string'),
+                (content.encode('utf-8'), 'use io.BytesIO'),
+                (bytearray(content.encode('utf-8')), 'use io.BytesIO')
+                ):
+            with self.subTest(buffer=type(buffer)):
+                with self.assertRaises(TypeError) as cm:
+                    webvtt.from_buffer(buffer)
+
+                self.assertIn(hint, str(cm.exception))
 
     def test_get_lines_preserves_bom_in_caption_text(self):
         self.assertEqual(

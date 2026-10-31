@@ -48,8 +48,13 @@ Reading WebVTT caption files from a file-like object
         print(caption.text)
 
 
-Reading WebVTT caption files from a BytesIO object
---------------------------------------------------
+Reading caption files from a binary file-like object
+----------------------------------------------------
+
+Binary data, such as a file opened in ``'rb'`` mode or a ``BytesIO`` object,
+is decoded with the encoding of its Byte Order Mark, if any, or else with
+``encoding``, UTF-8 by default. With a Byte Order Mark, saving keeps its
+encoding and the Byte Order Mark, as when reading a file.
 
 .. code-block:: python
 
@@ -57,30 +62,18 @@ Reading WebVTT caption files from a BytesIO object
     from io import BytesIO
 
     with open('captions.vtt', 'rb') as f:
-        buffer = BytesIO(f.read())
-
-    for caption in webvtt.from_buffer(buffer):
-        print(caption.start)
-        print(caption.end)
-        print(caption.text)
-
-
-Reading caption files in other formats from a BytesIO object
-------------------------------------------------------------
-
-.. code-block:: python
-
-    import webvtt
-    from io import BytesIO
-
-    with open('captions.srt', 'rb') as f:
-        buffer = BytesIO(f.read())
+        vtt = webvtt.from_buffer(f)
 
     # formats supported: vtt, srt, sbv
-    for caption in webvtt.from_buffer(buffer, format='srt'):
-        print(caption.start)
-        print(caption.end)
-        print(caption.text)
+    with open('captions.srt', 'rb') as f:
+        vtt = webvtt.from_buffer(f, format='srt')
+
+    # binary data in another encoding without a Byte Order Mark
+    buffer = BytesIO('WEBVTT\n'.encode('latin-1'))
+    vtt = webvtt.from_buffer(buffer, encoding='latin-1')
+
+A string is not a file-like object and raises ``TypeError``: use
+``from_string`` to read captions from a string.
 
 
 Reading WebVTT captions from a string
