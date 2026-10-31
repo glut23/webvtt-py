@@ -4,7 +4,14 @@ History
 Unreleased
 ----------
 
+Changes that may need updates to the code using the library:
+
+* Strict parsing raises ``MalformedCaptionError`` for cues whose end time is not after the start time, for blocks that are not a cue, comment, style or region, such as text without cue timings, and for styles after the first cue (#97, #133)
+
+Changes:
+
 * Fixed reading SRT files with whitespace around the first cue index, thanks to `@youdie006 <https://github.com/youdie006>`_ (#130)
+* Fixed WebVTT styles ignored when ``STYLE`` is followed by whitespace (#133)
 
 0.6.0 (25-10-2026)
 ------------------

@@ -200,15 +200,26 @@ class WebVTTCommentBlock:
     @classmethod
     def is_valid(
             cls,
-            lines: typing.Sequence[str]
+            lines: typing.Sequence[str],
+            strict: bool = False
             ) -> bool:
         """
         Validate the lines for a match of a comment block.
 
+        Any block starting with ``NOTE`` is a comment unless strict, which
+        follows WebVTT: ``NOTE`` is followed by a space, a tab or the end of
+        the line, and no line contains ``-->``.
+
         :param lines: the lines to be validated
+        :param strict: only accept comments in the WebVTT format
         :returns: true for a matching comment block
         """
-        return bool(lines and lines[0].startswith('NOTE'))
+        if not (lines and lines[0].startswith('NOTE')):
+            return False
+        return not strict or (
+            lines[0][len('NOTE'):][:1] in ('', ' ', '\t') and
+            not _has_arrow(lines)
+            )
 
     @classmethod
     def from_lines(
@@ -261,11 +272,15 @@ class WebVTTStyleBlock:
         """
         Validate the lines for a match of a style block.
 
+        The first line is ``STYLE``, optionally followed by whitespace,
+        and the style sheet follows in the next lines.
+
         :param lines: the lines to be validated
         :returns: true for a matching style block
         """
         return (len(lines) >= 2 and
-                lines[0] == 'STYLE' and
+                lines[0].startswith('STYLE') and
+                not lines[0][len('STYLE'):].strip(' \t\x0c') and
                 not any(not line or '-->' in line for line in lines)
                 )
 
@@ -334,12 +349,13 @@ def parse(
     Parse VTT captions from lines of text.
 
     :param lines: lines of text
-    :param strict: raise an error on malformed cue blocks instead of
-        ignoring them
+    :param strict: raise an error on blocks that are not valid WebVTT
+        instead of ignoring them
     :returns: object `ParserOutput` with all parsed items
 
     :raises MalformedFileError: if the content is not in WebVTT format
-    :raises MalformedCaptionError: if strict and a cue block is malformed
+    :raises MalformedCaptionError: if strict and a block is not valid
+        WebVTT
     """
     if not is_valid_content(lines):
         raise MalformedFileError('Invalid format')
@@ -435,19 +451,22 @@ def parse_items(
     """
     Parse items from the text.
 
+    The lines can start with the header block, which is not an item.
+
     :param lines: lines of text
-    :param strict: raise an error on malformed cue blocks instead of
-        ignoring them
+    :param strict: raise an error on blocks that are not valid WebVTT
+        instead of ignoring them
     :returns: an object `ParserOutput` with all parsed items
 
-    :raises MalformedCaptionError: if strict and a cue block is malformed
+    :raises MalformedCaptionError: if strict and a block other than the
+        header is not a valid cue, comment, style or region
     """
     header_comments: typing.List[str] = []
     items: typing.List[typing.Union[Caption, Style, Region]] = []
     comments: typing.List[WebVTTCommentBlock] = []
     seen_cue = False
 
-    for block_lines in _iter_blocks_of_lines(lines, strict):
+    for index, block_lines in enumerate(_iter_blocks_of_lines(lines, strict)):
         item = parse_item(block_lines, strict, seen_cue)
         if not seen_cue:
             seen_cue = _has_arrow(block_lines)
@@ -455,12 +474,10 @@ def parse_items(
             item.comments = [comment.text for comment in comments]
             comments = []
             items.append(item)
-        elif WebVTTCommentBlock.is_valid(block_lines):
+        elif WebVTTCommentBlock.is_valid(block_lines, strict):
             comments.append(WebVTTCommentBlock.from_lines(block_lines))
-        elif strict and _has_arrow(block_lines):
-            raise MalformedCaptionError(
-                f'Invalid cue block {block_lines!r}'
-                )
+        elif strict and not _is_header(index, block_lines):
+            raise _invalid_block_error(block_lines)
 
     if items:
         header_comments, items[0].comments = items[0].comments, header_comments
@@ -471,6 +488,30 @@ def parse_items(
          'footer_comments': [comment.text for comment in comments]
          }
         )
+
+
+def _is_header(index: int, lines: typing.Sequence[str]) -> bool:
+    """
+    Return whether a block is the header block of the file.
+
+    :param index: the position of the block in the file
+    :param lines: the lines of the block
+    :returns: true for the first block when it starts with "WEBVTT"
+    """
+    return index == 0 and is_valid_content(lines)
+
+
+def _invalid_block_error(
+        lines: typing.Sequence[str]
+        ) -> MalformedCaptionError:
+    """
+    Return the error for a block that is not valid WebVTT.
+
+    :param lines: the lines of the block
+    :returns: the error, naming the block a cue block if it has "-->"
+    """
+    kind = 'cue block' if _has_arrow(lines) else 'block'
+    return MalformedCaptionError(f'Invalid {kind} {lines!r}')
 
 
 def _parse_header(
@@ -627,29 +668,21 @@ def parse_item(
     :param lines: lines of text
     :param strict: only accept cue timestamps in the WebVTT format and
         raise an error for cues with an invalid timestamp or cue setting,
-        and for regions with an invalid region setting
+        or an end time that is not after the start time, for regions with
+        an invalid region setting, and for regions and styles after a cue
     :param seen_cue: true if a cue came before, so the lines cannot be a
-        region as regions are only defined before the first cue
+        region as regions are only defined before the first cue, nor a
+        style when strict
     :returns: An item (Caption, Style or Region) if found, otherwise None
 
     :raises MalformedCaptionError: if strict and a cue has an invalid
         timestamp or a cue setting that is not known, not valid or
-        repeated, or a region has a region setting that is not known, not
-        valid or repeated, or a region comes after a cue
+        repeated, or an end time that is not after the start time, or a
+        region has a region setting that is not known, not valid or
+        repeated, or a region or a style comes after a cue
     """
     if WebVTTCueBlock.is_valid(lines, strict):
-        cue_block = WebVTTCueBlock.from_lines(lines)
-        try:
-            return Caption(cue_block.start,
-                           cue_block.end,
-                           cue_block.payload,
-                           cue_block.identifier,
-                           CueSettings.from_string(cue_block.settings, strict)
-                           )
-        except MalformedCaptionError:
-            if strict:
-                raise
-            return None
+        return _parse_cue(lines, strict)
 
     if WebVTTRegionBlock.is_valid(lines):
         if not seen_cue:
@@ -659,9 +692,44 @@ def parse_item(
         return None
 
     if WebVTTStyleBlock.is_valid(lines):
+        if strict and seen_cue:
+            raise MalformedCaptionError(f'Style block after a cue {lines!r}')
         return Style(WebVTTStyleBlock.from_lines(lines).text)
 
     return None
+
+
+def _parse_cue(
+        lines: typing.Sequence[str],
+        strict: bool = False
+        ) -> typing.Optional[Caption]:
+    """
+    Parse a cue from the lines of a cue block.
+
+    :param lines: the lines of a cue block
+    :param strict: raise an error for an invalid timestamp or cue setting,
+        or an end time that is not after the start time
+    :returns: a `Caption`, or None if the cue is malformed and not strict
+
+    :raises MalformedCaptionError: if strict and the cue is malformed
+    """
+    cue_block = WebVTTCueBlock.from_lines(lines)
+    try:
+        caption = Caption(cue_block.start,
+                          cue_block.end,
+                          cue_block.payload,
+                          cue_block.identifier,
+                          CueSettings.from_string(cue_block.settings, strict)
+                          )
+    except MalformedCaptionError:
+        if strict:
+            raise
+        return None
+    if strict and caption.end_time <= caption.start_time:
+        raise MalformedCaptionError(
+            f'Cue end time is not after the start time {lines!r}'
+            )
+    return caption
 
 
 def write(
