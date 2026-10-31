@@ -109,7 +109,7 @@ class TestWebVTT(unittest.TestCase):
                 00:00:07,000 --> 00:00:11,890
                 New caption text line1
                 New caption text line2
-            ''').strip()
+            ''').strip() + '\n'
             )
 
     def test_write_captions_in_srt_no_cuetags(self):
@@ -133,7 +133,7 @@ class TestWebVTT(unittest.TestCase):
             3
             00:00:20,500 --> 00:00:21,500
             That's amore
-            ''').strip()
+            ''').strip() + '\n'
             )
 
     def test_write_captions_in_unsupported_format(self):
@@ -564,7 +564,7 @@ class TestWebVTT(unittest.TestCase):
         self.assertEqual(
             out.getvalue(),
             '1\n00:00:00,500 --> 00:00:07,000\n'
-            'line 1\u2028still line 1\nline 2'
+            'line 1\u2028still line 1\nline 2\n'
             )
 
     def test_read_bytesio_buffer_for_srt_content(self):
@@ -776,7 +776,7 @@ class TestWebVTT(unittest.TestCase):
         vtt.write(output, format='srt')
         self.assertEqual(
             output.getvalue(),
-            '1\n00:00:01,000 --> 00:00:03,000\nTop left'
+            '1\n00:00:01,000 --> 00:00:03,000\nTop left\n'
             )
 
     def test_save_as_srt_keeping_formatting(self):
@@ -797,7 +797,7 @@ class TestWebVTT(unittest.TestCase):
         self.assertEqual(
             output.getvalue(),
             '1\n00:00:01,000 --> 00:00:03,000\n'
-            '<font color="yellow">Hello <b>world</b></font>'
+            '<font color="yellow">Hello <b>world</b></font>\n'
             )
 
     def test_save_as_srt_keeping_formatting_ignored_for_vtt(self):
@@ -1555,7 +1555,7 @@ class TestWebVTT(unittest.TestCase):
         vtt.write(out, format='srt')
         self.assertEqual(
             out.getvalue(),
-            '1\n00:00:00,500 --> 00:00:07,000\nCaption #1'
+            '1\n00:00:00,500 --> 00:00:07,000\nCaption #1\n'
             )
 
     def test_parse_identifiers(self):

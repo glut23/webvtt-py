@@ -408,4 +408,4 @@ def write(
             *(line for line in text.split('\n') if line.strip()),
             ''
             ])
-    f.write('\n'.join(output).rstrip())
+    f.write('\n'.join(output))
