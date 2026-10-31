@@ -279,8 +279,7 @@ class WebVTTStyleBlock:
         :returns: true for a matching style block
         """
         return (len(lines) >= 2 and
-                lines[0].startswith('STYLE') and
-                not lines[0][len('STYLE'):].strip(' \t\x0c') and
+                _is_keyword_line(lines[0], 'STYLE') and
                 not any(not line or '-->' in line for line in lines)
                 )
 
@@ -325,8 +324,7 @@ class WebVTTRegionBlock:
         """
         return bool(
             lines and
-            lines[0].startswith('REGION') and
-            not lines[0][len('REGION'):].strip(' \t\x0c') and
+            _is_keyword_line(lines[0], 'REGION') and
             not _has_arrow(lines)
             )
 
@@ -444,6 +442,18 @@ def _has_arrow(lines: typing.Iterable[str]) -> bool:
     return any('-->' in line for line in lines)
 
 
+def _is_keyword_line(line: str, keyword: str) -> bool:
+    """
+    Return whether a line is a block keyword, optionally followed by spaces.
+
+    :param line: the first line of a block
+    :param keyword: the keyword, such as ``STYLE`` or ``REGION``
+    :returns: true if the line is the keyword followed only by whitespace
+    """
+    return (line.startswith(keyword) and
+            not line[len(keyword):].strip(' \t\x0c'))
+
+
 def parse_items(
         lines: typing.Sequence[str],
         strict: bool = False
@@ -496,9 +506,10 @@ def _is_header(index: int, lines: typing.Sequence[str]) -> bool:
 
     :param index: the position of the block in the file
     :param lines: the lines of the block
-    :returns: true for the first block when it starts with "WEBVTT"
+    :returns: true for the first block when it starts with "WEBVTT" and
+        has no "-->", which the header cannot contain
     """
-    return index == 0 and is_valid_content(lines)
+    return index == 0 and is_valid_content(lines) and not _has_arrow(lines)
 
 
 def _invalid_block_error(

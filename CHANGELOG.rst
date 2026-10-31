@@ -6,7 +6,7 @@ Unreleased
 
 Changes that may need updates to the code using the library:
 
-* Strict parsing raises ``MalformedCaptionError`` for cues whose end time is not after the start time, for blocks that are not a cue, comment, style or region, such as text without cue timings, and for styles after the first cue (#97, #133)
+* Strict parsing raises ``MalformedCaptionError`` for cues whose end time is not after the start time, for blocks that are not a cue, comment, style or region, such as text without cue timings, for comments where ``NOTE`` is not followed by a space, a tab or a line break, or with ``-->``, and for styles after the first cue (#97, #133)
 
 Changes:
 

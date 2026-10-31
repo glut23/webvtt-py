@@ -1447,6 +1447,16 @@ class TestVTTModule(unittest.TestCase):
             ['', 'comment after a tab', 'comment on the next line']
             )
 
+    def test_parse_strict_header_with_cue_timings_arrow(self):
+        with self.assertRaises(MalformedCaptionError) as cm:
+            vtt.parse(
+                ['WEBVTT a --> b', '',
+                 '00:00:00.500 --> 00:00:04.300', 'Caption text'],
+                strict=True
+                )
+        self.assertIn("Invalid cue block ['WEBVTT a --> b']",
+                      str(cm.exception))
+
     def test_parse_style_with_whitespace_after_style(self):
         output = vtt.parse(
             ['WEBVTT', '', 'STYLE \t', '::cue { color: papayawhip; }', '',
