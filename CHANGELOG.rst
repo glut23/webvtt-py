@@ -22,6 +22,7 @@ Changes:
 * Fixed the SRT output not ending with a line break (#138, #151)
 * Fixed HLS segments repeating a cue that ends on a segment boundary, and the playlist having no segments for captions without cues, thanks to `@radixun <https://github.com/radixun>`_ (#145, #149)
 * Fixed the ``read_buffer`` deprecation warning pointing at the library instead of the code calling it (#139, #153)
+* Fixed segmenting raising ``IndexError`` for a cue that ends before it starts, which is now written to the segment it starts in (#152, #154)
 
 0.6.0 (25-10-2026)
 ------------------

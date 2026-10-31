@@ -3,7 +3,6 @@
 import typing
 import os
 import pathlib
-from math import floor
 
 from . import utils, vtt
 from .models import Caption, Region, Style
@@ -99,30 +98,27 @@ def slice_segments(
     """
     _check_seconds(seconds)
 
-    total_segments = (
-        1
-        if not captions else
-        floor(max(c.end_in_seconds for c in captions) / seconds) + 1
-    )
+    segment_milliseconds = seconds * 1000
+    # the first and the last segment of each caption, the end time
+    # exclusive, so a caption ending on a boundary is not in the next one
+    indexes = [
+        (c.start_time.in_milliseconds() // segment_milliseconds,
+         (c.end_time.in_milliseconds() - 1) // segment_milliseconds)
+        for c in captions
+        ]
+    # one segment at least, so the playlist is not empty
+    total_segments = max(
+        (max(first, last) for first, last in indexes), default=0
+        ) + 1
 
     segments: typing.List[typing.List[Caption]] = [
         [] for _ in range(total_segments)
         ]
 
-    for c in captions:
-        segment_index_start = floor(c.start_in_seconds / seconds)
-        segments[segment_index_start].append(c)
-
-        # Also include a caption in other segments based on the end time.
-        segment_index_end = (
-            (c.end_time.in_milliseconds() - 1) // (seconds * 1000)
-            )
-        if segment_index_end > segment_index_start:
-            for i in range(segment_index_start + 1, segment_index_end + 1):
-                segments[i].append(c)
-
-    if len(segments) > 1 and not segments[-1]:
-        segments.pop()
+    for c, (first, last) in zip(captions, indexes):
+        # a caption ending before it starts is in the segment it starts in
+        for i in range(first, max(first, last) + 1):
+            segments[i].append(c)
 
     return segments
 

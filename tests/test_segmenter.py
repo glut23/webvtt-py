@@ -396,6 +396,30 @@ class TestSegmenter(unittest.TestCase):
             [['long', 'short'], ['long'], ['long'], ['long']]
             )
 
+    def test_slice_segments_caption_ends_before_it_starts(self):
+        captions = [Caption('00:25.000', '00:05.000', 'backwards')]
+
+        segments = segmenter.slice_segments(captions, 10)
+
+        self.assertEqual(
+            [[c.text for c in segment] for segment in segments],
+            [[], [], ['backwards']]
+            )
+
+    def test_slice_segments_caption_ends_before_it_starts_with_others(self):
+        captions = [
+            Caption('00:01.000', '00:15.000', 'first'),
+            Caption('00:12.000', '00:11.000', 'backwards'),
+            Caption('00:30.000', '00:29.000', 'last'),
+            ]
+
+        segments = segmenter.slice_segments(captions, 10)
+
+        self.assertEqual(
+            [[c.text for c in segment] for segment in segments],
+            [['first'], ['first', 'backwards'], [], ['last']]
+            )
+
     def test_segmentation_keeps_cue_settings(self):
         webvtt_path = pathlib.Path(self.temp_dir.name) / 'captions.vtt'
         webvtt_path.write_text(textwrap.dedent('''
