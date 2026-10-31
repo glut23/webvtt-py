@@ -340,7 +340,8 @@ class WebVTT:
             new_filename = f'{base_name}.{extension}'
             return os.path.join(target, new_filename)
 
-        if target[-4:].lower() != f'.{extension}':
+        # a path with an extension is written as given, e.g. .webvtt
+        if not os.path.splitext(target)[1]:
             target = f'{target}.{extension}'
 
         # store the file in the specified full path
@@ -359,7 +360,9 @@ class WebVTT:
         encoding, such as a character the encoding cannot write, leaves an
         existing file unchanged.
 
-        :param output: destination path of the file
+        :param output: destination path of the file, with ``.vtt`` added
+            when it has no extension, or a folder to save the file there
+            with the name of the file that was read
         :param encoding: encoding of the file
         :param add_bom: save the file with Byte Order Mark
 
@@ -395,7 +398,9 @@ class WebVTT:
         encoding, such as a character the encoding cannot write, leaves an
         existing file unchanged.
 
-        :param output: destination path of the file
+        :param output: destination path of the file, with ``.srt`` added
+            when it has no extension, or a folder to save the file there
+            with the name of the file that was read
         :param encoding: encoding of the file
         :param keep_formatting: keep bold, italic, underline and the colours
             of the cue classes in the styles, instead of removing the cue tags
