@@ -10,7 +10,7 @@ from .errors import MalformedFileError
 from . import utils
 
 
-_TIMESTAMP = r'\d+:\d{1,2}:\d{1,2}[,.]\d+'
+_TIMESTAMP = r'[0-9]+:[0-9]{1,2}:[0-9]{1,2}[,.][0-9]+'
 
 _CUE_CLASS_SELECTOR = re.compile(r'::cue\(\s*\.([\w-]+)\s*\)')
 
@@ -57,7 +57,7 @@ class SRTCueBlock:
         """
         return bool(
           len(lines) >= 2 and
-          lines[0].strip().isdigit() and
+          _is_index(lines[0]) and
           re.match(cls.CUE_TIMINGS_PATTERN, lines[1])
           )
 
@@ -128,7 +128,8 @@ def _is_cue_start(lines: typing.Sequence[str]) -> bool:
 
 def _is_index(line: str) -> bool:
     """Return whether a line can be a cue index, a line with only digits."""
-    return line.strip().isdigit()
+    line = line.strip()
+    return line.isascii() and line.isdigit()
 
 
 def _is_index_and_timings(line: str, next_line: str) -> bool:

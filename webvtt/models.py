@@ -27,7 +27,9 @@ class Timestamp:
     """Representation of a timestamp."""
 
     # hours have up to 10 digits, see _MAX_MILLISECONDS
-    PATTERN = re.compile(r'(?:(\d{1,10}):)?(\d{1,2}):(\d{1,2})\.(\d{1,3})')
+    PATTERN = re.compile(
+        r'(?:([0-9]{1,10}):)?([0-9]{1,2}):([0-9]{1,2})\.([0-9]{1,3})'
+        )
 
     def __init__(
             self,

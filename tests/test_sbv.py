@@ -114,6 +114,11 @@ class TestSBVCueBlock(unittest.TestCase):
             '100:00:05.000'
             )
 
+    def test_is_valid_non_ascii_digits(self):
+        self.assertFalse(sbv.SBVCueBlock.is_valid(
+            ['0:00:0\u0661.500,0:00:07.000', 'Caption #1']
+            ))
+
     def test_is_valid_requires_dot_before_milliseconds(self):
         self.assertFalse(sbv.SBVCueBlock.is_valid(textwrap.dedent('''
                     0:00:01x000,0:00:02.000
