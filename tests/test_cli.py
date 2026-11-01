@@ -1,10 +1,12 @@
 import unittest
 import errno
 import contextlib
+import importlib
 import io
 import tempfile
 import os
 import pathlib
+import runpy
 import sys
 import textwrap
 from unittest import mock
@@ -414,6 +416,31 @@ class CLITestCase(unittest.TestCase):
 
         self.assertEqual(cm.exception.code, 0)
         self.assertEqual(stdout.getvalue(), f'webvtt {webvtt.__version__}\n')
+
+    def test_cli_as_module(self):
+        vtt_file = str(
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'one_caption.vtt'
+            )
+
+        with mock.patch.object(sys, 'argv', ['webvtt', 'shift', vtt_file,
+                                             '1']), \
+                contextlib.redirect_stdout(io.StringIO()) as stdout:
+            with self.assertRaises(SystemExit) as cm:
+                runpy.run_module('webvtt', run_name='__main__')
+
+        self.assertIsNone(cm.exception.code)
+        self.assertIn('00:00:01.500 --> 00:00:08.000', stdout.getvalue())
+
+    def test_cli_module_import_does_not_run(self):
+        with mock.patch.object(sys, 'argv', ['webvtt', '--version']), \
+                mock.patch.dict(sys.modules), \
+                contextlib.redirect_stdout(io.StringIO()) as stdout:
+            # import it again, also when another test or tool imported it
+            sys.modules.pop('webvtt.__main__', None)
+            importlib.import_module('webvtt.__main__')
+
+        self.assertEqual(stdout.getvalue(), '')
 
     def test_cli_requires_command(self):
         with contextlib.redirect_stderr(io.StringIO()) as stderr:
