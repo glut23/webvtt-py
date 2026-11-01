@@ -14,6 +14,7 @@ Changes that may need updates to the code using the library:
 * ``save``, ``save_as_srt`` and the ``-o`` option of the CLI write a path with an extension as given, instead of adding ``.vtt`` or ``.srt`` to it, so ``captions.webvtt`` is no longer saved as ``captions.webvtt.vtt`` (#144, #156)
 * ``from_buffer`` raises ``TypeError`` for a string or bytes, instead of ``MalformedFileError``: use ``from_string`` to read a string, or ``io.BytesIO`` to read bytes (#143, #157)
 * SRT cues without an index are read, as most SRT players do, instead of skipped (#142, #158)
+* Styles after the first cue and blocks where ``NOTE`` is not followed by a space, a tab or a line break, such as ``NOTEBOOK``, are ignored, as WebVTT does, and strict parsing raises ``MalformedFileError`` when ``WEBVTT`` is not followed by a space, a tab or the end of the first line, such as ``WEBVTTX`` (#141, #194)
 
 Changes:
 
