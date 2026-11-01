@@ -69,6 +69,14 @@ def main(argv: typing.Optional[typing.Sequence] = None):
               'default: %(default)s')
         )
     segment_command.add_argument(
+        '--duration',
+        metavar='TIME',
+        type=_media_duration,
+        help=('length of the media, as a timestamp or a number of seconds, '
+              'so the playlist covers all of it and its last segment ends '
+              'with it')
+        )
+    segment_command.add_argument(
         '--overwrite',
         action='store_true',
         help=('replace the playlist and segments of an earlier run in the '
@@ -228,7 +236,8 @@ def _segment(args: argparse.Namespace):
         args.output,
         args.target_duration,
         args.mpegts,
-        overwrite=args.overwrite
+        overwrite=args.overwrite,
+        duration=args.duration
         )
 
 
@@ -333,6 +342,17 @@ def _duration(value: str) -> int:
         raise argparse.ArgumentTypeError(f'invalid duration: {value!r}')
 
     return seconds
+
+
+def _media_duration(value: str) -> typing.Union[str, float]:
+    """Return the length of the media of a command line argument."""
+    try:
+        duration = _position(value)
+        segmenter._duration_in_milliseconds(duration)
+    except (argparse.ArgumentTypeError, ValueError):
+        raise argparse.ArgumentTypeError(f'invalid duration: {value!r}')
+
+    return duration
 
 
 def _mpegts(value: str) -> int:

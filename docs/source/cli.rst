@@ -9,7 +9,8 @@ Synopsis
 
 ::
 
-    webvtt segment PATH -o OUTPUT [-d NUMBER] [-m NUMBER] [--overwrite]
+    webvtt segment PATH -o OUTPUT [-d NUMBER] [-m NUMBER] [--duration TIME]
+                   [--overwrite]
     webvtt shift PATH OFFSET [-o OUTPUT] [-s TIMESTAMP]
     webvtt sync PATH (-p FROM TO -p FROM TO ... | --fps FROM TO) [-o OUTPUT]
     webvtt -h
@@ -83,13 +84,22 @@ Segment options
 
 ``-d NUMBER``, ``--target-duration NUMBER``
     Target duration of each segment in seconds, a whole number above zero.
-    Also used for the ``#EXT-X-TARGETDURATION`` and ``#EXTINF`` values of
-    the playlist. Default: ``10``.
+    Also used for the ``#EXT-X-TARGETDURATION`` value of the playlist and the
+    ``#EXTINF`` of its segments, except the last with ``--duration``.
+    Default: ``10``.
 
 ``-m NUMBER``, ``--mpegts NUMBER``
     MPEG-TS value written to the ``X-TIMESTAMP-MAP`` header of each segment,
     a whole number from 0 to 8589934591, as MPEG-TS timestamps have 33
     bits. Default: ``900000`` (10 seconds at the 90 kHz MPEG-TS clock).
+
+``--duration TIME``
+    Length of the media, as a timestamp such as ``01:25.500`` or a number of
+    seconds such as ``85.5``. The playlist then covers all the media, with
+    empty segments after the last caption, and the ``#EXTINF`` of its last
+    segment ends with the media. A caption starting at or after it is an
+    error. Without it, the playlist ends with the segment of the last
+    caption, and every segment lasts the target duration.
 
 ``--overwrite``
     Replace the playlist and segments of an earlier run in ``OUTPUT``, and
