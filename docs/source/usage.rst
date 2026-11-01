@@ -587,6 +587,16 @@ Save a file with a different encoding:
              add_bom=True
              )
 
+Encoding names are matched as Python does, so ``UTF-8`` and ``utf8`` are
+the same as ``utf-8``. The ``utf-8-sig``, ``utf-16`` and ``utf-32``
+codecs always write a BOM, ``utf-16`` and ``utf-32`` in the byte order of
+the platform, so ``add_bom=False`` raises ``ValueError`` with them: use
+``utf-16-le``, ``utf-16-be``, ``utf-32-le`` or ``utf-32-be`` to choose the
+byte order and whether to add a BOM. ``add_bom=True`` raises
+``ValueError`` for an encoding without a BOM, such as ``latin-1``, while
+the BOM of the file that was read is left out when saving in such an
+encoding. When saving raises, an existing file is left unchanged.
+
 
 WebVTT styles
 -------------

@@ -1,5 +1,6 @@
 """WebVTT module."""
 
+import codecs
 import datetime
 import os
 import io
@@ -420,24 +421,26 @@ class WebVTT:
             with the name of the file that was read. Without it, the file
             is saved to the ``file`` attribute, with its extension replaced
             by ``.vtt`` unless it is ``.vtt`` or ``.webvtt``
-        :param encoding: encoding of the file
-        :param add_bom: save the file with Byte Order Mark
+        :param encoding: encoding of the file, by default the ``encoding``
+            attribute: the encoding of the Byte Order Mark of the file that
+            was read, or UTF-8
+        :param add_bom: save the file with Byte Order Mark, or without it
+            if false. By default, the Byte Order Mark of the file that was
+            read is kept
 
         :raises MissingFilenameError: if output cannot be determined
+        :raises LookupError: if the encoding is not known
         :raises ValueError: if the header text or metadata are not valid,
             or the text of a caption, style or comment could not be read
-            back, leaving an existing file unchanged
+            back, or add_bom is true and the encoding has no Byte Order
+            Mark, or false and the encoding always writes one, such as
+            ``utf-16``, leaving an existing file unchanged
         """
         destination = self._get_destination_file(output)
         # build the content first so an invalid header leaves no file behind
         content = self.content
         encoding = encoding or self.encoding
-
-        if add_bom is None and self._has_bom:
-            add_bom = True
-
-        if add_bom and encoding in utils.CODEC_BOMS:
-            content = utils.CODEC_BOMS[encoding].decode(encoding) + content
+        content = _byte_order_mark(encoding, add_bom, self._has_bom) + content
 
         utils._write_text_file(destination, content, encoding)
         self.file = destination
@@ -673,3 +676,42 @@ def _with_extension(file: str, extension: str) -> str:
     if current.lower() in _FORMAT_EXTENSIONS[extension]:
         return file
     return f'{name}.{extension}'
+
+
+def _byte_order_mark(
+        encoding: str,
+        add_bom: typing.Optional[bool],
+        has_bom: bool
+        ) -> str:
+    """
+    Return the Byte Order Mark to write before the content.
+
+    :param encoding: the encoding, under any of its names
+    :param add_bom: true to add a Byte Order Mark, false to leave it out,
+        or None to keep the Byte Order Mark of the file that was read
+    :param has_bom: true if the file that was read has a Byte Order Mark
+    :returns: the Byte Order Mark as text, empty if there is none or the
+        codec of the encoding writes it
+
+    :raises LookupError: if the encoding is not known
+    :raises ValueError: if add_bom is true and the encoding has no Byte
+        Order Mark, or false and the codec of the encoding always writes one
+    """
+    # equivalent names such as UTF-8 and utf8 become utf-8
+    name = codecs.lookup(encoding).name
+
+    if name in utils._BOM_WRITING_CODECS:
+        if add_bom is False:
+            raise ValueError(
+                f'The {encoding} encoding always writes a Byte Order Mark'
+                )
+        return ''
+
+    if name not in utils.CODEC_BOMS:
+        if add_bom:
+            raise ValueError(f'The {encoding} encoding has no Byte Order Mark')
+        return ''
+
+    if add_bom or (add_bom is None and has_bom):
+        return utils.CODEC_BOMS[name].decode(name)
+    return ''

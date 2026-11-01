@@ -14,6 +14,9 @@ CODEC_BOMS = {
     'utf-16-be': codecs.BOM_UTF16_BE
 }
 
+# the codecs that always write a Byte Order Mark
+_BOM_WRITING_CODECS = ('utf-8-sig', 'utf-16', 'utf-32')
+
 # the line terminators of WebVTT, characters like U+2028 do not break lines
 _LINE_TERMINATOR = re.compile(r'\r\n|\r|\n')
 
