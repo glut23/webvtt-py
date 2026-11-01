@@ -16,6 +16,7 @@ Changes that may need updates to the code using the library:
 * ``from_buffer`` raises ``TypeError`` for a string or bytes, instead of ``MalformedFileError``: use ``from_string`` to read a string, or ``io.BytesIO`` to read bytes (#143, #157)
 * SRT cues without an index are read, as most SRT players do, instead of skipped (#142, #158)
 * Styles after the first cue and blocks where ``NOTE`` is not followed by a space, a tab or a line break, such as ``NOTEBOOK``, are ignored, as WebVTT does, and strict parsing raises ``MalformedFileError`` when ``WEBVTT`` is not followed by a space, a tab or the end of the first line, such as ``WEBVTTX`` (#141, #194)
+* ``save`` raises ``ValueError`` for ``add_bom=True`` with an encoding without a Byte Order Mark, such as ``latin-1``, and for ``add_bom=False`` with ``utf-8-sig``, ``utf-16`` or ``utf-32``, which always write one, instead of ignoring ``add_bom`` (#160, #196)
 
 Changes:
 
@@ -31,6 +32,7 @@ Changes:
 * Fixed the ``read_buffer`` deprecation warning pointing at the library instead of the code calling it (#139, #153)
 * Fixed segmenting raising ``IndexError`` for a cue that ends before it starts, which is now written to the segment it starts in (#152, #154)
 * Fixed reading SRT and SBV files that start with blank lines or with a cue without text, which raised ``MalformedFileError`` (#142, #158)
+* Fixed ``save`` leaving out the Byte Order Mark when the encoding is written differently, such as ``UTF-8`` or ``utf8`` (#160, #196)
 
 0.6.0 (25-10-2026)
 ------------------

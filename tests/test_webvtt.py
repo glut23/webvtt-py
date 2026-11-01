@@ -2463,6 +2463,89 @@ class TestParseSBV(unittest.TestCase):
                     ''').strip() + '\n'
                 )
 
+    def test_save_encoding_names(self):
+        with_bom = webvtt.read(PATH_TO_SAMPLES / 'captions_with_bom.vtt')
+        without_bom = webvtt.read(PATH_TO_SAMPLES / 'one_caption.vtt')
+        for vtt, encoding, add_bom, expected in (
+                (with_bom, 'UTF-8', None, 'utf-8'),
+                (with_bom, 'utf8', None, 'utf-8'),
+                (without_bom, 'UTF-16LE', True, 'utf-16-le'),
+                (without_bom, 'utf_32_be', True, 'utf-32-be')):
+            with self.subTest(encoding=encoding), \
+                    tempfile.TemporaryDirectory() as td:
+                path = os.path.join(td, 'captions.vtt')
+                vtt.save(path, encoding=encoding, add_bom=add_bom)
+
+                data = pathlib.Path(path).read_bytes()
+                self.assertTrue(data.startswith(CODEC_BOMS[expected]))
+                self.assertTrue(
+                    data[len(CODEC_BOMS[expected]):].decode(expected)
+                    .startswith('WEBVTT')
+                    )
+
+    def test_save_codecs_writing_bom(self):
+        with_bom = webvtt.read(PATH_TO_SAMPLES / 'captions_with_bom.vtt')
+        without_bom = webvtt.read(PATH_TO_SAMPLES / 'one_caption.vtt')
+        for encoding in ('utf-8-sig', 'UTF-16', 'utf_32'):
+            for vtt, add_bom in ((without_bom, None),
+                                 (without_bom, True),
+                                 (with_bom, None)):
+                with self.subTest(encoding=encoding, add_bom=add_bom,
+                                  file=vtt.file), \
+                        tempfile.TemporaryDirectory() as td:
+                    path = os.path.join(td, 'captions.vtt')
+                    vtt.save(path, encoding=encoding, add_bom=add_bom)
+
+                    # a single Byte Order Mark, written by the codec
+                    self.assertTrue(
+                        pathlib.Path(path).read_bytes()
+                        .decode(encoding).startswith('WEBVTT')
+                        )
+
+    def test_save_codecs_writing_bom_without_bom(self):
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'one_caption.vtt')
+        for encoding in ('utf-8-sig', 'utf-16', 'utf-32'):
+            with self.subTest(encoding=encoding), \
+                    tempfile.TemporaryDirectory() as td:
+                path = pathlib.Path(td, 'captions.vtt')
+                path.write_text('original')
+
+                with self.assertRaises(ValueError) as cm:
+                    vtt.save(path, encoding=encoding, add_bom=False)
+
+                self.assertIn('always writes a Byte Order Mark',
+                              str(cm.exception))
+                self.assertEqual(path.read_text(), 'original')
+
+    def test_save_encoding_without_bom(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = pathlib.Path(td, 'captions.vtt')
+            path.write_text('original')
+            vtt = webvtt.read(PATH_TO_SAMPLES / 'captions_with_bom.vtt')
+
+            with self.assertRaises(ValueError) as cm:
+                vtt.save(path, encoding='latin-1', add_bom=True)
+
+            self.assertIn('The latin-1 encoding has no Byte Order Mark',
+                          str(cm.exception))
+            self.assertEqual(path.read_text(), 'original')
+
+            # the Byte Order Mark of the file that was read is left out
+            vtt.save(path, encoding='latin-1')
+            self.assertTrue(path.read_bytes().startswith(b'WEBVTT'))
+
+    def test_save_unknown_encoding(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = pathlib.Path(td, 'captions.vtt')
+            path.write_text('original')
+
+            with self.assertRaises(LookupError):
+                webvtt.read(PATH_TO_SAMPLES / 'one_caption.vtt').save(
+                    path, encoding='unknown'
+                    )
+
+            self.assertEqual(path.read_text(), 'original')
+
     def test_iter_slice(self):
         vtt = webvtt.read(
                 PATH_TO_SAMPLES / 'sample.vtt'
