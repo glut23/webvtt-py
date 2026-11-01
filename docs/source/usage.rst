@@ -75,6 +75,12 @@ encoding and the Byte Order Mark, as when reading a file.
 A string is not a file-like object and raises ``TypeError``: use
 ``from_string`` to read captions from a string.
 
+The path of a file opened by name is kept in the ``file`` attribute, so
+``save()`` without a path saves to it. A file-like object without a path,
+such as standard input, a file opened from a file descriptor or a
+``BytesIO`` object, gives captions without a file, as when creating
+``WebVTT`` objects, so ``save()`` needs a path.
+
 
 Reading WebVTT captions from a string
 -------------------------------------

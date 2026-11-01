@@ -13,7 +13,9 @@ import pathlib
 import webvtt
 from webvtt.models import Caption, Region, Style, Timestamp
 from webvtt.utils import CODEC_BOMS
-from webvtt.errors import MalformedFileError, MalformedCaptionError
+from webvtt.errors import (
+    MalformedFileError, MalformedCaptionError, MissingFilenameError
+    )
 
 from .helpers import named_temporary_file
 
@@ -740,6 +742,55 @@ class TestWebVTT(unittest.TestCase):
                     )
                 self.assertEqual(actual.file, str(sample))
                 self.assertFalse(f.closed)
+
+    def test_from_buffer_name_that_is_not_a_path(self):
+        sample = PATH_TO_SAMPLES / 'sample.vtt'
+        stdin = io.BytesIO(sample.read_bytes())
+        stdin.name = '<stdin>'
+
+        flags = os.O_RDONLY | getattr(os, 'O_BINARY', 0)
+        with open(os.open(sample, flags), 'rb') as from_descriptor:
+            for buffer in (stdin, from_descriptor,
+                           io.BytesIO(sample.read_bytes()),
+                           io.StringIO(sample.read_text())):
+                with self.subTest(name=getattr(buffer, 'name', None)):
+                    vtt = webvtt.from_buffer(buffer)
+
+                    self.assertIsNone(vtt.file)
+                    self.assertTrue(vtt.captions)
+                    with self.assertRaises(MissingFilenameError):
+                        vtt.save()
+                    with tempfile.TemporaryDirectory() as td, \
+                            self.assertRaises(MissingFilenameError):
+                        vtt.save(td)
+
+    def test_from_buffer_name_as_bytes_or_path(self):
+        sample = PATH_TO_SAMPLES / 'sample.vtt'
+
+        with open(os.fsencode(sample), 'rb') as f:
+            self.assertEqual(webvtt.from_buffer(f).file, str(sample))
+
+        buffer = io.BytesIO(sample.read_bytes())
+        buffer.name = sample
+        self.assertEqual(webvtt.from_buffer(buffer).file, str(sample))
+
+    @unittest.skipIf(os.name == 'nt',
+                     'Windows file names cannot have angle brackets')
+    def test_read_file_named_in_angle_brackets(self):
+        cwd = os.getcwd()
+        with tempfile.TemporaryDirectory() as td:
+            os.chdir(td)
+            try:
+                shutil.copy(PATH_TO_SAMPLES / 'sample.vtt', '<draft>')
+
+                vtt = webvtt.read('<draft>')
+                self.assertEqual(vtt.file, '<draft>')
+
+                vtt.save()
+                self.assertEqual(sorted(os.listdir(td)),
+                                 ['<draft>', '<draft>.vtt'])
+            finally:
+                os.chdir(cwd)
 
     def test_from_buffer_binary_with_bom(self):
         content = 'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCaption ñ\n'
