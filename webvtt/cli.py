@@ -1,6 +1,7 @@
 """CLI module."""
 
 import argparse
+import errno
 import fractions
 import math
 import os
@@ -8,10 +9,15 @@ import pathlib
 import sys
 import typing
 
-from . import segmenter
+from . import __version__, segmenter
 from .webvtt import WebVTT
 from .models import Timestamp, _sync_mapping
-from .errors import MalformedFileError, MalformedCaptionError
+from .errors import (
+    MalformedFileError, MalformedCaptionError, MissingFilenameError
+    )
+
+# the path that reads the captions from standard input
+_STDIN = '-'
 
 
 def main(argv: typing.Optional[typing.Sequence] = None):
@@ -23,6 +29,11 @@ def main(argv: typing.Optional[typing.Sequence] = None):
     arguments = argparse.ArgumentParser(
         prog='webvtt',
         description='Segment, shift and sync WebVTT caption files.'
+        )
+    arguments.add_argument(
+        '--version',
+        action='version',
+        version=f'%(prog)s {__version__}'
         )
     commands = arguments.add_subparsers(
         dest='command',
@@ -99,7 +110,7 @@ def main(argv: typing.Optional[typing.Sequence] = None):
     shift_command.add_argument(
         'file',
         metavar='PATH',
-        help='WebVTT file'
+        help='WebVTT file, or - to read standard input'
         )
     shift_command.add_argument(
         'offset',
@@ -140,7 +151,7 @@ def main(argv: typing.Optional[typing.Sequence] = None):
     sync_command.add_argument(
         'file',
         metavar='PATH',
-        help='WebVTT file'
+        help='WebVTT file, or - to read standard input'
         )
     timing = sync_command.add_mutually_exclusive_group(required=True)
     timing.add_argument(
@@ -171,18 +182,24 @@ def main(argv: typing.Optional[typing.Sequence] = None):
     args = arguments.parse_args(argv)
     _check_arguments(arguments, sync_command, args)
 
+    name = 'standard input' if args.file == _STDIN else args.file
     try:
         args.run(args)
     except OSError as error:
-        message = f'{error.filename or args.file}: {error.strerror or error}'
+        message = f'{error.filename or name}: {error.strerror or error}'
     except UnicodeDecodeError as error:
-        message = f'{args.file}: cannot be decoded as {error.encoding}'
+        message = f'{name}: cannot be decoded as {error.encoding}'
     except MalformedFileError:
-        message = f'{args.file}: not a valid WebVTT file'
+        message = f'{name}: not a valid WebVTT file'
     except ValueError as error:
         # the captions cannot be moved as asked, e.g. after the largest
         # timestamp
-        message = f'{args.file}: {error}'
+        message = f'{name}: {error}'
+    except MissingFilenameError:
+        # the output is a directory, and standard input has no file name
+        # to save to in it
+        message = (f'{args.output}: is a directory, give a file name to '
+                   'save the captions read from standard input')
     else:
         return
 
@@ -243,19 +260,36 @@ def _segment(args: argparse.Namespace):
 
 def _shift(args: argparse.Namespace):
     """Run the shift command."""
-    vtt = WebVTT.read(args.file)
+    vtt = _read(args.file)
     vtt.shift(args.offset, start=args.start)
     _write(vtt, args.output)
 
 
 def _sync(args: argparse.Namespace):
     """Run the sync command."""
-    vtt = WebVTT.read(args.file)
+    vtt = _read(args.file)
     if args.points:
         vtt.sync(*args.points)
     else:
         vtt.change_framerate(*args.fps)
     _write(vtt, args.output)
+
+
+def _read(path: str) -> WebVTT:
+    """Read the captions of a file, or of standard input for ``-``."""
+    if path != _STDIN:
+        return WebVTT.read(path)
+
+    if sys.stdin is None:
+        # standard input is closed, as in ``webvtt shift - 1 <&-``
+        raise OSError(errno.EBADF, os.strerror(errno.EBADF))
+
+    # read the bytes, decoded as UTF-8 as WebVTT requires, whatever the
+    # encoding of standard input is
+    vtt = WebVTT.from_buffer(getattr(sys.stdin, 'buffer', sys.stdin))
+    # standard input has no file name to save to
+    vtt.file = None
+    return vtt
 
 
 def _write(vtt: WebVTT, output: typing.Optional[str]):

@@ -41,6 +41,7 @@ webvtt segment PATH \-o OUTPUT [\-d NUMBER] [\-m NUMBER] [\-\-duration TIME]
 webvtt shift PATH OFFSET [\-o OUTPUT] [\-s TIMESTAMP]
 webvtt sync PATH (\-p FROM TO \-p FROM TO ... | \-\-fps FROM TO) [\-o OUTPUT]
 webvtt \-h
+webvtt \-\-version
 .ft P
 .fi
 .UNINDENT
@@ -82,6 +83,10 @@ the first or after the last point along the line of the outermost points.
 With \fB\-\-fps\fP, the timing is changed from one frame rate to another. Times
 are rounded and set to zero like with \fBshift\fP, and the output is written
 the same way.
+.sp
+\fBshift\fP and \fBsync\fP read the captions from standard input when \fBPATH\fP
+is \fB\-\fP, decoded as UTF\-8 as WebVTT requires, so they can be used in
+pipes. A file named \fB\-\fP can be read as \fB\&./\-\fP\&.
 .SH COMMANDS
 .INDENT 0.0
 .TP
@@ -100,6 +105,9 @@ Synchronize the timestamps of the WebVTT file at \fBPATH\fP\&.
 .B \fB\-h\fP, \fB\-\-help\fP
 Show the help message and exit. Also available for each command, as in
 \fBwebvtt shift \-h\fP\&.
+.TP
+.B \fB\-\-version\fP
+Show the version of webvtt\-py and exit.
 .UNINDENT
 .SS Segment options
 .INDENT 0.0
@@ -145,7 +153,7 @@ File where the shifted captions are written, keeping the encoding and
 Byte Order Mark of the input file. It can be the input file itself to
 shift it in place. A \fB\&.vtt\fP extension is added if it has no
 extension, and if it is a directory the file is written there with the
-input file name.
+input file name, which is an error when reading standard input.
 Default: standard output.
 .TP
 .B \fB\-s TIMESTAMP\fP, \fB\-\-start TIMESTAMP\fP
@@ -373,6 +381,19 @@ updating the file in place:
 .nf
 .ft C
 $ webvtt sync captions.vtt \-\-fps 25 23.976 \-o captions.vtt
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Shift and synchronize the captions in a pipe, reading them from standard
+input:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ webvtt shift captions.vtt 2 | webvtt sync \- \-\-fps 25 23.976 > fixed.vtt
 .ft P
 .fi
 .UNINDENT

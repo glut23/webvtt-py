@@ -14,6 +14,7 @@ Synopsis
     webvtt shift PATH OFFSET [-o OUTPUT] [-s TIMESTAMP]
     webvtt sync PATH (-p FROM TO -p FROM TO ... | --fps FROM TO) [-o OUTPUT]
     webvtt -h
+    webvtt --version
 
 Description
 -----------
@@ -56,6 +57,10 @@ With ``--fps``, the timing is changed from one frame rate to another. Times
 are rounded and set to zero like with ``shift``, and the output is written
 the same way.
 
+``shift`` and ``sync`` read the captions from standard input when ``PATH``
+is ``-``, decoded as UTF-8 as WebVTT requires, so they can be used in
+pipes. A file named ``-`` can be read as ``./-``.
+
 Commands
 --------
 
@@ -74,6 +79,9 @@ Options
 ``-h``, ``--help``
     Show the help message and exit. Also available for each command, as in
     ``webvtt shift -h``.
+
+``--version``
+    Show the version of webvtt-py and exit.
 
 Segment options
 ~~~~~~~~~~~~~~~
@@ -119,7 +127,7 @@ Shift options
     Byte Order Mark of the input file. It can be the input file itself to
     shift it in place. A ``.vtt`` extension is added if it has no
     extension, and if it is a directory the file is written there with the
-    input file name.
+    input file name, which is an error when reading standard input.
     Default: standard output.
 
 ``-s TIMESTAMP``, ``--start TIMESTAMP``
@@ -284,6 +292,13 @@ updating the file in place:
 ::
 
     $ webvtt sync captions.vtt --fps 25 23.976 -o captions.vtt
+
+Shift and synchronize the captions in a pipe, reading them from standard
+input:
+
+::
+
+    $ webvtt shift captions.vtt 2 | webvtt sync - --fps 25 23.976 > fixed.vtt
 
 See also
 --------
