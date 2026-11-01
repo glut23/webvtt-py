@@ -211,8 +211,15 @@ Manipulating captions
     # update caption text
     vtt[0].text = 'New caption text'
 
+    # or set its lines
+    vtt[0].text = ['New caption text', 'on two lines']
+
     # delete a caption
     del vtt.captions[2]
+
+The text of a caption is a string, split on its line breaks, or a sequence
+of lines, as when creating a ``Caption``. Any other value raises
+``TypeError``.
 
 
 Cue settings

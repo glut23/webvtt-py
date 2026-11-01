@@ -788,13 +788,40 @@ class TestCaption(unittest.TestCase):
 
     def test_update_text_wrong_type(self):
         c = Caption(text='Caption line #1')
+        for value in (123, None, b'text', ['line 1', 2]):
+            with self.subTest(value=value):
+                with self.assertRaises(TypeError) as cm:
+                    c.text = value
 
-        self.assertRaises(
-            AttributeError,
-            setattr,
-            c,
-            'text',
-            123
+                self.assertIn(repr(value), str(cm.exception))
+                self.assertListEqual(c.lines, ['Caption line #1'])
+
+    def test_update_text_with_lines(self):
+        c = Caption(text='Caption line #1')
+        for value in (['line 1', 'line 2'], ('line 1', 'line 2')):
+            with self.subTest(value=value):
+                c.text = value
+
+                self.assertListEqual(c.lines, ['line 1', 'line 2'])
+                self.assertEqual(c.text, 'line 1\nline 2')
+
+        lines = ['line 1']
+        c.text = lines
+        lines.append('line 2')
+        self.assertListEqual(c.lines, ['line 1'])
+
+    def test_text_wrong_type(self):
+        for text in (123, 0, b'text', b'', ['line 1', 2]):
+            with self.subTest(text=text):
+                with self.assertRaises(TypeError) as cm:
+                    Caption(text=text)
+
+                self.assertIn(repr(text), str(cm.exception))
+
+    def test_text_from_iterable_of_lines(self):
+        self.assertListEqual(
+            Caption(text=(line for line in ('line 1', 'line 2'))).lines,
+            ['line 1', 'line 2']
             )
 
     def test_manipulate_lines(self):

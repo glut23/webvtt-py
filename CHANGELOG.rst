@@ -18,10 +18,12 @@ Changes that may need updates to the code using the library:
 * Styles after the first cue and blocks where ``NOTE`` is not followed by a space, a tab or a line break, such as ``NOTEBOOK``, are ignored, as WebVTT does, and strict parsing raises ``MalformedFileError`` when ``WEBVTT`` is not followed by a space, a tab or the end of the first line, such as ``WEBVTTX`` (#141, #194)
 * ``save`` raises ``ValueError`` for ``add_bom=True`` with an encoding without a Byte Order Mark, such as ``latin-1``, and for ``add_bom=False`` with ``utf-8-sig``, ``utf-16`` or ``utf-32``, which always write one, instead of ignoring ``add_bom`` (#160, #196)
 * ``save_as_srt`` saves captions read with ``from_srt`` or ``from_buffer`` in SRT format and an ``encoding`` in the same encoding, instead of UTF-8, and ``encoding=None`` saves in UTF-8 instead of the encoding of the locale (#161, #197)
+* Setting ``Caption.text`` to a value that is not a string or a sequence of lines raises ``TypeError`` instead of ``AttributeError``, and ``Caption`` raises it for lines that are not strings instead of accepting them (#162, #198)
 
 Changes:
 
 * Added ``WebVTTError`` as the base class of the errors, and made ``MalformedFileError`` and ``MalformedCaptionError`` subclasses of ``ValueError`` (#146, #155)
+* Added setting ``Caption.text`` to a sequence of lines, as when creating a ``Caption`` (#162, #198)
 * Added reading binary file-like objects with ``from_buffer``, such as files opened in ``'rb'`` mode, with the encoding of their Byte Order Mark, kept when saving, or the new ``encoding`` argument (#143, #157)
 * Fixed reading SRT files with whitespace around the first cue index, thanks to `@youdie006 <https://github.com/youdie006>`_ (#130)
 * Fixed WebVTT styles ignored when ``STYLE`` is followed by whitespace (#133)
