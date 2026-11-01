@@ -25,6 +25,9 @@ from .errors import MissingFilenameError
 
 DEFAULT_ENCODING = 'utf-8'
 
+# the extensions of each format, kept when saving a file to the same format
+_FORMAT_EXTENSIONS = {'vtt': ('.vtt', '.webvtt'), 'srt': ('.srt',)}
+
 
 class WebVTT:
     """
@@ -377,9 +380,7 @@ class WebVTT:
             raise MissingFilenameError
 
         if not destination_path and self.file:
-            destination_path = (
-                f'{os.path.splitext(self.file)[0]}.{extension}'
-                )
+            destination_path = _with_extension(self.file, extension)
 
         assert destination_path is not None
 
@@ -389,8 +390,9 @@ class WebVTT:
                 raise MissingFilenameError
 
             # store the file in specified directory
-            base_name = os.path.splitext(os.path.basename(self.file))[0]
-            new_filename = f'{base_name}.{extension}'
+            new_filename = os.path.basename(
+                _with_extension(self.file, extension)
+                )
             return os.path.join(target, new_filename)
 
         # a path with an extension is written as given, e.g. .webvtt
@@ -415,7 +417,9 @@ class WebVTT:
 
         :param output: destination path of the file, with ``.vtt`` added
             when it has no extension, or a folder to save the file there
-            with the name of the file that was read
+            with the name of the file that was read. Without it, the file
+            is saved to the ``file`` attribute, with its extension replaced
+            by ``.vtt`` unless it is ``.vtt`` or ``.webvtt``
         :param encoding: encoding of the file
         :param add_bom: save the file with Byte Order Mark
 
@@ -453,7 +457,9 @@ class WebVTT:
 
         :param output: destination path of the file, with ``.srt`` added
             when it has no extension, or a folder to save the file there
-            with the name of the file that was read
+            with the name of the file that was read. Without it, the file
+            is saved to the ``file`` attribute, with its extension replaced
+            by ``.srt`` unless it is ``.srt``
         :param encoding: encoding of the file
         :param keep_formatting: keep bold, italic, underline and the colours
             of the cue classes in the styles, instead of removing the cue tags
@@ -652,3 +658,18 @@ class WebVTT:
             self.metadata,
             self.regions
             )
+
+
+def _with_extension(file: str, extension: str) -> str:
+    """
+    Return the path of a file with the extension of a format.
+
+    :param file: the path of the file
+    :param extension: the extension of the format, such as ``vtt``
+    :returns: the path as it is if its extension is one of the format, as
+        ``.webvtt`` for ``vtt``, or else with the extension replaced
+    """
+    name, current = os.path.splitext(file)
+    if current.lower() in _FORMAT_EXTENSIONS[extension]:
+        return file
+    return f'{name}.{extension}'

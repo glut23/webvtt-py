@@ -12,6 +12,7 @@ Changes that may need updates to the code using the library:
 * ``NOTE`` blocks with ``-->`` are not read as comments, and header text with ``-->`` is read as empty, as WebVTT does, so the file can be saved again (#134, #135)
 * Removed ``Caption.CUE_TEXT_TAGS``, which is no longer used (#139, #153)
 * ``save``, ``save_as_srt`` and the ``-o`` option of the CLI write a path with an extension as given, instead of adding ``.vtt`` or ``.srt`` to it, so ``captions.webvtt`` is no longer saved as ``captions.webvtt.vtt`` (#144, #156)
+* ``save`` and ``save_as_srt`` without a path or with a folder, and the ``-o`` option of the CLI with a folder, keep the extension of the file when it is already of the format, so a file read from ``captions.webvtt`` is saved to it instead of ``captions.vtt`` (#159, #195)
 * ``from_buffer`` raises ``TypeError`` for a string or bytes, instead of ``MalformedFileError``: use ``from_string`` to read a string, or ``io.BytesIO`` to read bytes (#143, #157)
 * SRT cues without an index are read, as most SRT players do, instead of skipped (#142, #158)
 * Styles after the first cue and blocks where ``NOTE`` is not followed by a space, a tab or a line break, such as ``NOTEBOOK``, are ignored, as WebVTT does, and strict parsing raises ``MalformedFileError`` when ``WEBVTT`` is not followed by a space, a tab or the end of the first line, such as ``WEBVTTX`` (#141, #194)
