@@ -43,6 +43,7 @@ Changes:
 * Fixed segmenting raising ``IndexError`` for a cue that ends before it starts, which is now written to the segment it starts in (#152, #154)
 * Fixed reading SRT and SBV files that start with blank lines or with a cue without text, which raised ``MalformedFileError`` (#142, #158)
 * Fixed ``save`` leaving out the Byte Order Mark when the encoding is written differently, such as ``UTF-8`` or ``utf8`` (#160, #196)
+* Fixed ``from_buffer`` keeping a name that is not a path as the ``file`` to save to, such as ``<stdin>`` or the file descriptor of a file opened from one, which ``save`` wrote to ``<stdin>.vtt`` or failed on with ``TypeError`` (#206, #208)
 * Fixed SRT output of captions without text, such as text of blank lines, which were written as cues without text that are lost when read back: they are left out and the others numbered consecutively (#166, #202)
 
 0.6.0 (25-10-2026)

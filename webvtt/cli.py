@@ -286,10 +286,7 @@ def _read(path: str) -> WebVTT:
 
     # read the bytes, decoded as UTF-8 as WebVTT requires, whatever the
     # encoding of standard input is
-    vtt = WebVTT.from_buffer(getattr(sys.stdin, 'buffer', sys.stdin))
-    # standard input has no file name to save to
-    vtt.file = None
-    return vtt
+    return WebVTT.from_buffer(getattr(sys.stdin, 'buffer', sys.stdin))
 
 
 def _write(vtt: WebVTT, output: typing.Optional[str]):

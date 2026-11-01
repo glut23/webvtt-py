@@ -202,6 +202,12 @@ class WebVTT:
         tempfile.TemporaryFile object, etc. Binary data is decoded with the
         encoding of its Byte Order Mark, if any, or else with ``encoding``.
 
+        The ``name`` of the file-like object is kept as the ``file`` to save
+        to when it is a path, so a file-like object without one, such as
+        standard input, a file opened from a file descriptor or an
+        io.BytesIO object, gives captions without a file, as when they are
+        not read from a file.
+
         :param buffer: the file-like object to read captions from, or an
             iterable of lines
         :param format: the format of the data (vtt, srt or sbv)
@@ -229,7 +235,7 @@ class WebVTT:
                 f'Strict parsing is not supported for the {format} format'
                 )
 
-        file = getattr(buffer, 'name', None)
+        file = _buffer_file(buffer)
         lines, bom_encoding, binary = cls._read_buffer(buffer, encoding)
 
         if format == 'vtt':
@@ -698,6 +704,27 @@ class WebVTT:
             self.metadata,
             self.regions
             )
+
+
+def _buffer_file(buffer: typing.Any) -> typing.Optional[str]:
+    """
+    Return the path of the file of a file-like object, if it has one.
+
+    A name that is not a path is not kept, such as the file descriptor of
+    a file opened from one or a name in angle brackets like ``<stdin>``
+    that is not a file.
+
+    :param buffer: the file-like object
+    :returns: the path, or None
+    """
+    name = getattr(buffer, 'name', None)
+    if isinstance(name, (str, bytes, os.PathLike)):
+        name = os.fsdecode(name)
+    if (not isinstance(name, str) or not name or
+            (name.startswith('<') and name.endswith('>') and
+             not os.path.exists(name))):
+        return None
+    return name
 
 
 def _with_extension(file: str, extension: str) -> str:
