@@ -752,12 +752,12 @@ value or ``None`` when it is not set:
     vtt.captions[0].settings.region = 'fred'
 
 The supported settings are ``id``, ``width``, ``lines``, ``regionanchor``,
-``viewportanchor`` and ``scroll``. As with cue settings, setting a value
-that is not valid raises ``MalformedCaptionError``, and the settings are
-saved as they were read, including the ones that are not valid or not
-known, with a setting per line. ``REGION`` blocks after the first cue are
-not regions as per the WebVTT specification and are ignored, or raise
-``MalformedCaptionError`` with strict parsing. When converting to SRT, the
+``viewportanchor`` and ``scroll``. Setting a value that is not valid raises
+``MalformedRegionError``, a subclass of ``MalformedCaptionError``, and the
+settings are saved as they were read, including the ones that are not valid
+or not known, with a setting per line. ``REGION`` blocks after the first cue
+are not regions as per the WebVTT specification and are ignored, or raise
+``MalformedRegionError`` with strict parsing. When converting to SRT, the
 regions are not included.
 
 Removing or renaming a region does not update the captions that use it.
@@ -842,8 +842,11 @@ module:
 
 * ``MalformedFileError``: the content is not valid for the expected
   format (WebVTT, SRT or SBV).
-* ``MalformedCaptionError``: a caption, cue setting or region is not
-  valid, or the content does not pass strict parsing.
+* ``MalformedCaptionError``: a caption or cue setting is not valid, or the
+  content does not pass strict parsing.
+* ``MalformedRegionError``: a region setting is not valid, or a region does
+  not pass strict parsing. It is a subclass of ``MalformedCaptionError``, so
+  catching that error also catches it.
 * ``MissingFilenameError``: captions are saved without an output path
   and there is no file to derive it from.
 
@@ -913,6 +916,9 @@ raised instead. Strict parsing also raises the error for:
 * styles and regions after the first cue
 * a cue that is not separated from the previous cue, comment or style by
   an empty line
+
+For region settings and regions after the first cue, the error is
+``MalformedRegionError``, a subclass of ``MalformedCaptionError``.
 
 Strict parsing also raises ``MalformedFileError`` when ``WEBVTT`` is
 followed by text other than a space or a tab in the first line, such as

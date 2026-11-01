@@ -4,7 +4,7 @@ import time
 import unittest
 
 from webvtt.models import Timestamp, Caption, CueSettings, Region, Style
-from webvtt.errors import MalformedCaptionError
+from webvtt.errors import MalformedCaptionError, MalformedRegionError
 
 
 class TestTimestamp(unittest.TestCase):
@@ -1283,7 +1283,7 @@ class TestRegion(unittest.TestCase):
             Region('fred')
 
     def test_instantiation_invalid_value(self):
-        with self.assertRaises(MalformedCaptionError) as cm:
+        with self.assertRaises(MalformedRegionError) as cm:
             Region(scroll='down')
         self.assertIn('scroll region setting', str(cm.exception))
 
@@ -1322,12 +1322,12 @@ class TestRegion(unittest.TestCase):
                                ('id:fred id:bill', 'Repeated'),
                                ):
             with self.subTest(value=value):
-                with self.assertRaises(MalformedCaptionError) as cm:
+                with self.assertRaises(MalformedRegionError) as cm:
                     Region.from_string(value, strict=True)
                 self.assertIn(f'{message} region setting', str(cm.exception))
 
     def test_from_string_wrong_type(self):
-        with self.assertRaises(MalformedCaptionError) as cm:
+        with self.assertRaises(MalformedRegionError) as cm:
             Region.from_string(None)
         self.assertIn('Invalid region settings', str(cm.exception))
 
@@ -1364,27 +1364,27 @@ class TestRegion(unittest.TestCase):
         for name, values in invalid_values.items():
             for value in values:
                 with self.subTest(name=name, value=value):
-                    with self.assertRaises(MalformedCaptionError):
+                    with self.assertRaises(MalformedRegionError):
                         setattr(Region(), name, value)
                     self.assertIsNone(
                         getattr(Region.from_string(f'{name}:{value}'), name)
                         )
 
     def test_set_value_with_arrow(self):
-        with self.assertRaises(MalformedCaptionError):
+        with self.assertRaises(MalformedRegionError):
             Region().id = 'a-->b'
 
     def test_from_string_with_arrow(self):
         for value in ('id:a-->b', 'id:fred -->', 'id:fred\n-->'):
             with self.subTest(value=value):
-                with self.assertRaises(MalformedCaptionError) as cm:
+                with self.assertRaises(MalformedRegionError) as cm:
                     Region.from_string(value)
                 self.assertIn('Invalid region settings', str(cm.exception))
 
     def test_set_value_with_spaces(self):
         for value in ('fred bill', 'fred\nbill'):
             with self.subTest(value=value):
-                with self.assertRaises(MalformedCaptionError):
+                with self.assertRaises(MalformedRegionError):
                     Region().id = value
 
     def test_update_settings(self):
