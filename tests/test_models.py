@@ -933,6 +933,16 @@ class TestStyle(unittest.TestCase):
             ['::cue(b) {', 'color: peachpuff;', '}']
             )
 
+    def test_text_list_is_copied(self):
+        lines = ['::cue(b) {', 'color: peachpuff;', '}']
+        style = Style(lines)
+        lines.append('::cue(i) {}')
+
+        self.assertListEqual(
+            style.lines,
+            ['::cue(b) {', 'color: peachpuff;', '}']
+            )
+
     def test_accept_comments(self):
         style = Style(text='::cue(b) {\ncolor: peachpuff;\n}')
         style.comments.append('One comment')

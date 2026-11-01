@@ -159,6 +159,11 @@ Creating captions
     # save the captions to a file
     vtt.save('captions.vtt')
 
+The lists given to ``WebVTT``, such as ``WebVTT(captions=captions)``, are
+kept as its attributes, not copied, so changes to them show in the
+instance. The list of lines given to a ``Caption`` or a ``Style`` is
+copied.
+
 As in WebVTT, only CR, LF and CRLF break text into lines. Other characters
 such as U+2028 or a form feed stay in the line.
 

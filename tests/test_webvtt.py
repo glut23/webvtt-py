@@ -863,6 +863,28 @@ class TestWebVTT(unittest.TestCase):
             webvtt.WebVTT().save
             )
 
+    def test_list_arguments_are_kept(self):
+        for name, item in (('captions', Caption()),
+                           ('styles', Style('::cue {}')),
+                           ('header_comments', 'comment'),
+                           ('footer_comments', 'comment'),
+                           ('metadata', 'Kind: captions'),
+                           ('regions', Region(id='fred'))):
+            for items in ([], [item]):
+                with self.subTest(name=name, items=items):
+                    vtt = webvtt.WebVTT(**{name: items})
+                    items.append(item)
+
+                    self.assertIs(getattr(vtt, name), items)
+
+    def test_list_arguments_default_to_new_lists(self):
+        first, second = webvtt.WebVTT(), webvtt.WebVTT()
+        for name in ('captions', 'styles', 'header_comments',
+                     'footer_comments', 'metadata', 'regions'):
+            with self.subTest(name=name):
+                self.assertListEqual(getattr(first, name), [])
+                self.assertIsNot(getattr(first, name), getattr(second, name))
+
     def test_positional_arguments(self):
         with tempfile.TemporaryDirectory() as td:
             vtt_file = os.path.join(td, 'captions.vtt')
