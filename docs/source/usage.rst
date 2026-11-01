@@ -518,6 +518,10 @@ Convert WebVTT captions to other formats:
     with open('captions.srt', 'w') as f:
         vtt.write(f, format='srt')
 
+Captions without text, such as text of blank lines, are left out of the SRT
+file, as SRT cannot have a cue without text, and the others are numbered
+consecutively.
+
 The cue tags are removed when converting to SRT. To keep the formatting
 instead, use ``keep_formatting``. Bold, italic, underline and ``font`` tags are
 kept, and the cue classes with a ``color`` in the styles become ``font`` tags
