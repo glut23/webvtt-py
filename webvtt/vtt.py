@@ -4,7 +4,9 @@ import re
 import typing
 from dataclasses import dataclass, field
 
-from .errors import MalformedFileError, MalformedCaptionError
+from .errors import (
+    MalformedFileError, MalformedCaptionError, MalformedRegionError
+    )
 from .models import Caption, CueSettings, Region, Style
 from .utils import _split_lines
 
@@ -713,8 +715,10 @@ def parse_item(
     :raises MalformedCaptionError: if strict and a cue has an invalid
         timestamp or a cue setting that is not known, not valid or
         repeated, or an end time that is not after the start time, or a
-        region has a region setting that is not known, not valid or
-        repeated, or a region or a style comes after a cue
+        style comes after a cue
+    :raises MalformedRegionError: if strict and a region has a region
+        setting that is not known, not valid or repeated, or comes after a
+        cue
     """
     if WebVTTCueBlock.is_valid(lines, strict):
         return _parse_cue(lines, strict)
@@ -723,7 +727,7 @@ def parse_item(
         if not seen_cue:
             return Region.from_string(' '.join(lines[1:]), strict)
         if strict:
-            raise MalformedCaptionError(f'Region block after a cue {lines!r}')
+            raise MalformedRegionError(f'Region block after a cue {lines!r}')
         return None
 
     if WebVTTStyleBlock.is_valid(lines):

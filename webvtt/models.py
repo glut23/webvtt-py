@@ -10,7 +10,7 @@ import math
 import re
 import typing
 
-from .errors import MalformedCaptionError
+from .errors import MalformedCaptionError, MalformedRegionError
 from .utils import _split_lines
 
 # a context of our own, so rounding does not depend on the decimal context
@@ -547,6 +547,10 @@ class _Settings:
 
     # what a setting is called in error messages
     _KIND = 'setting'
+    # the error raised for settings that are not valid
+    _ERROR: typing.ClassVar[
+        typing.Type[MalformedCaptionError]
+        ] = MalformedCaptionError
 
     def __init__(self):
         """Initialize without settings."""
@@ -570,7 +574,7 @@ class _Settings:
             strict and a setting is not known, not valid or repeated
         """
         if type(value) is not str:
-            raise MalformedCaptionError(f'Invalid {cls._KIND}s {value!r}')
+            raise cls._ERROR(f'Invalid {cls._KIND}s {value!r}')
 
         settings = cls()
         settings._settings = [
@@ -586,13 +590,9 @@ class _Settings:
                 if (not parts or
                         parts[0] not in cls.VALIDATORS or
                         not cls.VALIDATORS[parts[0]](parts[1])):
-                    raise MalformedCaptionError(
-                        f'Invalid {cls._KIND} {setting!r}'
-                        )
+                    raise cls._ERROR(f'Invalid {cls._KIND} {setting!r}')
                 if parts[0] in names:
-                    raise MalformedCaptionError(
-                        f'Repeated {cls._KIND} {setting!r}'
-                        )
+                    raise cls._ERROR(f'Repeated {cls._KIND} {setting!r}')
                 names.add(parts[0])
 
         return settings
@@ -644,9 +644,7 @@ class _Settings:
                 type(value) is not str or
                 not self.VALIDATORS[name](value)
                 ):
-            raise MalformedCaptionError(
-                f'Invalid {name} {self._KIND} {value!r}'
-                )
+            raise self._ERROR(f'Invalid {name} {self._KIND} {value!r}')
 
         indexes = [
             index
@@ -1109,6 +1107,7 @@ class Region(_Settings):
         }
 
     _KIND = 'region setting'
+    _ERROR = MalformedRegionError
 
     def __init__(self,
                  *,
@@ -1131,7 +1130,7 @@ class Region(_Settings):
             to, as two percentages of the video, e.g. ``10%,90%``
         :param scroll: ``up`` for the lines to scroll up
 
-        :raises MalformedCaptionError: if a value is not valid
+        :raises MalformedRegionError: if a value is not valid
         """
         super().__init__()
         self.id = id
@@ -1153,12 +1152,12 @@ class Region(_Settings):
             valid or repeated instead of keeping them
         :returns: a `Region` instance
 
-        :raises MalformedCaptionError: if the value is not a string or
+        :raises MalformedRegionError: if the value is not a string or
             contains ``-->``, which cannot be in a region block, or if strict
             and a setting is not known, not valid or repeated
         """
         if type(value) is str and '-->' in value:
-            raise MalformedCaptionError(f'Invalid region settings {value!r}')
+            raise MalformedRegionError(f'Invalid region settings {value!r}')
         return super().from_string(value, strict)
 
     id = _setting_property('id', 'Identifier of the region.')

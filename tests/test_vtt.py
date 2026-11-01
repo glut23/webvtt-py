@@ -3,7 +3,9 @@ import textwrap
 import io
 
 from webvtt import vtt
-from webvtt.errors import MalformedFileError, MalformedCaptionError
+from webvtt.errors import (
+    MalformedFileError, MalformedCaptionError, MalformedRegionError
+    )
 from webvtt.models import Caption, Region, Style
 
 
@@ -1339,7 +1341,7 @@ class TestVTTModule(unittest.TestCase):
         self.assertEqual(len(output.captions), 1)
 
     def test_parse_strict_region_after_a_cue(self):
-        with self.assertRaises(MalformedCaptionError) as cm:
+        with self.assertRaises(MalformedRegionError) as cm:
             vtt.parse(
                 textwrap.dedent('''
                 WEBVTT
@@ -1386,7 +1388,7 @@ class TestVTTModule(unittest.TestCase):
         for settings in ('id:fred scroll:down', 'id:fred foo:bar',
                          'id:fred id:bill', 'id:fred width'):
             with self.subTest(settings=settings):
-                with self.assertRaises(MalformedCaptionError) as cm:
+                with self.assertRaises(MalformedRegionError) as cm:
                     vtt.parse(
                         ['WEBVTT', '', 'REGION', settings],
                         strict=True
