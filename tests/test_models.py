@@ -373,6 +373,15 @@ class TestCaption(unittest.TestCase):
         self.assertEqual(caption.start_in_seconds, 7)
         self.assertEqual(caption.end_in_seconds, 11)
 
+    def test_in_milliseconds(self):
+        caption = Caption('00:00:07.000', '00:00:11.890', 'Hello test!')
+        self.assertEqual(caption.start_in_milliseconds, 7000)
+        self.assertEqual(caption.end_in_milliseconds, 11890)
+
+    def test_duration(self):
+        caption = Caption('00:00:07.000', '00:00:11.890', 'Hello test!')
+        self.assertEqual(caption.duration, 4.89)
+
     def test_shift(self):
         caption = Caption('00:00:07.000', '00:00:11.890', 'Hello test!')
         caption.shift(1.5)

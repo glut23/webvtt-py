@@ -890,6 +890,21 @@ class Caption:
         """Return the end time of the caption in seconds."""
         return self.end_time.in_seconds()
 
+    @property
+    def start_in_milliseconds(self) -> int:
+        """Return the start time of the caption in milliseconds."""
+        return self.start_time.in_milliseconds()
+
+    @property
+    def end_in_milliseconds(self) -> int:
+        """Return the end time of the caption in milliseconds."""
+        return self.end_time.in_milliseconds()
+
+    @property
+    def duration(self) -> float:
+        """Return the duration of the caption in seconds."""
+        return (self.end_in_milliseconds - self.start_in_milliseconds) / 1000
+
     def shift(self, offset: typing.Union[float, datetime.timedelta]):
         """
         Shift the start and end time of the caption.

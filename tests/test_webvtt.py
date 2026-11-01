@@ -1040,14 +1040,34 @@ class TestWebVTT(unittest.TestCase):
     def test_total_length(self):
         self.assertEqual(
             webvtt.read(PATH_TO_SAMPLES / 'sample.vtt').total_length,
-            64
+            63.8
             )
 
     def test_total_length_no_captions(self):
         self.assertEqual(
             webvtt.WebVTT().total_length,
-            0
+            0.0
             )
+
+    def test_total_length_keeps_milliseconds(self):
+        vtt = webvtt.WebVTT(captions=[
+            webvtt.Caption('00:00:00.900', '00:00:01.100', 'Hello')
+            ])
+        self.assertEqual(vtt.total_length, 0.2)
+
+    def test_total_length_captions_out_of_order(self):
+        vtt = webvtt.WebVTT(captions=[
+            webvtt.Caption('00:00:10.000', '00:00:12.000', 'Second'),
+            webvtt.Caption('00:00:01.000', '00:00:02.000', 'First')
+            ])
+        self.assertEqual(vtt.total_length, 11.0)
+
+    def test_total_length_longest_caption_not_last(self):
+        vtt = webvtt.WebVTT(captions=[
+            webvtt.Caption('00:00:01.000', '00:00:20.000', 'Long'),
+            webvtt.Caption('00:00:05.000', '00:00:06.000', 'Short')
+            ])
+        self.assertEqual(vtt.total_length, 19.0)
 
     def test_shift(self):
         vtt = webvtt.read(PATH_TO_SAMPLES / 'sample.vtt')
@@ -2103,7 +2123,7 @@ class TestParseSRT(unittest.TestCase):
     def test_total_length(self):
         self.assertEqual(
             webvtt.from_srt(PATH_TO_SAMPLES / 'sample.srt').total_length,
-            23
+            23.38
             )
 
     def test_parse_captions(self):
@@ -2174,7 +2194,7 @@ class TestParseSBV(unittest.TestCase):
     def test_total_length(self):
         self.assertEqual(
             webvtt.from_sbv(PATH_TO_SAMPLES / 'sample.sbv').total_length,
-            16
+            16.165
             )
 
     def test_parse_captions(self):

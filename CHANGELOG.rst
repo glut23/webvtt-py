@@ -14,10 +14,12 @@ Changes that may need updates to the code using the library:
 * ``save``, ``save_as_srt`` and the ``-o`` option of the CLI write a path with an extension as given, instead of adding ``.vtt`` or ``.srt`` to it, so ``captions.webvtt`` is no longer saved as ``captions.webvtt.vtt`` (#144, #156)
 * ``from_buffer`` raises ``TypeError`` for a string or bytes, instead of ``MalformedFileError``: use ``from_string`` to read a string, or ``io.BytesIO`` to read bytes (#143, #157)
 * SRT cues without an index are read, as most SRT players do, instead of skipped (#142, #158)
+* ``total_length`` returns a float with the milliseconds, from the earliest start to the latest end of the captions, instead of whole seconds from the first caption to the last one, which was wrong for captions out of order (#188)
 
 Changes:
 
 * Added ``WebVTTError`` as the base class of the errors, and made ``MalformedFileError`` and ``MalformedCaptionError`` subclasses of ``ValueError`` (#146, #155)
+* Added ``start_in_milliseconds``, ``end_in_milliseconds`` and ``duration`` to ``Caption`` (#188)
 * Added reading binary file-like objects with ``from_buffer``, such as files opened in ``'rb'`` mode, with the encoding of their Byte Order Mark, kept when saving, or the new ``encoding`` argument (#143, #157)
 * Fixed reading SRT files with whitespace around the first cue index, thanks to `@youdie006 <https://github.com/youdie006>`_ (#130)
 * Fixed WebVTT styles ignored when ``STYLE`` is followed by whitespace (#133)
