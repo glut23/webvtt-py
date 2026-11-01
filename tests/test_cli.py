@@ -5,9 +5,11 @@ import io
 import tempfile
 import os
 import pathlib
+import sys
 import textwrap
 from unittest import mock
 
+import webvtt
 from webvtt.cli import main
 
 
@@ -405,6 +407,14 @@ class CLITestCase(unittest.TestCase):
                     f'{temp_dir}: {os.strerror(errno.EACCES)}'
                     )
 
+    def test_cli_version(self):
+        with contextlib.redirect_stdout(io.StringIO()) as stdout:
+            with self.assertRaises(SystemExit) as cm:
+                main(['--version'])
+
+        self.assertEqual(cm.exception.code, 0)
+        self.assertEqual(stdout.getvalue(), f'webvtt {webvtt.__version__}\n')
+
     def test_cli_requires_command(self):
         with contextlib.redirect_stderr(io.StringIO()) as stderr:
             with self.assertRaises(SystemExit) as cm:
@@ -702,6 +712,96 @@ class CLIShiftTestCase(CLICommandTestCase):
             stderr.getvalue(),
             f'webvtt: error: {vtt_file}: not a valid WebVTT file\n'
             )
+
+
+class CLIStdinTestCase(CLICommandTestCase):
+
+    def run_cli_stdin(self, argv, data, stdin_encoding='ascii'):
+        stdin = io.TextIOWrapper(io.BytesIO(data), encoding=stdin_encoding)
+        with mock.patch.object(sys, 'stdin', stdin):
+            return self.run_cli(argv)
+
+    def assert_cli_stdin_error(self, argv, data, expected_message):
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as cm:
+                self.run_cli_stdin(argv, data)
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(stderr.getvalue(),
+                         f'webvtt: error: {expected_message}\n')
+
+    def test_shift_and_sync_from_stdin(self):
+        for argv in (['shift', '{}', '1.25'],
+                     ['shift', '{}', '1', '--start', '00:00:01.500'],
+                     ['sync', '{}', '--fps', '25', '24'],
+                     ['sync', '{}', '-p', '1', '2', '-p', '4', '6']):
+            with self.subTest(argv=argv):
+                self.assertEqual(
+                    self.run_cli_stdin(
+                        [arg.format('-') for arg in argv],
+                        self.CAPTIONS.encode('utf-8')
+                        ),
+                    self.run_cli([arg.format(self.vtt_file) for arg in argv])
+                    )
+
+    def test_stdin_is_read_as_utf8(self):
+        captions = self.CAPTIONS.replace('Caption #1', 'Subtítulo #1')
+
+        for data in (captions.encode('utf-8'),
+                     b'\xef\xbb\xbf' + captions.encode('utf-8'),
+                     captions.replace('\n', '\r\n').encode('utf-8')):
+            with self.subTest(data=data[:8]):
+                self.assertEqual(
+                    self.run_cli_stdin(['shift', '-', '0'], data),
+                    captions
+                    )
+
+    def test_stdin_without_buffer(self):
+        with mock.patch.object(sys, 'stdin', io.StringIO(self.CAPTIONS)):
+            self.assertEqual(self.run_cli(['shift', '-', '0']),
+                             self.CAPTIONS)
+
+    def test_stdin_closed(self):
+        with mock.patch.object(sys, 'stdin', None), \
+                contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as cm:
+                main(['shift', '-', '1'])
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(
+            stderr.getvalue(),
+            f'webvtt: error: standard input: {os.strerror(errno.EBADF)}\n'
+            )
+
+    def test_stdin_to_output_file(self):
+        output = os.path.join(self.temp_dir.name, 'shifted')
+
+        self.assertEqual(
+            self.run_cli_stdin(['shift', '-', '0', '-o', output],
+                               self.CAPTIONS.encode('utf-8')),
+            ''
+            )
+
+        self.assertEqual(pathlib.Path(f'{output}.vtt').read_text(),
+                         self.CAPTIONS)
+
+    def test_stdin_to_output_directory(self):
+        self.assert_cli_stdin_error(
+            ['shift', '-', '0', '-o', self.temp_dir.name],
+            self.CAPTIONS.encode('utf-8'),
+            f'{self.temp_dir.name}: is a directory, give a file name to '
+            'save the captions read from standard input'
+            )
+        self.assertEqual(os.listdir(self.temp_dir.name), ['captions.vtt'])
+
+    def test_stdin_invalid_content(self):
+        for data, message in (
+                (b'not WebVTT', 'not a valid WebVTT file'),
+                (b'WEBVTT\n\n\xff\n', 'cannot be decoded as utf-8')):
+            with self.subTest(data=data):
+                self.assert_cli_stdin_error(['sync', '-', '--fps', '25', '24'],
+                                            data,
+                                            f'standard input: {message}')
 
 
 class CLISyncTestCase(CLICommandTestCase):
