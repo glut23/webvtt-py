@@ -383,6 +383,30 @@ class TestWebVTT(unittest.TestCase):
 
             self.assertIn('Café'.encode('utf-8'), path.read_bytes())
 
+    def test_save_as_srt_captions_without_text_round_trip(self):
+        vtt = webvtt.WebVTT(captions=[
+            Caption('00:00:00.000', '00:00:01.000', ' '),
+            Caption('00:00:01.000', '00:00:02.000', 'b'),
+            Caption('00:00:02.000', '00:00:03.000', ['c', 'd']),
+            Caption('00:00:03.000', '00:00:04.000', ''),
+            ])
+
+        for keep_formatting in (False, True):
+            with self.subTest(keep_formatting=keep_formatting), \
+                    tempfile.TemporaryDirectory() as td:
+                path = os.path.join(td, 'out.srt')
+                vtt.save_as_srt(path, keep_formatting=keep_formatting)
+
+                self.assertEqual(
+                    [(c.start, c.end, c.lines)
+                     for c in webvtt.from_srt(path).captions],
+                    [('00:00:01.000', '00:00:02.000', ['b']),
+                     ('00:00:02.000', '00:00:03.000', ['c', 'd'])]
+                    )
+                self.assertTrue(
+                    pathlib.Path(path).read_text().startswith('1\n')
+                    )
+
     def test_save_as_srt_without_output(self):
         for sample, name, read, saved in (
                 ('sample.vtt', 'in.vtt', webvtt.read, 'in.srt'),
