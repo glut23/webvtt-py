@@ -51,9 +51,9 @@ webvtt \-\-version
 \fBwebvtt\fP segments a WebVTT caption file for \X'tty: link https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis'\fI\%HTTP Live Streaming\fP\X'tty: link' (HLS)
 and shifts or synchronizes the timestamps of its captions.
 .sp
-\fBsegment\fP splits the captions in \fBPATH\fP into segments of a target duration. Each
-segment is written to \fBOUTPUT\fP as \fBfileSequenceN.webvtt\fP, where \fBN\fP is
-the segment index starting at 0, along with a playlist named
+\fBsegment\fP splits the captions in \fBPATH\fP into segments of a target
+duration. Each segment is written to \fBOUTPUT\fP as \fBfileSequenceN.webvtt\fP,
+where \fBN\fP is the segment index starting at 0, along with a playlist named
 \fBprog_index.m3u8\fP that lists all the segments. An \fBOUTPUT\fP with the
 playlist or segments of an earlier run is an error, unless \fB\-\-overwrite\fP is
 given.
@@ -83,6 +83,9 @@ the first or after the last point along the line of the outermost points.
 With \fB\-\-fps\fP, the timing is changed from one frame rate to another. Times
 are rounded and set to zero like with \fBshift\fP, and the output is written
 the same way.
+.sp
+The commands can also be run as \fBpython \-m webvtt\fP, as in
+\fBpython \-m webvtt shift captions.vtt 2\fP\&.
 .sp
 \fBsegment\fP, \fBshift\fP and \fBsync\fP read the captions from standard input
 when \fBPATH\fP is \fB\-\fP, decoded as UTF\-8 as WebVTT requires, so they can be
@@ -188,9 +191,12 @@ Default: standard output.
 The command completed successfully.
 .TP
 .B \fB1\fP
-The input file could not be read or is not a valid WebVTT file, or the
-output could not be written. An error message is printed to
-standard error, for example:
+The input could not be read or is not a valid WebVTT file, the captions
+could not be moved as asked, or the output could not be written. For
+\fBsegment\fP, it is also an error when the output directory has the files
+of an earlier run without \fB\-\-overwrite\fP, or when a caption starts at or
+after \fB\-\-duration\fP\&. An error message is printed to standard error, for
+example:
 .INDENT 7.0
 .INDENT 3.5
 .sp
@@ -229,7 +235,7 @@ Thanks for watching!
 .UNINDENT
 .UNINDENT
 .sp
-Segment it into 10 second segments:
+Segment it into 10\-second segments:
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -301,7 +307,7 @@ Thanks for watching!
 .UNINDENT
 .UNINDENT
 .sp
-Segment it again into \fBout\fP, with 6 second segments and a different
+Segment it again into \fBout\fP, with 6\-second segments and a different
 MPEG\-TS value, replacing the earlier segments:
 .INDENT 0.0
 .INDENT 3.5

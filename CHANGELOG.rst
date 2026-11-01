@@ -4,6 +4,9 @@ History
 Unreleased
 ----------
 
+See the upgrade notes at https://webvtt-py.readthedocs.io/en/latest/upgrading.html
+for what to change in code using the library.
+
 Changes that may need updates to the code using the library:
 
 * Requires Python 3.10 or later, as Python 3.7, 3.8 and 3.9 are end-of-life (#136, #148)
@@ -25,27 +28,28 @@ Changes that may need updates to the code using the library:
 
 Changes:
 
+* Added reading binary file-like objects with ``from_buffer``, such as files opened in ``'rb'`` mode, with the encoding of their Byte Order Mark, kept when saving, or the new ``encoding`` argument (#143, #157)
+* Added setting ``Caption.text`` to a sequence of lines, as when creating a ``Caption`` (#162, #198)
 * Added ``WebVTTError`` as the base class of the errors, and made ``MalformedFileError`` and ``MalformedCaptionError`` subclasses of ``ValueError`` (#146, #155)
+* Added ``MalformedRegionError``, a subclass of ``MalformedCaptionError``, raised for region settings that are not valid and, with strict parsing, for regions after the first cue (#168, #204)
+* Added the ``overwrite`` argument of ``segment`` and the ``--overwrite`` option of the CLI, which replace the files of an earlier segmentation and delete its segments that the new playlist does not have (#164, #200)
+* Added the ``duration`` argument of ``segment``, ``slice_segments`` and ``write_manifest``, and the ``--duration`` option of the CLI, for the length of the media, so the HLS playlist covers all of it and its last segment ends with it instead of lasting the whole target duration (#165, #201)
 * Added segmenting a ``WebVTT`` instance with ``segment``, such as captions edited or read from another format, without saving them first, and reading the captions from standard input with ``-`` as the ``PATH`` of the ``segment`` command (#205, #209)
 * Added the ``--version`` option of the CLI, and reading the captions from standard input with ``-`` as the ``PATH`` of the ``shift`` and ``sync`` commands (#169, #207)
-* Added ``MalformedRegionError``, a subclass of ``MalformedCaptionError``, raised for region settings that are not valid and, with strict parsing, for regions after the first cue (#168, #204)
-* Added setting ``Caption.text`` to a sequence of lines, as when creating a ``Caption`` (#162, #198)
-* Added the ``duration`` argument of ``segment``, ``slice_segments`` and ``write_manifest``, and the ``--duration`` option of the CLI, for the length of the media, so the HLS playlist covers all of it and its last segment ends with it instead of lasting the whole target duration (#165, #201)
-* Added the ``overwrite`` argument of ``segment`` and the ``--overwrite`` option of the CLI, which replace the files of an earlier segmentation and delete its segments that the new playlist does not have (#164, #200)
-* Added reading binary file-like objects with ``from_buffer``, such as files opened in ``'rb'`` mode, with the encoding of their Byte Order Mark, kept when saving, or the new ``encoding`` argument (#143, #157)
+* Added running the CLI with ``python -m webvtt`` (#210)
 * Fixed reading SRT files with whitespace around the first cue index, thanks to `@youdie006 <https://github.com/youdie006>`_ (#130)
 * Fixed WebVTT styles ignored when ``STYLE`` is followed by whitespace (#133)
 * Fixed WebVTT regions ignored after header text with ``-->`` (#135)
+* Fixed reading SRT and SBV files that start with blank lines or with a cue without text, which raised ``MalformedFileError`` (#142, #158)
 * Fixed non-ASCII digits read as numbers in timestamps and SRT cue indexes, thanks to `@emirmrkaljevic <https://github.com/emirmrkaljevic>`_ (#140, #147)
+* Fixed ``from_buffer`` keeping a name that is not a path as the ``file`` to save to, such as ``<stdin>`` or the file descriptor of a file opened from one, which ``save`` wrote to ``<stdin>.vtt`` or failed on with ``TypeError`` (#206, #208)
 * Fixed comparing a ``Timestamp`` with other types raising ``AttributeError``: ``==`` returns ``False`` and ordering comparisons raise ``TypeError`` (#137, #150)
 * Fixed the SRT output not ending with a line break (#138, #151)
-* Fixed HLS segments repeating a cue that ends on a segment boundary, and the playlist having no segments for captions without cues, thanks to `@radixun <https://github.com/radixun>`_ (#145, #149)
-* Fixed the ``read_buffer`` deprecation warning pointing at the library instead of the code calling it (#139, #153)
-* Fixed segmenting raising ``IndexError`` for a cue that ends before it starts, which is now written to the segment it starts in (#152, #154)
-* Fixed reading SRT and SBV files that start with blank lines or with a cue without text, which raised ``MalformedFileError`` (#142, #158)
-* Fixed ``save`` leaving out the Byte Order Mark when the encoding is written differently, such as ``UTF-8`` or ``utf8`` (#160, #196)
-* Fixed ``from_buffer`` keeping a name that is not a path as the ``file`` to save to, such as ``<stdin>`` or the file descriptor of a file opened from one, which ``save`` wrote to ``<stdin>.vtt`` or failed on with ``TypeError`` (#206, #208)
 * Fixed SRT output of captions without text, such as text of blank lines, which were written as cues without text that are lost when read back: they are left out and the others numbered consecutively (#166, #202)
+* Fixed ``save`` leaving out the Byte Order Mark when the encoding is written differently, such as ``UTF-8`` or ``utf8`` (#160, #196)
+* Fixed HLS segments repeating a cue that ends on a segment boundary, and the playlist having no segments for captions without cues, thanks to `@radixun <https://github.com/radixun>`_ (#145, #149)
+* Fixed segmenting raising ``IndexError`` for a cue that ends before it starts, which is now written to the segment it starts in (#152, #154)
+* Fixed the ``read_buffer`` deprecation warning pointing at the library instead of the code calling it (#139, #153)
 
 0.6.0 (25-10-2026)
 ------------------

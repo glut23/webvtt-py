@@ -21,7 +21,7 @@ Reading WebVTT caption files
     for line in vtt[0].lines:
         print(line)
 
-    # the caption text is returned clean without class tags,
+    # the caption text is returned clean without cue tags,
     # the raw text of a caption is available in raw_text
     vtt[0].text      # 'This is a caption text'
     vtt[0].raw_text  # 'This is a <c.colorE5E5E5>caption</c> text'
@@ -39,7 +39,7 @@ Reading WebVTT caption files from a file-like object
     import requests
     from io import StringIO
 
-    payload = requests.get('http://subtitles.com/1234.vtt').text
+    payload = requests.get('https://example.com/captions.vtt').text
     buffer = StringIO(payload)
 
     for caption in webvtt.from_buffer(buffer):
@@ -312,9 +312,8 @@ seconds or a ``timedelta``:
     vtt.save()
 
 The offset is rounded to the nearest millisecond of its decimal value, with
-halves
-rounded away from zero, so ``0.0005`` is 1 millisecond and ``-0.0005`` is -1
-millisecond. A timestamp that would fall before zero is set to
+halves rounded away from zero, so ``0.0005`` is 1 millisecond and ``-0.0005``
+is -1 millisecond. A timestamp that would fall before zero is set to
 ``00:00:00.000``, so a caption moved entirely before the start is kept with
 ``00:00:00.000 --> 00:00:00.000`` timings.
 
@@ -427,7 +426,7 @@ read from ``captions.srt`` are saved to ``captions.vtt``. ``save_as_srt()``
 does the same with ``.srt``.
 
 
-Retrieving WebVTT formatted captions
+Retrieving WebVTT-formatted captions
 ------------------------------------
 
 WebVTT content can be retrieved without an output file:
@@ -445,7 +444,7 @@ WebVTT content can be retrieved without an output file:
 Converting captions
 -------------------
 
-You can read captions from the following formats:
+Captions can be read from the following formats:
 
 * SubRip (.srt)
 * YouTube SBV (.sbv)
@@ -484,6 +483,55 @@ text are skipped, so a file whose first cue has no text is read. SRT cues
 without an index are read, as most SRT players do, but the first cue of the
 file needs one for the content to be read as SRT.
 
+Convert WebVTT captions to other formats:
+
+* SubRip (.srt)
+
+.. code-block:: python
+
+    import webvtt
+
+    # save in SRT format
+    vtt = webvtt.read('captions.vtt')
+    vtt.save_as_srt()
+
+    # write to an open file in SRT format
+    with open('captions.srt', 'w') as f:
+        vtt.write(f, format='srt')
+
+Captions without text, such as text of blank lines, are left out of the SRT
+file, as SRT cannot have a cue without text, and the others are numbered
+consecutively.
+
+The cue tags are removed when converting to SRT. To keep the formatting
+instead, use ``keep_formatting``. Bold, italic, underline and ``font`` tags are
+kept, and the cue classes with a ``color`` in the styles become ``font`` tags
+with that color. Other cue tags are removed, keeping their text:
+
+.. code-block:: python
+
+    import webvtt
+
+    vtt = webvtt.from_string("""\
+    WEBVTT
+
+    STYLE
+    ::cue(.magenta) {
+      color: #ff00ff;
+    }
+
+    00:00:00.500 --> 00:00:07.000
+    <c.magenta><i>Hello</i> world</c>
+    """)
+    vtt.save_as_srt('captions.srt', keep_formatting=True)
+
+    # the caption is saved as:
+    # <font color="#ff00ff"><i>Hello</i> world</font>
+
+Only the ``color`` of ``::cue(.class)`` selectors is read. When a cue has more
+than one class with a color, the rule that comes last in the styles applies.
+Character references such as ``&lt;`` are written as they are.
+
 The ``encoding`` given to read a file without a Byte Order Mark is only
 used for reading, as WebVTT files are UTF-8: ``save()`` writes UTF-8 unless
 another encoding is given. SRT files have no fixed encoding, so captions
@@ -508,55 +556,6 @@ read with ``from_srt`` or ``from_buffer`` in SRT format and an
 Saving text that the encoding cannot write raises ``UnicodeEncodeError``,
 leaving an existing file unchanged.
 
-Convert WebVTT captions to other formats:
-
-* SubRip (.srt)
-
-.. code-block:: python
-
-    import webvtt
-
-    # save in SRT format
-    vtt = webvtt.read('captions.vtt')
-    vtt.save_as_srt()
-
-    # write to an open file in SRT format
-    with open('captions.srt', 'w') as f:
-        vtt.write(f, format='srt')
-
-Captions without text, such as text of blank lines, are left out of the SRT
-file, as SRT cannot have a cue without text, and the others are numbered
-consecutively.
-
-The cue tags are removed when converting to SRT. To keep the formatting
-instead, use ``keep_formatting``. Bold, italic, underline and ``font`` tags are
-kept, and the cue classes with a ``color`` in the styles become ``font`` tags
-with that colour. Other cue tags are removed, keeping their text:
-
-.. code-block:: python
-
-    import webvtt
-
-    vtt = webvtt.from_string("""\
-    WEBVTT
-
-    STYLE
-    ::cue(.magenta) {
-      color: #ff00ff;
-    }
-
-    00:00:00.500 --> 00:00:07.000
-    <c.magenta><i>Hello</i> world</c>
-    """)
-    vtt.save_as_srt('captions.srt', keep_formatting=True)
-
-    # the caption is saved as:
-    # <font color="#ff00ff"><i>Hello</i> world</font>
-
-Only the ``color`` of ``::cue(.class)`` selectors is read. When a cue has more
-than one class with a colour, the rule that comes last in the styles applies.
-Character references such as ``&lt;`` are written as they are.
-
 
 Segmenting captions for HLS
 ---------------------------
@@ -577,10 +576,10 @@ Segmenting captions for HLS
     vtt.change_framerate(25, 23.976)
     webvtt.segment(vtt, 'srt/path')
 
-Every segment has the styles and regions of the file, and the captions keep
-their identifiers and cue settings. Comments are not written to the
-segments. ``seconds`` is a whole number above zero and ``mpegts`` a whole
-number from 0 to 8589934591.
+Every segment has the styles and regions of the captions, and the captions
+in it keep their identifiers and cue settings. Comments are not written to
+the segments. ``seconds`` is a whole number above zero and ``mpegts`` a
+whole number from 0 to 8589934591.
 
 Segmenting into a folder with the playlist or segments of an earlier run
 raises ``FileExistsError``, so they are not replaced by mistake. Use

@@ -5,7 +5,7 @@ webvtt-py
 
 ``webvtt-py`` is a Python library for reading, writing and converting WebVTT_ caption files. It also features caption segmentation useful when captioning `HLS videos`_.
 
-Documentation is available at http://webvtt-py.readthedocs.io.
+Documentation is available at https://webvtt-py.readthedocs.io.
 
 .. _`WebVTT`: https://www.w3.org/TR/webvtt1/
 .. _`HLS videos`: https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis
@@ -98,7 +98,7 @@ command line with the ``webvtt`` executable. Given ``captions.vtt``:
   00:00:14.500 --> 00:00:18.000
   Thanks for watching!
 
-Segment it into 10 second segments:
+Segment it into 10-second segments:
 
 ::
 
@@ -166,11 +166,11 @@ License
 Licensed under the MIT License.
 
 .. |pypi| image:: https://img.shields.io/pypi/v/webvtt-py.svg
-    :target: https://pypi.python.org/pypi/webvtt-py
+    :target: https://pypi.org/project/webvtt-py/
 
 .. |pyversions| image:: https://img.shields.io/pypi/pyversions/webvtt-py.svg
     :alt: Supported Python versions
-    :target: https://pypi.python.org/pypi/webvtt-py
+    :target: https://pypi.org/project/webvtt-py/
 
 .. |license| image:: https://img.shields.io/pypi/l/webvtt-py.svg
     :alt: MIT License
@@ -183,7 +183,7 @@ Licensed under the MIT License.
     :target: https://github.com/glut23/webvtt-py/actions/workflows/ci.yml
 
 .. |docs-status| image:: https://readthedocs.org/projects/webvtt-py/badge/?version=latest
-    :target: http://webvtt-py.readthedocs.io/en/latest/?badge=latest
+    :target: https://webvtt-py.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
 
 .. |downloads| image:: https://static.pepy.tech/badge/webvtt-py

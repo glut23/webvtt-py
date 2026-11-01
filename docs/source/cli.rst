@@ -22,9 +22,9 @@ Description
 ``webvtt`` segments a WebVTT caption file for `HTTP Live Streaming`_ (HLS)
 and shifts or synchronizes the timestamps of its captions.
 
-``segment`` splits the captions in ``PATH`` into segments of a target duration. Each
-segment is written to ``OUTPUT`` as ``fileSequenceN.webvtt``, where ``N`` is
-the segment index starting at 0, along with a playlist named
+``segment`` splits the captions in ``PATH`` into segments of a target
+duration. Each segment is written to ``OUTPUT`` as ``fileSequenceN.webvtt``,
+where ``N`` is the segment index starting at 0, along with a playlist named
 ``prog_index.m3u8`` that lists all the segments. An ``OUTPUT`` with the
 playlist or segments of an earlier run is an error, unless ``--overwrite`` is
 given.
@@ -56,6 +56,9 @@ the first or after the last point along the line of the outermost points.
 With ``--fps``, the timing is changed from one frame rate to another. Times
 are rounded and set to zero like with ``shift``, and the output is written
 the same way.
+
+The commands can also be run as ``python -m webvtt``, as in
+``python -m webvtt shift captions.vtt 2``.
 
 ``segment``, ``shift`` and ``sync`` read the captions from standard input
 when ``PATH`` is ``-``, decoded as UTF-8 as WebVTT requires, so they can be
@@ -162,9 +165,12 @@ Exit status
     The command completed successfully.
 
 ``1``
-    The input file could not be read or is not a valid WebVTT file, or the
-    output could not be written. An error message is printed to
-    standard error, for example::
+    The input could not be read or is not a valid WebVTT file, the captions
+    could not be moved as asked, or the output could not be written. For
+    ``segment``, it is also an error when the output directory has the files
+    of an earlier run without ``--overwrite``, or when a caption starts at or
+    after ``--duration``. An error message is printed to standard error, for
+    example::
 
         webvtt: error: captions.vtt: not a valid WebVTT file
 
@@ -190,7 +196,7 @@ Given ``captions.vtt``:
     00:00:14.500 --> 00:00:18.000
     Thanks for watching!
 
-Segment it into 10 second segments:
+Segment it into 10-second segments:
 
 ::
 
@@ -238,7 +244,7 @@ Segment it into 10 second segments:
     00:00:14.500 --> 00:00:18.000
     Thanks for watching!
 
-Segment it again into ``out``, with 6 second segments and a different
+Segment it again into ``out``, with 6-second segments and a different
 MPEG-TS value, replacing the earlier segments:
 
 ::
