@@ -744,6 +744,30 @@ class CLIStdinTestCase(CLICommandTestCase):
                     self.run_cli([arg.format(self.vtt_file) for arg in argv])
                     )
 
+    def test_segment_from_stdin(self):
+        from_file = os.path.join(self.temp_dir.name, 'from_file')
+        from_stdin = os.path.join(self.temp_dir.name, 'from_stdin')
+
+        main(['segment', self.vtt_file, '-o', from_file, '-d', '2'])
+        self.run_cli_stdin(['segment', '-', '-o', from_stdin, '-d', '2'],
+                           self.CAPTIONS.encode('utf-8'))
+
+        self.assertEqual(sorted(os.listdir(from_stdin)),
+                         sorted(os.listdir(from_file)))
+        for name in os.listdir(from_file):
+            self.assertEqual(
+                pathlib.Path(from_stdin, name).read_text(),
+                pathlib.Path(from_file, name).read_text()
+                )
+
+    def test_segment_from_stdin_invalid_content(self):
+        output = os.path.join(self.temp_dir.name, 'output')
+
+        self.assert_cli_stdin_error(['segment', '-', '-o', output],
+                                    b'not WebVTT',
+                                    'standard input: not a valid WebVTT file')
+        self.assertFalse(os.path.exists(output))
+
     def test_stdin_is_read_as_utf8(self):
         captions = self.CAPTIONS.replace('Caption #1', 'Subtítulo #1')
 

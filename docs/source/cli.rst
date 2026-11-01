@@ -57,9 +57,9 @@ With ``--fps``, the timing is changed from one frame rate to another. Times
 are rounded and set to zero like with ``shift``, and the output is written
 the same way.
 
-``shift`` and ``sync`` read the captions from standard input when ``PATH``
-is ``-``, decoded as UTF-8 as WebVTT requires, so they can be used in
-pipes. A file named ``-`` can be read as ``./-``.
+``segment``, ``shift`` and ``sync`` read the captions from standard input
+when ``PATH`` is ``-``, decoded as UTF-8 as WebVTT requires, so they can be
+used in pipes. A file named ``-`` can be read as ``./-``.
 
 Commands
 --------
@@ -299,6 +299,12 @@ input:
 ::
 
     $ webvtt shift captions.vtt 2 | webvtt sync - --fps 25 23.976 > fixed.vtt
+
+Synchronize the captions and segment them, without a file in between:
+
+::
+
+    $ webvtt sync captions.vtt --fps 25 23.976 | webvtt segment - -o out
 
 See also
 --------

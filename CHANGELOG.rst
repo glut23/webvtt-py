@@ -26,6 +26,7 @@ Changes that may need updates to the code using the library:
 Changes:
 
 * Added ``WebVTTError`` as the base class of the errors, and made ``MalformedFileError`` and ``MalformedCaptionError`` subclasses of ``ValueError`` (#146, #155)
+* Added segmenting a ``WebVTT`` instance with ``segment``, such as captions edited or read from another format, without saving them first, and reading the captions from standard input with ``-`` as the ``PATH`` of the ``segment`` command (#205, #209)
 * Added the ``--version`` option of the CLI, and reading the captions from standard input with ``-`` as the ``PATH`` of the ``shift`` and ``sync`` commands (#169, #207)
 * Added ``MalformedRegionError``, a subclass of ``MalformedCaptionError``, raised for region settings that are not valid and, with strict parsing, for regions after the first cue (#168, #204)
 * Added setting ``Caption.text`` to a sequence of lines, as when creating a ``Caption`` (#162, #198)

@@ -571,6 +571,12 @@ Segmenting captions for HLS
     # use 6-second segments and a different MPEG-TS value
     webvtt.segment('captions.vtt', 'other/path', seconds=6, mpegts=0)
 
+    # segment captions already read, edited or from another format,
+    # without saving them first
+    vtt = webvtt.from_srt('captions.srt')
+    vtt.change_framerate(25, 23.976)
+    webvtt.segment(vtt, 'srt/path')
+
 Every segment has the styles and regions of the file, and the captions keep
 their identifiers and cue settings. Comments are not written to the
 segments. ``seconds`` is a whole number above zero and ``mpegts`` a whole

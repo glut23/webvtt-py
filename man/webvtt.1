@@ -84,9 +84,9 @@ With \fB\-\-fps\fP, the timing is changed from one frame rate to another. Times
 are rounded and set to zero like with \fBshift\fP, and the output is written
 the same way.
 .sp
-\fBshift\fP and \fBsync\fP read the captions from standard input when \fBPATH\fP
-is \fB\-\fP, decoded as UTF\-8 as WebVTT requires, so they can be used in
-pipes. A file named \fB\-\fP can be read as \fB\&./\-\fP\&.
+\fBsegment\fP, \fBshift\fP and \fBsync\fP read the captions from standard input
+when \fBPATH\fP is \fB\-\fP, decoded as UTF\-8 as WebVTT requires, so they can be
+used in pipes. A file named \fB\-\fP can be read as \fB\&./\-\fP\&.
 .SH COMMANDS
 .INDENT 0.0
 .TP
@@ -394,6 +394,18 @@ input:
 .nf
 .ft C
 $ webvtt shift captions.vtt 2 | webvtt sync \- \-\-fps 25 23.976 > fixed.vtt
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Synchronize the captions and segment them, without a file in between:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ webvtt sync captions.vtt \-\-fps 25 23.976 | webvtt segment \- \-o out
 .ft P
 .fi
 .UNINDENT
