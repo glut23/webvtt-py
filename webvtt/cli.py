@@ -4,6 +4,7 @@ import argparse
 import fractions
 import math
 import os
+import pathlib
 import sys
 import typing
 
@@ -37,7 +38,8 @@ def main(argv: typing.Optional[typing.Sequence] = None):
             'The output directory will contain a playlist named '
             'prog_index.m3u8 and one fileSequenceN.webvtt file per segment. '
             'Captions spanning multiple segments are included in each of '
-            'them.'
+            'them. An output directory with the files of an earlier run is '
+            'an error unless --overwrite is given.'
             )
         )
     segment_command.add_argument(
@@ -65,6 +67,12 @@ def main(argv: typing.Optional[typing.Sequence] = None):
         default=segmenter.DEFAULT_MPEGTS,
         help=('MPEG-TS value for the X-TIMESTAMP-MAP header of each segment, '
               'default: %(default)s')
+        )
+    segment_command.add_argument(
+        '--overwrite',
+        action='store_true',
+        help=('replace the playlist and segments of an earlier run in the '
+              'output directory')
         )
     segment_command.set_defaults(run=_segment)
 
@@ -153,8 +161,7 @@ def main(argv: typing.Optional[typing.Sequence] = None):
     sync_command.set_defaults(run=_sync)
 
     args = arguments.parse_args(argv)
-    if args.command == 'sync':
-        _check_sync_points(sync_command, args.points)
+    _check_arguments(arguments, sync_command, args)
 
     try:
         args.run(args)
@@ -174,6 +181,18 @@ def main(argv: typing.Optional[typing.Sequence] = None):
     arguments.exit(1, f'{arguments.prog}: error: {message}\n')
 
 
+def _check_arguments(
+        parser: argparse.ArgumentParser,
+        sync_parser: argparse.ArgumentParser,
+        args: argparse.Namespace
+        ):
+    """Exit with an error if the arguments cannot be used."""
+    if args.command == 'sync':
+        _check_sync_points(sync_parser, args.points)
+    elif args.command == 'segment' and not args.overwrite:
+        _check_output(parser, args.output)
+
+
 def _check_sync_points(
         parser: argparse.ArgumentParser,
         points: typing.Optional[typing.List[typing.List[typing.Any]]]
@@ -186,13 +205,30 @@ def _check_sync_points(
         parser.error(str(error))
 
 
+def _check_output(parser: argparse.ArgumentParser, output: str):
+    """Exit with an error if the output has the files of an earlier run."""
+    try:
+        earlier_file = segmenter._earlier_output(pathlib.Path(output))
+    except OSError:
+        # reported as the other errors when segmenting
+        return
+    if earlier_file:
+        parser.exit(
+            1,
+            f'{parser.prog}: error: {output}: has the files of an earlier '
+            f'segmentation, such as {earlier_file}; use --overwrite to '
+            'replace them\n'
+            )
+
+
 def _segment(args: argparse.Namespace):
     """Run the segment command."""
     segmenter.segment(
         args.file,
         args.output,
         args.target_duration,
-        args.mpegts
+        args.mpegts,
+        overwrite=args.overwrite
         )
 
 

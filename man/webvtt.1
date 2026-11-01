@@ -36,7 +36,7 @@ webvtt \- segment, shift and sync WebVTT captions
 .sp
 .nf
 .ft C
-webvtt segment PATH \-o OUTPUT [\-d NUMBER] [\-m NUMBER]
+webvtt segment PATH \-o OUTPUT [\-d NUMBER] [\-m NUMBER] [\-\-overwrite]
 webvtt shift PATH OFFSET [\-o OUTPUT] [\-s TIMESTAMP]
 webvtt sync PATH (\-p FROM TO \-p FROM TO ... | \-\-fps FROM TO) [\-o OUTPUT]
 webvtt \-h
@@ -52,7 +52,9 @@ and shifts or synchronizes the timestamps of its captions.
 \fBsegment\fP splits the captions in \fBPATH\fP into segments of a target duration. Each
 segment is written to \fBOUTPUT\fP as \fBfileSequenceN.webvtt\fP, where \fBN\fP is
 the segment index starting at 0, along with a playlist named
-\fBprog_index.m3u8\fP that lists all the segments.
+\fBprog_index.m3u8\fP that lists all the segments. An \fBOUTPUT\fP with the
+playlist or segments of an earlier run is an error, unless \fB\-\-overwrite\fP is
+given.
 .sp
 A caption whose time span crosses a segment boundary is included in every
 segment it overlaps, so players display it regardless of which segment they
@@ -103,8 +105,7 @@ Show the help message and exit. Also available for each command, as in
 .TP
 .B \fB\-o OUTPUT\fP, \fB\-\-output OUTPUT\fP
 Directory where the segments and playlist are written. It is created if
-it does not exist. Existing files with the same names are overwritten.
-Required.
+it does not exist. Required.
 .TP
 .B \fB\-d NUMBER\fP, \fB\-\-target\-duration NUMBER\fP
 Target duration of each segment in seconds, a whole number above zero.
@@ -115,6 +116,12 @@ the playlist. Default: \fB10\fP\&.
 MPEG\-TS value written to the \fBX\-TIMESTAMP\-MAP\fP header of each segment,
 a whole number from 0 to 8589934591, as MPEG\-TS timestamps have 33
 bits. Default: \fB900000\fP (10 seconds at the 90 kHz MPEG\-TS clock).
+.TP
+.B \fB\-\-overwrite\fP
+Replace the playlist and segments of an earlier run in \fBOUTPUT\fP, and
+delete the segments of that run that the new playlist does not have.
+Other files in \fBOUTPUT\fP are left alone. Without it, an \fBOUTPUT\fP with
+a \fBprog_index.m3u8\fP or \fBfileSequenceN.webvtt\fP file is an error.
 .UNINDENT
 .SS Shift options
 .INDENT 0.0
@@ -276,13 +283,16 @@ Thanks for watching!
 .UNINDENT
 .UNINDENT
 .sp
-Use 6 second segments and a different MPEG\-TS value:
+Segment it again into \fBout\fP, with 6 second segments and a different
+MPEG\-TS value, replacing the earlier segments:
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
-$ webvtt segment captions.vtt \-o out \-d 6 \-m 0
+$ webvtt segment captions.vtt \-o out
+webvtt: error: out: has the files of an earlier segmentation, such as fileSequence0.webvtt; use \-\-overwrite to replace them
+$ webvtt segment captions.vtt \-o out \-d 6 \-m 0 \-\-overwrite
 .ft P
 .fi
 .UNINDENT

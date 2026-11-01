@@ -3,6 +3,7 @@
 import typing
 import os
 import pathlib
+import re
 
 from . import utils, vtt
 from .models import Caption, Region, Style
@@ -14,12 +15,22 @@ DEFAULT_SECONDS = 10  # default number of seconds per segment
 # MPEG-TS timestamps have 33 bits
 _MAX_MPEGTS = 2 ** 33 - 1
 
+_MANIFEST_NAME = 'prog_index.m3u8'
+_SEGMENT_NAME_PATTERN = re.compile(r'fileSequence(0|[1-9][0-9]*)\.webvtt')
+# ignoring case, as on case-insensitive file systems these are the names
+# that would be written over
+_EARLIER_OUTPUT_PATTERN = re.compile(
+    r'prog_index\.m3u8|fileSequence(0|[1-9][0-9]*)\.webvtt', re.IGNORECASE
+    )
+
 
 def segment(
         webvtt_path: str,
         output: str,
         seconds: int = DEFAULT_SECONDS,
-        mpegts: int = DEFAULT_MPEGTS
+        mpegts: int = DEFAULT_MPEGTS,
+        *,
+        overwrite: bool = False
         ):
     """
     Segment a WebVTT captions file.
@@ -33,10 +44,15 @@ def segment(
     :param seconds: the number of seconds for each segment, a whole number
         above zero
     :param mpegts: value for the MPEG-TS, from 0 to 2**33 - 1
+    :param overwrite: replace the playlist and segments of an earlier run in
+        the destination folder, deleting the segments the new playlist does
+        not have. Other files in the folder are left alone.
 
     :raises TypeError: if seconds or mpegts is not an integer
     :raises ValueError: if seconds is not above zero or mpegts is out of
         range
+    :raises FileExistsError: if the destination folder has the playlist or
+        segments of an earlier run and overwrite is false
     """
     _check_seconds(seconds)
     _check_mpegts(mpegts)
@@ -44,6 +60,14 @@ def segment(
     captions_file = WebVTT.read(webvtt_path)
 
     output_folder = pathlib.Path(output)
+    if not overwrite:
+        earlier_file = _earlier_output(output_folder)
+        if earlier_file:
+            raise FileExistsError(
+                f'{str(output_folder)!r} has the files of an earlier '
+                f'segmentation, such as {earlier_file!r}; use '
+                'overwrite=True to replace them'
+                )
     os.makedirs(output_folder, exist_ok=True)
 
     segments = slice_segments(captions_file.captions, seconds)
@@ -52,6 +76,33 @@ def segment(
                    regions=captions_file.regions
                    )
     write_manifest(output_folder, segments, seconds)
+    if overwrite:
+        _remove_segments_from(output_folder, len(segments))
+
+
+def _earlier_output(output_folder: pathlib.Path) -> typing.Optional[str]:
+    """
+    Find the playlist or a segment of an earlier run in the folder.
+
+    :returns: the name of the first one, None if there is none or the
+        folder does not exist
+    """
+    if not output_folder.is_dir():
+        return None
+
+    return next(
+        (name for name in sorted(p.name for p in output_folder.iterdir())
+         if _EARLIER_OUTPUT_PATTERN.fullmatch(name)),
+        None
+        )
+
+
+def _remove_segments_from(output_folder: pathlib.Path, index: int):
+    """Delete the segment files numbered from index onwards."""
+    for path in output_folder.iterdir():
+        match = _SEGMENT_NAME_PATTERN.fullmatch(path.name)
+        if match and int(match.group(1)) >= index and path.is_file():
+            path.unlink(missing_ok=True)
 
 
 def _check_seconds(seconds: int):
@@ -183,7 +234,7 @@ def write_manifest(
     """
     _check_seconds(seconds)
 
-    manifest_file = output_folder / 'prog_index.m3u8'
+    manifest_file = output_folder / _MANIFEST_NAME
     with open(manifest_file, 'w', encoding='utf-8') as f:
         f.write('#EXTM3U\n')
         f.write(f'#EXT-X-TARGETDURATION:{seconds}\n')
