@@ -206,7 +206,8 @@ class WebVTT:
             iterable of lines
         :param format: the format of the data (vtt, srt or sbv)
         :param strict: raise an error on blocks that are not valid WebVTT
-            instead of ignoring them, only for the vtt format
+            instead of ignoring them, only for the vtt format, as SRT and
+            SBV have no strict parsing
         :param encoding: encoding of binary data without a Byte Order Mark,
             UTF-8 by default. For the srt format, `save_as_srt` saves in the
             same encoding
@@ -215,11 +216,19 @@ class WebVTT:
         :raises MalformedFileError: if the data is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp,
             or if strict and a block is not valid WebVTT
-        :raises ValueError: if the format is not supported
+        :raises ValueError: if the format is not supported, or strict is
+            given for the srt or sbv format
         :raises UnicodeDecodeError: if binary data cannot be decoded
         :raises TypeError: if the buffer is a string or bytes, use
             from_string to read a string or io.BytesIO to read bytes
         """
+        if format not in ('vtt', 'srt', 'sbv'):
+            raise ValueError(f'Format {format} is not supported.')
+        if strict and format != 'vtt':
+            raise ValueError(
+                f'Strict parsing is not supported for the {format} format'
+                )
+
         file = getattr(buffer, 'name', None)
         lines, bom_encoding, binary = cls._read_buffer(buffer, encoding)
 
@@ -236,10 +245,8 @@ class WebVTT:
                 )
         elif format == 'srt':
             instance = cls(captions=srt.parse(cls._get_lines(lines)))
-        elif format == 'sbv':
-            instance = cls(captions=sbv.parse(cls._get_lines(lines)))
         else:
-            raise ValueError(f'Format {format} is not supported.')
+            instance = cls(captions=sbv.parse(cls._get_lines(lines)))
 
         instance.file = file
         if bom_encoding:
