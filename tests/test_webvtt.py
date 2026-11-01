@@ -533,6 +533,37 @@ class TestWebVTT(unittest.TestCase):
         with self.assertRaises(MalformedCaptionError):
             webvtt.from_buffer(io.StringIO(content), strict=True)
 
+    def test_from_buffer_strict_srt_and_sbv(self):
+        for format, sample in (('srt', 'sample.srt'), ('sbv', 'sample.sbv')):
+            with self.subTest(format=format), \
+                    open(PATH_TO_SAMPLES / sample, encoding='utf-8') as f:
+                with self.assertRaises(ValueError) as cm:
+                    webvtt.from_buffer(f, format=format, strict=True)
+
+                self.assertEqual(
+                    str(cm.exception),
+                    f'Strict parsing is not supported for the {format} '
+                    'format'
+                    )
+                # the buffer is not read
+                self.assertEqual(f.tell(), 0)
+                self.assertTrue(
+                    webvtt.from_buffer(f, format=format, strict=False)
+                    .captions
+                    )
+
+    def test_from_buffer_unsupported_format(self):
+        path = PATH_TO_SAMPLES / 'sample.vtt'
+        for strict in (False, True):
+            with self.subTest(strict=strict), \
+                    open(path, encoding='utf-8') as f:
+                with self.assertRaises(ValueError) as cm:
+                    webvtt.from_buffer(f, format='ass', strict=strict)
+
+                self.assertEqual(str(cm.exception),
+                                 'Format ass is not supported.')
+                self.assertEqual(f.tell(), 0)
+
     def test_from_string_strict(self):
         """https://github.com/glut23/webvtt-py/issues/76"""
         content = textwrap.dedent('''

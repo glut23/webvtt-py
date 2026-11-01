@@ -918,6 +918,10 @@ Strict parsing also raises ``MalformedFileError`` when ``WEBVTT`` is
 followed by text other than a space or a tab in the first line, such as
 ``WEBVTTX``, which the default parsing reads.
 
+Strict parsing is only for WebVTT. SRT and SBV have no specification to
+validate against, so ``from_buffer`` raises ``ValueError`` for ``strict=True``
+with the ``srt`` or ``sbv`` format.
+
 .. code-block:: python
 
     import webvtt

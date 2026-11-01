@@ -21,6 +21,7 @@ Changes that may need updates to the code using the library:
 * Setting ``Caption.text`` to a value that is not a string or a sequence of lines raises ``TypeError`` instead of ``AttributeError``, and ``Caption`` raises it for lines that are not strings instead of accepting them (#162, #198)
 * ``WebVTT`` keeps empty lists given as arguments, as it does with other lists, instead of replacing them with new ones, and ``Style`` copies a list of lines, as ``Caption`` does, instead of keeping it (#163, #199)
 * ``segment`` raises ``FileExistsError``, and the ``segment`` command of the CLI exits with an error, when the output folder has the playlist or segments of an earlier run, instead of writing over them and keeping the segments the new playlist does not have: use ``overwrite=True`` or ``--overwrite`` to replace them (#164, #200)
+* ``from_buffer`` raises ``ValueError`` for ``strict=True`` with the ``srt`` or ``sbv`` format, which have no strict parsing, instead of ignoring it (#167, #203)
 
 Changes:
 
