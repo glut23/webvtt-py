@@ -1,6 +1,7 @@
 """Models module."""
 
 import bisect
+import collections.abc
 import datetime
 import decimal
 import fractions
@@ -794,24 +795,20 @@ class Caption:
 
         :param start: start time of the caption
         :param end: end time of the caption
-        :param text: the text of the caption
+        :param text: the text of the caption, or a sequence of its lines
         :param identifier: optional identifier
         :param settings: optional cue settings, as a string such as
             ``line:0 align:start`` or a `CueSettings` instance
 
         :raises MalformedCaptionError: if start or end are not valid, or
             settings is not a string, a `CueSettings` instance or None
+        :raises TypeError: if text is not a string or a sequence of strings
         """
-        text = text or []
         self.start = start or '00:00:00.000'
         self.end = end or '00:00:00.000'
         self.identifier = identifier
         self._settings = _to_cue_settings(settings)
-        self.lines = (_split_lines(text)
-                      if isinstance(text, str)
-                      else
-                      list(text)
-                      )
+        self.lines = _caption_lines([] if text is None else text)
         self.comments: typing.List[str] = []
 
     def __repr__(self):
@@ -946,14 +943,16 @@ class Caption:
         )
 
     @text.setter
-    def text(self, value: str):
-        """Set the text of the captions."""
-        if not isinstance(value, str):
-            raise AttributeError(
-                f'String value expected but received {value}.'
-                )
+    def text(self, value: typing.Union[str, typing.Sequence[str]]):
+        """
+        Set the text of the caption.
 
-        self.lines = _split_lines(value)
+        :param value: the text, or a sequence of its lines
+
+        :raises TypeError: if the value is not a string or a sequence of
+            strings
+        """
+        self.lines = _caption_lines(value)
 
     @property
     def voice(self) -> typing.Optional[str]:
@@ -964,6 +963,34 @@ class Caption:
                 return match.group(1)
 
         return None
+
+
+def _caption_lines(
+        text: typing.Union[str, typing.Iterable[str]]
+        ) -> typing.List[str]:
+    """
+    Return the lines of the text of a caption.
+
+    :param text: the text, split on its line breaks, or its lines
+    :returns: the lines
+
+    :raises TypeError: if the text is not a string or an iterable of strings
+    """
+    if isinstance(text, str):
+        return _split_lines(text)
+
+    # bytes are iterable, as integers
+    lines = (list(text)
+             if isinstance(text, collections.abc.Iterable) and
+             not isinstance(text, (bytes, bytearray))
+             else None
+             )
+    if lines is None or not all(isinstance(line, str) for line in lines):
+        raise TypeError(
+            f'Expected the text as a string or a sequence of lines, '
+            f'got {text!r}'
+            )
+    return lines
 
 
 def _retime_captions(
