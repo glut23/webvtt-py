@@ -1,8 +1,8 @@
 History
 =======
 
-Unreleased
-----------
+0.7.0 (01-11-2026)
+------------------
 
 See the upgrade notes at https://webvtt-py.readthedocs.io/en/latest/upgrading.html
 for what to change in code using the library.
