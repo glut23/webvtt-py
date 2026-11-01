@@ -389,6 +389,13 @@ class TestWebVTT(unittest.TestCase):
         with self.assertRaises(MalformedCaptionError):
             webvtt.from_string(content, strict=True)
 
+    def test_from_string_strict_header_keyword_followed_by_text(self):
+        content = 'WEBVTTX\n\n00:00:00.500 --> 00:00:04.300\nCaption text\n'
+
+        self.assertEqual(len(webvtt.from_string(content).captions), 1)
+        with self.assertRaises(MalformedFileError):
+            webvtt.from_string(content, strict=True)
+
     def test_from_string_line_breaks(self):
         content = (
             'WEBVTT\r\n'

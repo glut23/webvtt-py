@@ -200,23 +200,23 @@ class WebVTTCommentBlock:
     @classmethod
     def is_valid(
             cls,
-            lines: typing.Sequence[str],
-            strict: bool = False
+            lines: typing.Sequence[str]
             ) -> bool:
         """
         Validate the lines for a match of a comment block.
 
-        A comment starts with ``NOTE`` and no line contains ``-->``, as
-        WebVTT reads a line with ``-->`` as cue timings. When strict,
-        ``NOTE`` must be followed by a space, a tab or the end of the line.
+        A comment starts with ``NOTE`` followed by a space, a tab or the end
+        of the line, and no line contains ``-->``, as WebVTT reads a line
+        with ``-->`` as cue timings.
 
         :param lines: the lines to be validated
-        :param strict: only accept comments in the WebVTT format
         :returns: true for a matching comment block
         """
-        if not (lines and lines[0].startswith('NOTE')) or _has_arrow(lines):
-            return False
-        return not strict or lines[0][len('NOTE'):][:1] in ('', ' ', '\t')
+        return bool(
+            lines and
+            _starts_with_keyword(lines[0], 'NOTE') and
+            not _has_arrow(lines)
+            )
 
     @classmethod
     def from_lines(
@@ -348,12 +348,16 @@ def parse(
         instead of ignoring them
     :returns: object `ParserOutput` with all parsed items
 
-    :raises MalformedFileError: if the content is not in WebVTT format
+    :raises MalformedFileError: if the content is not in WebVTT format, or
+        if strict and "WEBVTT" is not followed by a space, a tab or the end
+        of the first line
     :raises MalformedCaptionError: if strict and a block is not valid
         WebVTT
     """
     if not is_valid_content(lines):
         raise MalformedFileError('Invalid format')
+    if strict and not _starts_with_keyword(lines[0], 'WEBVTT'):
+        raise MalformedFileError(f'Invalid header {lines[0]!r}')
 
     output = parse_items(lines, strict)
     output.header_text, output.metadata = _parse_header(
@@ -439,6 +443,20 @@ def _has_arrow(lines: typing.Iterable[str]) -> bool:
     return any('-->' in line for line in lines)
 
 
+def _starts_with_keyword(line: str, keyword: str) -> bool:
+    """
+    Return whether a line is a keyword, alone or followed by a space or tab.
+
+    :param line: the first line of a block
+    :param keyword: the keyword, such as ``WEBVTT`` or ``NOTE``
+    :returns: true if the line is the keyword, or the keyword followed by a
+        space or a tab and any text
+    """
+    return line.startswith(keyword) and line[len(keyword):][:1] in (
+        '', ' ', '\t'
+        )
+
+
 def _is_keyword_line(line: str, keyword: str) -> bool:
     """
     Return whether a line is a block keyword, optionally followed by spaces.
@@ -483,7 +501,7 @@ def parse_items(
             item.comments = [comment.text for comment in comments]
             comments = []
             items.append(item)
-        elif WebVTTCommentBlock.is_valid(block_lines, strict):
+        elif WebVTTCommentBlock.is_valid(block_lines):
             comments.append(WebVTTCommentBlock.from_lines(block_lines))
         elif strict:
             raise _invalid_block_error(block_lines)
@@ -689,8 +707,7 @@ def parse_item(
         or an end time that is not after the start time, for regions with
         an invalid region setting, and for regions and styles after a cue
     :param seen_cue: true if a cue came before, so the lines cannot be a
-        region as regions are only defined before the first cue, nor a
-        style when strict
+        region or a style, as they are only defined before the first cue
     :returns: An item (Caption, Style or Region) if found, otherwise None
 
     :raises MalformedCaptionError: if strict and a cue has an invalid
@@ -710,9 +727,11 @@ def parse_item(
         return None
 
     if WebVTTStyleBlock.is_valid(lines):
-        if strict and seen_cue:
+        if not seen_cue:
+            return Style(WebVTTStyleBlock.from_lines(lines).text)
+        if strict:
             raise MalformedCaptionError(f'Style block after a cue {lines!r}')
-        return Style(WebVTTStyleBlock.from_lines(lines).text)
+        return None
 
     return None
 

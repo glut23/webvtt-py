@@ -597,6 +597,10 @@ WebVTT styles
         # retrieve list of lines
         print(style.lines)
 
+``STYLE`` blocks after the first cue are not styles as per the WebVTT
+specification and are ignored, or raise ``MalformedCaptionError`` with
+strict parsing.
+
 
 Adding styles:
 
@@ -741,7 +745,9 @@ Comments can be added to or retrieved from different items:
     # comments are just a list of strings
     vtt.captions[5].comments.append('caption for review')
 
-A ``NOTE`` block containing ``-->`` is not a comment as per the WebVTT
+A block is a comment when it starts with ``NOTE`` followed by a space, a
+tab or a line break. A block starting with other text, such as
+``NOTEBOOK``, or containing ``-->`` is not a comment as per the WebVTT
 specification, so it is ignored when reading, or raises
 ``MalformedCaptionError`` with strict parsing.
 
@@ -825,6 +831,10 @@ raised instead. Strict parsing also raises the error for:
 * styles and regions after the first cue
 * a cue that is not separated from the previous cue, comment or style by
   an empty line
+
+Strict parsing also raises ``MalformedFileError`` when ``WEBVTT`` is
+followed by text other than a space or a tab in the first line, such as
+``WEBVTTX``, which the default parsing reads.
 
 .. code-block:: python
 
