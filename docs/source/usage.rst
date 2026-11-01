@@ -466,6 +466,30 @@ text are skipped, so a file whose first cue has no text is read. SRT cues
 without an index are read, as most SRT players do, but the first cue of the
 file needs one for the content to be read as SRT.
 
+The ``encoding`` given to read a file without a Byte Order Mark is only
+used for reading, as WebVTT files are UTF-8: ``save()`` writes UTF-8 unless
+another encoding is given. SRT files have no fixed encoding, so captions
+read with ``from_srt`` or ``from_buffer`` in SRT format and an
+``encoding`` are saved by ``save_as_srt()`` in the same encoding:
+
+.. code-block:: python
+
+    import webvtt
+
+    vtt = webvtt.from_srt('captions.srt', encoding='cp1252')
+
+    # saved in cp1252
+    vtt.save_as_srt('edited.srt')
+
+    # saved in UTF-8, also for text that cp1252 cannot write
+    vtt.save_as_srt('edited.srt', encoding='utf-8')
+
+    # saved in UTF-8
+    vtt.save()
+
+Saving text that the encoding cannot write raises ``UnicodeEncodeError``,
+leaving an existing file unchanged.
+
 Convert WebVTT captions to other formats:
 
 * SubRip (.srt)
