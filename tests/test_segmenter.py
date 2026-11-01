@@ -6,6 +6,7 @@ import textwrap
 import datetime
 import math
 
+import webvtt
 from webvtt import segmenter
 from webvtt.models import Caption, Timestamp
 
@@ -19,6 +20,10 @@ class TestSegmenter(unittest.TestCase):
 
     def tearDown(self):
         self.temp_dir.cleanup()
+
+    def read_folder(self, folder):
+        return {path.name: path.read_text()
+                for path in pathlib.Path(folder).iterdir()}
 
     def test_segmentation_with_defaults(self):
         segmenter.segment(PATH_TO_SAMPLES / 'sample.vtt', self.temp_dir.name)
@@ -662,9 +667,7 @@ class TestSegmenter(unittest.TestCase):
     def test_segment_into_folder_with_earlier_segments(self):
         output_folder = pathlib.Path(self.temp_dir.name)
         segmenter.segment(PATH_TO_SAMPLES / 'sample.vtt', output_folder)
-        earlier_files = {
-            path.name: path.read_text() for path in output_folder.iterdir()
-            }
+        earlier_files = self.read_folder(output_folder)
 
         with self.assertRaises(FileExistsError) as cm:
             segmenter.segment(PATH_TO_SAMPLES / 'one_caption.vtt',
@@ -676,10 +679,7 @@ class TestSegmenter(unittest.TestCase):
             "segmentation, such as 'fileSequence0.webvtt'; use "
             'overwrite=True to replace them'
             )
-        self.assertEqual(
-            {path.name: path.read_text() for path in output_folder.iterdir()},
-            earlier_files
-            )
+        self.assertEqual(self.read_folder(output_folder), earlier_files)
 
     def test_segment_into_folder_with_earlier_playlist(self):
         output_folder = pathlib.Path(self.temp_dir.name)
@@ -803,6 +803,52 @@ class TestSegmenter(unittest.TestCase):
         with self.assertRaises(ValueError):
             segmenter.segment(PATH_TO_SAMPLES / 'missing.vtt',
                               self.temp_dir.name, duration=0)
+
+    def test_segment_webvtt_instance(self):
+        from_path = pathlib.Path(self.temp_dir.name) / 'from_path'
+        from_instance = pathlib.Path(self.temp_dir.name) / 'from_instance'
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'regions.vtt')
+        captions = [(c.start, c.end, c.raw_text) for c in vtt.captions]
+
+        segmenter.segment(PATH_TO_SAMPLES / 'regions.vtt', from_path)
+        segmenter.segment(vtt, from_instance)
+
+        self.assertEqual(self.read_folder(from_instance),
+                         self.read_folder(from_path))
+        self.assertEqual(
+            [(c.start, c.end, c.raw_text) for c in vtt.captions], captions
+            )
+        self.assertEqual(vtt.file, str(PATH_TO_SAMPLES / 'regions.vtt'))
+
+    def test_segment_captions_in_memory(self):
+        vtt = webvtt.WebVTT(captions=[
+            Caption('00:00:01.000', '00:00:04.000', 'Hello'),
+            Caption('00:00:12.000', '00:00:13.000', 'World'),
+            ])
+        vtt.shift(1)
+
+        segmenter.segment(vtt, self.temp_dir.name, seconds=5)
+
+        self.assertEqual(
+            self.read_folder(self.temp_dir.name)['fileSequence2.webvtt'],
+            'WEBVTT\n'
+            'X-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000\n'
+            '\n'
+            '00:00:13.000 --> 00:00:14.000\n'
+            'World\n'
+            )
+        self.assertIsNone(vtt.file)
+
+    def test_segment_captions_read_from_srt(self):
+        from_vtt = pathlib.Path(self.temp_dir.name) / 'from_vtt'
+        from_srt = pathlib.Path(self.temp_dir.name) / 'from_srt'
+        srt_captions = webvtt.from_srt(PATH_TO_SAMPLES / 'sample.srt')
+
+        segmenter.segment(srt_captions, from_srt)
+        segmenter.segment(webvtt.from_string(srt_captions.content), from_vtt)
+
+        self.assertEqual(self.read_folder(from_srt),
+                         self.read_folder(from_vtt))
 
     def test_segment_with_no_captions(self):
         segmenter.segment(

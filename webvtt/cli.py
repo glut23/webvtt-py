@@ -56,7 +56,7 @@ def main(argv: typing.Optional[typing.Sequence] = None):
     segment_command.add_argument(
         'file',
         metavar='PATH',
-        help='WebVTT file'
+        help='WebVTT file, or - to read standard input'
         )
     segment_command.add_argument(
         '-o', '--output',
@@ -249,7 +249,7 @@ def _check_output(parser: argparse.ArgumentParser, output: str):
 def _segment(args: argparse.Namespace):
     """Run the segment command."""
     segmenter.segment(
-        args.file,
+        _read(args.file),
         args.output,
         args.target_duration,
         args.mpegts,

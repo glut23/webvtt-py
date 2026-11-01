@@ -27,7 +27,7 @@ _EARLIER_OUTPUT_PATTERN = re.compile(
 
 
 def segment(
-        webvtt_path: str,
+        webvtt_path: typing.Union[str, WebVTT],
         output: str,
         seconds: int = DEFAULT_SECONDS,
         mpegts: int = DEFAULT_MPEGTS,
@@ -36,13 +36,15 @@ def segment(
         duration: typing.Optional[_Position] = None
         ):
     """
-    Segment a WebVTT captions file.
+    Segment a WebVTT captions file, or captions already read.
 
     Each segment has the styles and regions of the file and the captions
     shown during the segment, with their identifiers and cue settings.
     Comments are not written to the segments.
 
-    :param webvtt_path: the path to the file
+    :param webvtt_path: the path to the file, or a `WebVTT` instance, such
+        as captions edited or read from another format, which is not
+        changed
     :param output: the path to the destination folder
     :param seconds: the number of seconds for each segment, a whole number
         above zero
@@ -69,7 +71,8 @@ def segment(
     if duration is not None:
         _duration_in_milliseconds(duration)
 
-    captions_file = WebVTT.read(webvtt_path)
+    captions_file = (webvtt_path if isinstance(webvtt_path, WebVTT)
+                     else WebVTT.read(webvtt_path))
     segments = slice_segments(captions_file.captions, seconds,
                               duration=duration)
 
