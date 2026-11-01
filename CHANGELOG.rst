@@ -19,6 +19,7 @@ Changes that may need updates to the code using the library:
 * ``save`` raises ``ValueError`` for ``add_bom=True`` with an encoding without a Byte Order Mark, such as ``latin-1``, and for ``add_bom=False`` with ``utf-8-sig``, ``utf-16`` or ``utf-32``, which always write one, instead of ignoring ``add_bom`` (#160, #196)
 * ``save_as_srt`` saves captions read with ``from_srt`` or ``from_buffer`` in SRT format and an ``encoding`` in the same encoding, instead of UTF-8, and ``encoding=None`` saves in UTF-8 instead of the encoding of the locale (#161, #197)
 * Setting ``Caption.text`` to a value that is not a string or a sequence of lines raises ``TypeError`` instead of ``AttributeError``, and ``Caption`` raises it for lines that are not strings instead of accepting them (#162, #198)
+* ``WebVTT`` keeps empty lists given as arguments, as it does with other lists, instead of replacing them with new ones, and ``Style`` copies a list of lines, as ``Caption`` does, instead of keeping it (#163, #199)
 
 Changes:
 

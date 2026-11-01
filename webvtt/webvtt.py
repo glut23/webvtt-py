@@ -26,6 +26,8 @@ from .errors import MissingFilenameError
 
 DEFAULT_ENCODING = 'utf-8'
 
+_T = typing.TypeVar('_T')
+
 # the extensions of each format, kept when saving a file to the same format
 _FORMAT_EXTENSIONS = {'vtt': ('.vtt', '.webvtt'), 'srt': ('.srt',)}
 
@@ -66,6 +68,9 @@ class WebVTT:
         from or last saved to, which `save` uses when no output is given,
         and can be set to choose where they are saved.
 
+        The lists are kept as the attributes, not copied, so changes to a
+        list after creating the instance show in it.
+
         :param file: DEPRECATED, set the ``file`` attribute instead
         :param captions: the list of captions
         :param styles: the list of styles
@@ -99,13 +104,13 @@ class WebVTT:
                 )
 
         self.file = file
-        self.captions = captions or []
-        self.styles = styles or []
-        self.header_comments = header_comments or []
-        self.footer_comments = footer_comments or []
+        self.captions = _list_or_new(captions)
+        self.styles = _list_or_new(styles)
+        self.header_comments = _list_or_new(header_comments)
+        self.footer_comments = _list_or_new(footer_comments)
         self.header_text = header_text or ''
-        self.metadata = metadata or []
-        self.regions = regions or []
+        self.metadata = _list_or_new(metadata)
+        self.regions = _list_or_new(regions)
         self._has_bom = False
         self.encoding = DEFAULT_ENCODING
         # the encoding given to read SRT, which save_as_srt keeps
@@ -740,3 +745,13 @@ def _byte_order_mark(
     if add_bom or (add_bom is None and has_bom):
         return utils.CODEC_BOMS[name].decode(name)
     return ''
+
+
+def _list_or_new(items: typing.Optional[typing.List[_T]]) -> typing.List[_T]:
+    """
+    Return the list given, even if empty, or a new list for None.
+
+    :param items: the list, kept so that changes to it show
+    :returns: the list, or a new empty list
+    """
+    return [] if items is None else items

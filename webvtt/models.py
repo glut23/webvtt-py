@@ -1070,9 +1070,13 @@ class Style:
     def __init__(self, text: typing.Union[str, typing.List[str]]):
         """Initialize.
 
-        :param: text: the style text
+        :param text: the style text, or a list of its lines, which is
+            copied, as for a caption
         """
-        self.lines = _split_lines(text) if isinstance(text, str) else text
+        self.lines = (_split_lines(text)
+                      if isinstance(text, str)
+                      else list(text)
+                      )
         self.comments: typing.List[str] = []
 
     @property
