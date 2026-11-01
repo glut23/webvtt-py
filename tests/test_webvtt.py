@@ -7,6 +7,7 @@ import io
 import textwrap
 import warnings
 import tempfile
+import shutil
 import pathlib
 
 import webvtt
@@ -279,6 +280,64 @@ class TestWebVTT(unittest.TestCase):
                 vtt.save_as_srt(pathlib.Path(td) / name)
 
                 self.assertEqual(os.listdir(td), [saved])
+
+    def test_save_without_output_keeps_format_extension(self):
+        content = (PATH_TO_SAMPLES / 'one_caption.vtt').read_text()
+        for name in ('captions.vtt', 'captions.webvtt', 'captions.VTT'):
+            with self.subTest(name=name), \
+                    tempfile.TemporaryDirectory() as td:
+                path = os.path.join(td, name)
+                pathlib.Path(path).write_text(content)
+                vtt = webvtt.read(path)
+                vtt.save()
+
+                self.assertEqual(os.listdir(td), [name])
+                self.assertEqual(vtt.file, path)
+
+    def test_save_without_output_converted_file(self):
+        for sample, name, read, saved in (
+                ('sample.srt', 'in.srt', webvtt.from_srt, 'in.vtt'),
+                ('sample.sbv', 'in.sbv', webvtt.from_sbv, 'in.vtt'),
+                ('sample.vtt', 'in.txt', webvtt.read, 'in.vtt')):
+            with self.subTest(name=name), \
+                    tempfile.TemporaryDirectory() as td:
+                path = os.path.join(td, name)
+                shutil.copy(PATH_TO_SAMPLES / sample, path)
+                vtt = read(path)
+                vtt.save()
+
+                self.assertEqual(sorted(os.listdir(td)), sorted({name, saved}))
+                self.assertEqual(vtt.file, os.path.join(td, saved))
+
+    def test_save_as_srt_without_output(self):
+        for sample, name, read, saved in (
+                ('sample.vtt', 'in.vtt', webvtt.read, 'in.srt'),
+                ('sample.vtt', 'in.webvtt', webvtt.read, 'in.srt'),
+                ('sample.srt', 'in.SRT', webvtt.from_srt, 'in.SRT')):
+            with self.subTest(name=name), \
+                    tempfile.TemporaryDirectory() as td:
+                path = os.path.join(td, name)
+                shutil.copy(PATH_TO_SAMPLES / sample, path)
+                vtt = read(path)
+                vtt.save_as_srt()
+
+                self.assertEqual(sorted(os.listdir(td)), sorted({name, saved}))
+                self.assertEqual(vtt.file, os.path.join(td, saved))
+
+    def test_save_to_folder_keeps_format_extension(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, 'captions.webvtt')
+            shutil.copy(PATH_TO_SAMPLES / 'sample.vtt', path)
+            vtt = webvtt.read(path)
+            folder = os.path.join(td, 'folder')
+            os.mkdir(folder)
+
+            vtt.save(folder)
+            vtt.file = path
+            vtt.save_as_srt(folder)
+
+            self.assertEqual(sorted(os.listdir(folder)),
+                             ['captions.srt', 'captions.webvtt'])
 
     def test_from_buffer(self):
         with open(PATH_TO_SAMPLES / 'sample.vtt', 'r', encoding='utf-8') as f:

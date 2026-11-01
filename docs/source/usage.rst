@@ -402,6 +402,12 @@ Saving captions
     with open('other_captions.vtt', 'w') as f:
         vtt.write(f)
 
+Without a path, or with a folder, the name of the file that was read or
+last saved is used. A file with the ``.vtt`` or ``.webvtt`` extension
+keeps it, and any other extension is replaced by ``.vtt``, so captions
+read from ``captions.srt`` are saved to ``captions.vtt``. ``save_as_srt()``
+does the same with ``.srt``.
+
 
 Retrieving WebVTT formatted captions
 ------------------------------------
