@@ -577,6 +577,21 @@ are left alone:
     # segment again into output/path, replacing the earlier segments
     webvtt.segment('captions.vtt', 'output/path', overwrite=True)
 
+The playlist ends with the segment of the last caption, and every segment
+lasts ``seconds``, as the length of the media is not known. Give it with
+``duration``, as a timestamp, a number of seconds or a ``timedelta``, so the
+playlist covers all the media, with empty segments after the last caption,
+and its last segment ends with the media:
+
+.. code-block:: python
+
+    # a video of 1 minute 25.5 seconds: 9 segments, the last of 5.5 seconds
+    webvtt.segment('captions.vtt', 'output/path', duration='00:01:25.500')
+
+A caption starting at or after the end of the media raises ``ValueError``, as
+the duration is likely wrong, and a caption ending after it is kept in the
+last segment.
+
 Segmentation is also available from the command line, see :doc:`cli`.
 
 

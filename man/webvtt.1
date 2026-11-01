@@ -36,7 +36,8 @@ webvtt \- segment, shift and sync WebVTT captions
 .sp
 .nf
 .ft C
-webvtt segment PATH \-o OUTPUT [\-d NUMBER] [\-m NUMBER] [\-\-overwrite]
+webvtt segment PATH \-o OUTPUT [\-d NUMBER] [\-m NUMBER] [\-\-duration TIME]
+               [\-\-overwrite]
 webvtt shift PATH OFFSET [\-o OUTPUT] [\-s TIMESTAMP]
 webvtt sync PATH (\-p FROM TO \-p FROM TO ... | \-\-fps FROM TO) [\-o OUTPUT]
 webvtt \-h
@@ -109,13 +110,22 @@ it does not exist. Required.
 .TP
 .B \fB\-d NUMBER\fP, \fB\-\-target\-duration NUMBER\fP
 Target duration of each segment in seconds, a whole number above zero.
-Also used for the \fB#EXT\-X\-TARGETDURATION\fP and \fB#EXTINF\fP values of
-the playlist. Default: \fB10\fP\&.
+Also used for the \fB#EXT\-X\-TARGETDURATION\fP value of the playlist and the
+\fB#EXTINF\fP of its segments, except the last with \fB\-\-duration\fP\&.
+Default: \fB10\fP\&.
 .TP
 .B \fB\-m NUMBER\fP, \fB\-\-mpegts NUMBER\fP
 MPEG\-TS value written to the \fBX\-TIMESTAMP\-MAP\fP header of each segment,
 a whole number from 0 to 8589934591, as MPEG\-TS timestamps have 33
 bits. Default: \fB900000\fP (10 seconds at the 90 kHz MPEG\-TS clock).
+.TP
+.B \fB\-\-duration TIME\fP
+Length of the media, as a timestamp such as \fB01:25.500\fP or a number of
+seconds such as \fB85.5\fP\&. The playlist then covers all the media, with
+empty segments after the last caption, and the \fB#EXTINF\fP of its last
+segment ends with the media. A caption starting at or after it is an
+error. Without it, the playlist ends with the segment of the last
+caption, and every segment lasts the target duration.
 .TP
 .B \fB\-\-overwrite\fP
 Replace the playlist and segments of an earlier run in \fBOUTPUT\fP, and

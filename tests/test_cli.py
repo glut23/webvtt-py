@@ -223,6 +223,44 @@ class CLITestCase(unittest.TestCase):
                         (output / 'fileSequence0.webvtt').read_text()
                         )
 
+    def test_cli_segment_with_duration(self):
+        vtt_file = str(
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'sample.vtt'
+            )
+
+        for duration in ('00:01:25.500', '01:25.500', '85.5'):
+            with self.subTest(duration=duration):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    main(['segment', vtt_file, '-o', temp_dir,
+                          '--duration', duration])
+
+                    manifest = (
+                        pathlib.Path(temp_dir) / 'prog_index.m3u8'
+                        ).read_text()
+                    self.assertEqual(
+                        [line for line in manifest.splitlines()
+                         if line.startswith('#EXTINF:')],
+                        ['#EXTINF:10.00000,'] * 8 + ['#EXTINF:5.50000,']
+                        )
+                    self.assertEqual(len(os.listdir(temp_dir)), 10)
+
+    def test_cli_segment_caption_after_duration(self):
+        vtt_file = str(
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'sample.vtt'
+            )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = os.path.join(temp_dir, 'output')
+
+            self.assert_cli_error(
+                ['segment', vtt_file, '-o', output, '--duration', '30'],
+                f'{vtt_file}: Caption at 00:00:30.280 does not start before '
+                'the end of the media at 00:00:30.000'
+                )
+            self.assertFalse(os.path.exists(output))
+
     def test_cli_segment_invalid_arguments(self):
         vtt_file = str(
             pathlib.Path(__file__).resolve().parent
@@ -241,7 +279,13 @@ class CLITestCase(unittest.TestCase):
                 (['-m', '8589934592'], "argument -m/--mpegts: invalid "
                                        "MPEG-TS value: '8589934592'"),
                 (['-m', 'x'], "argument -m/--mpegts: invalid MPEG-TS "
-                              "value: 'x'")):
+                              "value: 'x'"),
+                (['--duration', '0'], "argument --duration: invalid "
+                                      "duration: '0'"),
+                (['--duration', '-5'], "argument --duration: invalid "
+                                       "duration: '-5'"),
+                (['--duration', 'x'], "argument --duration: invalid "
+                                      "duration: 'x'")):
             with self.subTest(argv=argv):
                 with tempfile.TemporaryDirectory() as temp_dir:
                     output = os.path.join(temp_dir, 'output')
