@@ -309,6 +309,80 @@ class TestWebVTT(unittest.TestCase):
                 self.assertEqual(sorted(os.listdir(td)), sorted({name, saved}))
                 self.assertEqual(vtt.file, os.path.join(td, saved))
 
+    def test_save_as_srt_keeps_srt_encoding(self):
+        srt = '1\n00:00:00,500 --> 00:00:07,000\nCafé\n'
+        with tempfile.TemporaryDirectory() as td:
+            path = pathlib.Path(td, 'captions.srt')
+            path.write_bytes(srt.encode('cp1252'))
+            for vtt in (webvtt.from_srt(path, encoding='cp1252'),
+                        webvtt.from_buffer(
+                            io.BytesIO(srt.encode('cp1252')),
+                            format='srt',
+                            encoding='cp1252'
+                            )):
+                with self.subTest(file=vtt.file):
+                    output = pathlib.Path(td, 'output.srt')
+                    vtt.save_as_srt(output)
+                    self.assertIn('Café'.encode('cp1252'),
+                                  output.read_bytes())
+
+                    # an encoding given when saving is used instead
+                    vtt.save_as_srt(output, encoding='utf-8')
+                    self.assertIn('Café'.encode('utf-8'), output.read_bytes())
+
+                    # WebVTT is saved in UTF-8
+                    vtt.save(pathlib.Path(td, 'output.vtt'))
+                    self.assertIn(
+                        'Café'.encode('utf-8'),
+                        pathlib.Path(td, 'output.vtt').read_bytes()
+                        )
+
+    def test_save_as_srt_default_encoding(self):
+        srt = '1\n00:00:00,500 --> 00:00:07,000\nCafé\n'
+        sbv = '0:00:00.500,0:00:07.000\nCafé\n'
+        vtt = 'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCafé\n'
+        with tempfile.TemporaryDirectory() as td:
+            def write(name, data):
+                path = pathlib.Path(td, name)
+                path.write_bytes(data)
+                return path
+
+            for captions in (
+                    webvtt.read(
+                        write('latin-1.vtt', vtt.encode('latin-1')),
+                        encoding='latin-1'
+                        ),
+                    webvtt.from_sbv(
+                        write('latin-1.sbv', sbv.encode('latin-1')),
+                        encoding='latin-1'
+                        ),
+                    # the Byte Order Mark is used instead of the encoding
+                    webvtt.from_srt(
+                        write('bom.srt', codecs.BOM_UTF8 + srt.encode()),
+                        encoding='latin-1'
+                        ),
+                    # text is already decoded
+                    webvtt.from_buffer(io.StringIO(srt), format='srt',
+                                       encoding='latin-1'),
+                    webvtt.from_srt(write('utf-8.srt', srt.encode()))):
+                with self.subTest(file=captions.file):
+                    output = pathlib.Path(td, 'output.srt')
+                    captions.save_as_srt(output)
+
+                    self.assertIn('Café'.encode('utf-8'), output.read_bytes())
+
+    def test_save_without_encoding_after_reading_with_encoding(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = pathlib.Path(td, 'captions.vtt')
+            path.write_bytes(
+                'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCafé\n'
+                .encode('latin-1')
+                )
+            vtt = webvtt.read(path, encoding='latin-1')
+            vtt.save()
+
+            self.assertIn('Café'.encode('utf-8'), path.read_bytes())
+
     def test_save_as_srt_without_output(self):
         for sample, name, read, saved in (
                 ('sample.vtt', 'in.vtt', webvtt.read, 'in.srt'),

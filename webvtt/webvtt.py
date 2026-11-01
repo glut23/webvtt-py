@@ -108,6 +108,8 @@ class WebVTT:
         self.regions = regions or []
         self._has_bom = False
         self.encoding = DEFAULT_ENCODING
+        # the encoding given to read SRT, which save_as_srt keeps
+        self._srt_encoding: typing.Optional[str] = None
 
     def __len__(self):
         """Return the number of captions."""
@@ -138,7 +140,9 @@ class WebVTT:
         Read a WebVTT captions file.
 
         :param file: the file path
-        :param encoding: encoding of the file
+        :param encoding: encoding of a file without a Byte Order Mark, UTF-8
+            by default. It is only used for reading, as WebVTT files are
+            saved in UTF-8 unless another encoding is given
         :param strict: raise an error on blocks that are not valid WebVTT
             instead of ignoring them
         :returns: a `WebVTT` instance
@@ -199,7 +203,8 @@ class WebVTT:
         :param strict: raise an error on blocks that are not valid WebVTT
             instead of ignoring them, only for the vtt format
         :param encoding: encoding of binary data without a Byte Order Mark,
-            UTF-8 by default
+            UTF-8 by default. For the srt format, `save_as_srt` saves in the
+            same encoding
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the data is not in the right format
@@ -211,7 +216,7 @@ class WebVTT:
             from_string to read a string or io.BytesIO to read bytes
         """
         file = getattr(buffer, 'name', None)
-        lines, bom_encoding = cls._read_buffer(buffer, encoding)
+        lines, bom_encoding, binary = cls._read_buffer(buffer, encoding)
 
         if format == 'vtt':
             output = vtt.parse(cls._get_lines(lines), strict)
@@ -235,13 +240,17 @@ class WebVTT:
         if bom_encoding:
             instance.encoding = bom_encoding
             instance._has_bom = True
+        elif format == 'srt' and binary:
+            instance._srt_encoding = encoding
         return instance
 
     @staticmethod
     def _read_buffer(
             buffer: typing.Union[typing.Iterable[str], typing.BinaryIO],
             encoding: typing.Optional[str]
-            ) -> typing.Tuple[typing.Iterable[str], typing.Optional[str]]:
+            ) -> typing.Tuple[
+                typing.Iterable[str], typing.Optional[str], bool
+                ]:
         """
         Return the lines of a buffer and the encoding of its BOM.
 
@@ -250,8 +259,8 @@ class WebVTT:
 
         :param buffer: the file-like object, or an iterable of lines
         :param encoding: encoding of binary data without a BOM
-        :returns: the lines and the encoding of the BOM of binary data, or
-            None
+        :returns: the lines, the encoding of the BOM of binary data or
+            None, and whether the data was binary
 
         :raises TypeError: if the buffer is a string or bytes
         """
@@ -269,16 +278,20 @@ class WebVTT:
 
         read = getattr(buffer, 'read', None)
         if read is None:
-            return typing.cast(typing.Iterable[str], buffer), None
+            return typing.cast(typing.Iterable[str], buffer), None, False
 
         data = read()
         if isinstance(data, str):
-            return [data], None
+            return [data], None, False
 
         bom_encoding = utils._bom_encoding(data)
         if bom_encoding:
             data = data[len(utils.CODEC_BOMS[bom_encoding]):]
-        return [data.decode(bom_encoding or encoding or 'utf-8')], bom_encoding
+        return (
+            [data.decode(bom_encoding or encoding or 'utf-8')],
+            bom_encoding,
+            True
+            )
 
     @classmethod
     def from_srt(
@@ -290,14 +303,19 @@ class WebVTT:
         Read captions from a file in SubRip format.
 
         :param file: the file path
-        :param encoding: encoding of the file
+        :param encoding: encoding of a file without a Byte Order Mark, UTF-8
+            by default. `save_as_srt` saves in the same encoding, while
+            `save` saves WebVTT in UTF-8 unless another encoding is given
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the file is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp
         """
         with utils.FileWrapper.open(file, encoding=encoding) as fw:
-            return cls.from_buffer(fw.file, format='srt')
+            instance = cls.from_buffer(fw.file, format='srt')
+            if not fw.bom_encoding:
+                instance._srt_encoding = encoding
+            return instance
 
     @classmethod
     def from_sbv(
@@ -309,7 +327,9 @@ class WebVTT:
         Read captions from a file in YouTube SBV format.
 
         :param file: the file path
-        :param encoding: encoding of the file
+        :param encoding: encoding of a file without a Byte Order Mark, UTF-8
+            by default. It is only used for reading, as WebVTT files are
+            saved in UTF-8 unless another encoding is given
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the file is not in the right format
@@ -448,7 +468,7 @@ class WebVTT:
     def save_as_srt(
             self,
             output: typing.Optional[str] = None,
-            encoding: typing.Optional[str] = DEFAULT_ENCODING,
+            encoding: typing.Optional[str] = None,
             keep_formatting: bool = False
             ):
         """
@@ -463,7 +483,8 @@ class WebVTT:
             with the name of the file that was read. Without it, the file
             is saved to the ``file`` attribute, with its extension replaced
             by ``.srt`` unless it is ``.srt``
-        :param encoding: encoding of the file
+        :param encoding: encoding of the file, by default the encoding
+            given to read the captions from SRT, or UTF-8
         :param keep_formatting: keep bold, italic, underline and the colours
             of the cue classes in the styles, instead of removing the cue tags
 
@@ -476,7 +497,11 @@ class WebVTT:
                   self.styles if keep_formatting else None
                   )
 
-        utils._write_text_file(destination, content.getvalue(), encoding)
+        utils._write_text_file(
+            destination,
+            content.getvalue(),
+            encoding or self._srt_encoding or DEFAULT_ENCODING
+            )
         self.file = destination
 
     def write(

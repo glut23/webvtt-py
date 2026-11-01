@@ -17,6 +17,7 @@ Changes that may need updates to the code using the library:
 * SRT cues without an index are read, as most SRT players do, instead of skipped (#142, #158)
 * Styles after the first cue and blocks where ``NOTE`` is not followed by a space, a tab or a line break, such as ``NOTEBOOK``, are ignored, as WebVTT does, and strict parsing raises ``MalformedFileError`` when ``WEBVTT`` is not followed by a space, a tab or the end of the first line, such as ``WEBVTTX`` (#141, #194)
 * ``save`` raises ``ValueError`` for ``add_bom=True`` with an encoding without a Byte Order Mark, such as ``latin-1``, and for ``add_bom=False`` with ``utf-8-sig``, ``utf-16`` or ``utf-32``, which always write one, instead of ignoring ``add_bom`` (#160, #196)
+* ``save_as_srt`` saves captions read with ``from_srt`` or ``from_buffer`` in SRT format and an ``encoding`` in the same encoding, instead of UTF-8, and ``encoding=None`` saves in UTF-8 instead of the encoding of the locale (#161, #197)
 
 Changes:
 
