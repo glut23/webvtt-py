@@ -6,6 +6,7 @@ import tempfile
 import os
 import pathlib
 import textwrap
+from unittest import mock
 
 from webvtt.cli import main
 
@@ -311,6 +312,54 @@ class CLITestCase(unittest.TestCase):
                 ['segment', vtt_file, '-o', output],
                 f'{output}: {cm.exception.strerror}'
                 )
+
+    def test_cli_segment_into_folder_with_earlier_segments(self):
+        vtt_file = str(
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'sample.vtt'
+            )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            main(['segment', vtt_file, '-o', temp_dir])
+            earlier_files = sorted(os.listdir(temp_dir))
+
+            self.assert_cli_error(
+                ['segment', vtt_file, '-o', temp_dir],
+                f'{temp_dir}: has the files of an earlier segmentation, '
+                'such as fileSequence0.webvtt; use --overwrite to replace '
+                'them'
+                )
+            self.assertEqual(sorted(os.listdir(temp_dir)), earlier_files)
+
+            main(['segment', vtt_file, '-o', temp_dir, '-d', '20',
+                  '--overwrite'])
+
+            self.assertEqual(
+                sorted(os.listdir(temp_dir)),
+                [f'fileSequence{index}.webvtt' for index in range(4)]
+                + ['prog_index.m3u8']
+                )
+            self.assertIn(
+                '#EXT-X-TARGETDURATION:20',
+                (pathlib.Path(temp_dir) / 'prog_index.m3u8').read_text()
+                )
+
+    def test_cli_segment_output_cannot_be_listed(self):
+        vtt_file = str(
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'sample.vtt'
+            )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            error = PermissionError(
+                errno.EACCES, os.strerror(errno.EACCES), temp_dir
+                )
+            with mock.patch.object(pathlib.Path, 'iterdir',
+                                   side_effect=error):
+                self.assert_cli_error(
+                    ['segment', vtt_file, '-o', temp_dir],
+                    f'{temp_dir}: {os.strerror(errno.EACCES)}'
+                    )
 
     def test_cli_requires_command(self):
         with contextlib.redirect_stderr(io.StringIO()) as stderr:

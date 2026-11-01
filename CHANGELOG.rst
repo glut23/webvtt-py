@@ -20,11 +20,13 @@ Changes that may need updates to the code using the library:
 * ``save_as_srt`` saves captions read with ``from_srt`` or ``from_buffer`` in SRT format and an ``encoding`` in the same encoding, instead of UTF-8, and ``encoding=None`` saves in UTF-8 instead of the encoding of the locale (#161, #197)
 * Setting ``Caption.text`` to a value that is not a string or a sequence of lines raises ``TypeError`` instead of ``AttributeError``, and ``Caption`` raises it for lines that are not strings instead of accepting them (#162, #198)
 * ``WebVTT`` keeps empty lists given as arguments, as it does with other lists, instead of replacing them with new ones, and ``Style`` copies a list of lines, as ``Caption`` does, instead of keeping it (#163, #199)
+* ``segment`` raises ``FileExistsError``, and the ``segment`` command of the CLI exits with an error, when the output folder has the playlist or segments of an earlier run, instead of writing over them and keeping the segments the new playlist does not have: use ``overwrite=True`` or ``--overwrite`` to replace them (#164, #200)
 
 Changes:
 
 * Added ``WebVTTError`` as the base class of the errors, and made ``MalformedFileError`` and ``MalformedCaptionError`` subclasses of ``ValueError`` (#146, #155)
 * Added setting ``Caption.text`` to a sequence of lines, as when creating a ``Caption`` (#162, #198)
+* Added the ``overwrite`` argument of ``segment`` and the ``--overwrite`` option of the CLI, which replace the files of an earlier segmentation and delete its segments that the new playlist does not have (#164, #200)
 * Added reading binary file-like objects with ``from_buffer``, such as files opened in ``'rb'`` mode, with the encoding of their Byte Order Mark, kept when saving, or the new ``encoding`` argument (#143, #157)
 * Fixed reading SRT files with whitespace around the first cue index, thanks to `@youdie006 <https://github.com/youdie006>`_ (#130)
 * Fixed WebVTT styles ignored when ``STYLE`` is followed by whitespace (#133)

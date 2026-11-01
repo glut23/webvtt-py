@@ -559,12 +559,23 @@ Segmenting captions for HLS
     webvtt.segment('captions.vtt', 'output/path')
 
     # use 6-second segments and a different MPEG-TS value
-    webvtt.segment('captions.vtt', 'output/path', seconds=6, mpegts=0)
+    webvtt.segment('captions.vtt', 'other/path', seconds=6, mpegts=0)
 
 Every segment has the styles and regions of the file, and the captions keep
 their identifiers and cue settings. Comments are not written to the
 segments. ``seconds`` is a whole number above zero and ``mpegts`` a whole
 number from 0 to 8589934591.
+
+Segmenting into a folder with the playlist or segments of an earlier run
+raises ``FileExistsError``, so they are not replaced by mistake. Use
+``overwrite=True`` to replace them, which also deletes the segments of the
+earlier run that the new playlist does not have. Other files in the folder
+are left alone:
+
+.. code-block:: python
+
+    # segment again into output/path, replacing the earlier segments
+    webvtt.segment('captions.vtt', 'output/path', overwrite=True)
 
 Segmentation is also available from the command line, see :doc:`cli`.
 

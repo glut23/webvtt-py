@@ -9,7 +9,7 @@ Synopsis
 
 ::
 
-    webvtt segment PATH -o OUTPUT [-d NUMBER] [-m NUMBER]
+    webvtt segment PATH -o OUTPUT [-d NUMBER] [-m NUMBER] [--overwrite]
     webvtt shift PATH OFFSET [-o OUTPUT] [-s TIMESTAMP]
     webvtt sync PATH (-p FROM TO -p FROM TO ... | --fps FROM TO) [-o OUTPUT]
     webvtt -h
@@ -23,7 +23,9 @@ and shifts or synchronizes the timestamps of its captions.
 ``segment`` splits the captions in ``PATH`` into segments of a target duration. Each
 segment is written to ``OUTPUT`` as ``fileSequenceN.webvtt``, where ``N`` is
 the segment index starting at 0, along with a playlist named
-``prog_index.m3u8`` that lists all the segments.
+``prog_index.m3u8`` that lists all the segments. An ``OUTPUT`` with the
+playlist or segments of an earlier run is an error, unless ``--overwrite`` is
+given.
 
 A caption whose time span crosses a segment boundary is included in every
 segment it overlaps, so players display it regardless of which segment they
@@ -77,8 +79,7 @@ Segment options
 
 ``-o OUTPUT``, ``--output OUTPUT``
     Directory where the segments and playlist are written. It is created if
-    it does not exist. Existing files with the same names are overwritten.
-    Required.
+    it does not exist. Required.
 
 ``-d NUMBER``, ``--target-duration NUMBER``
     Target duration of each segment in seconds, a whole number above zero.
@@ -89,6 +90,12 @@ Segment options
     MPEG-TS value written to the ``X-TIMESTAMP-MAP`` header of each segment,
     a whole number from 0 to 8589934591, as MPEG-TS timestamps have 33
     bits. Default: ``900000`` (10 seconds at the 90 kHz MPEG-TS clock).
+
+``--overwrite``
+    Replace the playlist and segments of an earlier run in ``OUTPUT``, and
+    delete the segments of that run that the new playlist does not have.
+    Other files in ``OUTPUT`` are left alone. Without it, an ``OUTPUT`` with
+    a ``prog_index.m3u8`` or ``fileSequenceN.webvtt`` file is an error.
 
 Shift options
 ~~~~~~~~~~~~~
@@ -213,11 +220,14 @@ Segment it into 10 second segments:
     00:00:14.500 --> 00:00:18.000
     Thanks for watching!
 
-Use 6 second segments and a different MPEG-TS value:
+Segment it again into ``out``, with 6 second segments and a different
+MPEG-TS value, replacing the earlier segments:
 
 ::
 
-    $ webvtt segment captions.vtt -o out -d 6 -m 0
+    $ webvtt segment captions.vtt -o out
+    webvtt: error: out: has the files of an earlier segmentation, such as fileSequence0.webvtt; use --overwrite to replace them
+    $ webvtt segment captions.vtt -o out -d 6 -m 0 --overwrite
 
 Show the captions 1.5 seconds earlier:
 

@@ -558,6 +558,100 @@ class TestSegmenter(unittest.TestCase):
                 f'previous run {index}'
                 )
 
+    def test_segment_into_folder_with_earlier_segments(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+        segmenter.segment(PATH_TO_SAMPLES / 'sample.vtt', output_folder)
+        earlier_files = {
+            path.name: path.read_text() for path in output_folder.iterdir()
+            }
+
+        with self.assertRaises(FileExistsError) as cm:
+            segmenter.segment(PATH_TO_SAMPLES / 'one_caption.vtt',
+                              output_folder)
+
+        self.assertEqual(
+            str(cm.exception),
+            f'{str(output_folder)!r} has the files of an earlier '
+            "segmentation, such as 'fileSequence0.webvtt'; use "
+            'overwrite=True to replace them'
+            )
+        self.assertEqual(
+            {path.name: path.read_text() for path in output_folder.iterdir()},
+            earlier_files
+            )
+
+    def test_segment_into_folder_with_earlier_playlist(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+        (output_folder / 'prog_index.m3u8').write_text('video playlist')
+
+        with self.assertRaisesRegex(FileExistsError, "'prog_index.m3u8'"):
+            segmenter.segment(PATH_TO_SAMPLES / 'one_caption.vtt',
+                              output_folder)
+
+        self.assertEqual(os.listdir(output_folder), ['prog_index.m3u8'])
+        self.assertEqual((output_folder / 'prog_index.m3u8').read_text(),
+                         'video playlist')
+
+    def test_segment_into_folder_with_earlier_files_in_other_case(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+        for name in ['PROG_INDEX.M3U8', 'FileSequence3.WebVTT']:
+            (output_folder / name).write_text('earlier run')
+
+            with self.assertRaisesRegex(FileExistsError, repr(name)):
+                segmenter.segment(PATH_TO_SAMPLES / 'one_caption.vtt',
+                                  output_folder)
+
+            (output_folder / name).unlink()
+
+    def test_segment_into_folder_with_other_files(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+        others = ['fileSequence01.webvtt', 'fileSequence5.vtt',
+                  'fileSequence-1.webvtt', 'notes.txt']
+        for name in others:
+            (output_folder / name).write_text('other file')
+
+        segmenter.segment(PATH_TO_SAMPLES / 'one_caption.vtt', output_folder)
+
+        self.assertEqual(
+            sorted(os.listdir(output_folder)),
+            sorted(others + ['fileSequence0.webvtt', 'prog_index.m3u8'])
+            )
+
+    def test_segment_overwrite(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+        segmenter.segment(PATH_TO_SAMPLES / 'sample.vtt', output_folder)
+        self.assertIn('fileSequence6.webvtt', os.listdir(output_folder))
+        others = ['fileSequence01.webvtt', 'fileSequence5.vtt',
+                  'fileSequence-1.webvtt', 'notes.txt']
+        for name in others:
+            (output_folder / name).write_text('other file')
+        (output_folder / 'fileSequence9.webvtt').mkdir()
+
+        segmenter.segment(PATH_TO_SAMPLES / 'one_caption.vtt', output_folder,
+                          overwrite=True)
+
+        self.assertEqual(
+            sorted(os.listdir(output_folder)),
+            sorted(others + ['fileSequence0.webvtt', 'fileSequence9.webvtt',
+                             'prog_index.m3u8'])
+            )
+        for name in others:
+            self.assertEqual((output_folder / name).read_text(), 'other file')
+        manifest = (output_folder / 'prog_index.m3u8').read_text()
+        self.assertIn('fileSequence0.webvtt', manifest)
+        self.assertNotIn('fileSequence1.webvtt', manifest)
+        self.assertIn('00:00:00.500 --> 00:00:07.000',
+                      (output_folder / 'fileSequence0.webvtt').read_text())
+
+    def test_segment_overwrite_without_earlier_files(self):
+        output_folder = pathlib.Path(self.temp_dir.name) / 'output'
+
+        segmenter.segment(PATH_TO_SAMPLES / 'one_caption.vtt', output_folder,
+                          overwrite=True)
+
+        self.assertEqual(sorted(os.listdir(output_folder)),
+                         ['fileSequence0.webvtt', 'prog_index.m3u8'])
+
     def test_segmentation_mpegts_range(self):
         output_path = pathlib.Path(self.temp_dir.name) / 'output'
 
