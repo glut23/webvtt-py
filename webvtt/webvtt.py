@@ -668,20 +668,22 @@ class WebVTT:
         _retime_captions(self.captions, mapping)
 
     @property
-    def total_length(self):
+    def total_length(self) -> float:
         """
         Return the total length of the captions in seconds.
 
-        It is the time from the start of the first caption to the end of
-        the last one, in whole seconds as the milliseconds of both are left
-        out, so the captions are expected in order of time.
+        It is the time from the earliest start to the latest end of the
+        captions, so the order of the captions does not matter, and it is
+        never negative, even for a caption that ends before it starts.
         """
         if not self.captions:
-            return 0
-        return (
-                self.captions[-1].end_in_seconds -
-                self.captions[0].start_in_seconds
-                )
+            return 0.0
+        start = self.captions[0].start_in_milliseconds
+        end = self.captions[0].end_in_milliseconds
+        for caption in self.captions[1:]:
+            start = min(start, caption.start_in_milliseconds)
+            end = max(end, caption.end_in_milliseconds)
+        return max(end - start, 0) / 1000
 
     @property
     def content(self) -> str:
