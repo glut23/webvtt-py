@@ -382,6 +382,10 @@ class TestCaption(unittest.TestCase):
         caption = Caption('00:00:07.000', '00:00:11.890', 'Hello test!')
         self.assertEqual(caption.duration, 4.89)
 
+    def test_duration_caption_ends_before_start(self):
+        caption = Caption('00:00:05.000', '00:00:01.000', 'x')
+        self.assertEqual(caption.duration, 0.0)
+
     def test_shift(self):
         caption = Caption('00:00:07.000', '00:00:11.890', 'Hello test!')
         caption.shift(1.5)

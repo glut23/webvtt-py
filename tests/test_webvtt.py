@@ -1069,6 +1069,12 @@ class TestWebVTT(unittest.TestCase):
             ])
         self.assertEqual(vtt.total_length, 19.0)
 
+    def test_total_length_caption_ends_before_start(self):
+        vtt = webvtt.WebVTT(captions=[
+            webvtt.Caption('00:00:05.000', '00:00:01.000', 'x')
+            ])
+        self.assertEqual(vtt.total_length, 0.0)
+
     def test_shift(self):
         vtt = webvtt.read(PATH_TO_SAMPLES / 'sample.vtt')
         durations = [

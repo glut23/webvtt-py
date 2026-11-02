@@ -376,6 +376,20 @@ Timestamps
     Timestamp.from_string('01:24:11.670').in_seconds()       # 5051
     Timestamp.from_string('01:24:11.670').in_milliseconds()  # 5051670
 
+A caption gives its times in milliseconds and its duration in seconds,
+and ``total_length`` gives the time from the earliest start to the latest
+end of the captions in seconds, with the milliseconds. Both are 0 instead
+of negative for a caption that ends before it starts.
+
+.. code-block:: python
+
+    caption = webvtt.Caption('00:00:01.250', '00:00:03.000', 'Hello')
+    caption.start_in_milliseconds  # 1250
+    caption.end_in_milliseconds    # 3000
+    caption.duration               # 1.75
+
+    webvtt.WebVTT(captions=[caption]).total_length  # 1.75
+
 
 Saving captions
 ---------------

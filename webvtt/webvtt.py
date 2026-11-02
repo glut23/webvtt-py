@@ -621,14 +621,17 @@ class WebVTT:
         Return the total length of the captions in seconds.
 
         It is the time from the earliest start to the latest end of the
-        captions, so the order of the captions does not matter.
+        captions, so the order of the captions does not matter, and it is
+        never negative, even for a caption that ends before it starts.
         """
         if not self.captions:
             return 0.0
-        return (
-                max(caption.end_in_milliseconds for caption in self.captions) -
-                min(caption.start_in_milliseconds for caption in self.captions)
-                ) / 1000
+        start = self.captions[0].start_in_milliseconds
+        end = self.captions[0].end_in_milliseconds
+        for caption in self.captions[1:]:
+            start = min(start, caption.start_in_milliseconds)
+            end = max(end, caption.end_in_milliseconds)
+        return max(end - start, 0) / 1000
 
     @property
     def content(self) -> str:

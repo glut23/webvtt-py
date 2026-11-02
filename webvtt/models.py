@@ -902,8 +902,14 @@ class Caption:
 
     @property
     def duration(self) -> float:
-        """Return the duration of the caption in seconds."""
-        return (self.end_in_milliseconds - self.start_in_milliseconds) / 1000
+        """
+        Return the duration of the caption in seconds.
+
+        It is 0 for a caption that ends before it starts.
+        """
+        return max(
+            self.end_in_milliseconds - self.start_in_milliseconds, 0
+            ) / 1000
 
     def shift(self, offset: typing.Union[float, datetime.timedelta]):
         """
