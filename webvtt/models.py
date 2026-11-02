@@ -1,6 +1,7 @@
 """Models module."""
 
 import bisect
+import collections.abc
 import datetime
 import decimal
 import fractions
@@ -9,7 +10,7 @@ import math
 import re
 import typing
 
-from .errors import MalformedCaptionError
+from .errors import MalformedCaptionError, MalformedRegionError
 from .utils import _split_lines
 
 # a context of our own, so rounding does not depend on the decimal context
@@ -546,6 +547,10 @@ class _Settings:
 
     # what a setting is called in error messages
     _KIND = 'setting'
+    # the error raised for settings that are not valid
+    _ERROR: typing.ClassVar[
+        typing.Type[MalformedCaptionError]
+        ] = MalformedCaptionError
 
     def __init__(self):
         """Initialize without settings."""
@@ -569,7 +574,7 @@ class _Settings:
             strict and a setting is not known, not valid or repeated
         """
         if type(value) is not str:
-            raise MalformedCaptionError(f'Invalid {cls._KIND}s {value!r}')
+            raise cls._ERROR(f'Invalid {cls._KIND}s {value!r}')
 
         settings = cls()
         settings._settings = [
@@ -585,13 +590,9 @@ class _Settings:
                 if (not parts or
                         parts[0] not in cls.VALIDATORS or
                         not cls.VALIDATORS[parts[0]](parts[1])):
-                    raise MalformedCaptionError(
-                        f'Invalid {cls._KIND} {setting!r}'
-                        )
+                    raise cls._ERROR(f'Invalid {cls._KIND} {setting!r}')
                 if parts[0] in names:
-                    raise MalformedCaptionError(
-                        f'Repeated {cls._KIND} {setting!r}'
-                        )
+                    raise cls._ERROR(f'Repeated {cls._KIND} {setting!r}')
                 names.add(parts[0])
 
         return settings
@@ -643,9 +644,7 @@ class _Settings:
                 type(value) is not str or
                 not self.VALIDATORS[name](value)
                 ):
-            raise MalformedCaptionError(
-                f'Invalid {name} {self._KIND} {value!r}'
-                )
+            raise self._ERROR(f'Invalid {name} {self._KIND} {value!r}')
 
         indexes = [
             index
@@ -794,24 +793,20 @@ class Caption:
 
         :param start: start time of the caption
         :param end: end time of the caption
-        :param text: the text of the caption
+        :param text: the text of the caption, or a sequence of its lines
         :param identifier: optional identifier
         :param settings: optional cue settings, as a string such as
             ``line:0 align:start`` or a `CueSettings` instance
 
         :raises MalformedCaptionError: if start or end are not valid, or
             settings is not a string, a `CueSettings` instance or None
+        :raises TypeError: if text is not a string or a sequence of strings
         """
-        text = text or []
         self.start = start or '00:00:00.000'
         self.end = end or '00:00:00.000'
         self.identifier = identifier
         self._settings = _to_cue_settings(settings)
-        self.lines = (_split_lines(text)
-                      if isinstance(text, str)
-                      else
-                      list(text)
-                      )
+        self.lines = _caption_lines([] if text is None else text)
         self.comments: typing.List[str] = []
 
     def __repr__(self):
@@ -967,14 +962,16 @@ class Caption:
         )
 
     @text.setter
-    def text(self, value: str):
-        """Set the text of the captions."""
-        if not isinstance(value, str):
-            raise AttributeError(
-                f'String value expected but received {value}.'
-                )
+    def text(self, value: typing.Union[str, typing.Sequence[str]]):
+        """
+        Set the text of the caption.
 
-        self.lines = _split_lines(value)
+        :param value: the text, or a sequence of its lines
+
+        :raises TypeError: if the value is not a string or a sequence of
+            strings
+        """
+        self.lines = _caption_lines(value)
 
     @property
     def voice(self) -> typing.Optional[str]:
@@ -985,6 +982,34 @@ class Caption:
                 return match.group(1)
 
         return None
+
+
+def _caption_lines(
+        text: typing.Union[str, typing.Iterable[str]]
+        ) -> typing.List[str]:
+    """
+    Return the lines of the text of a caption.
+
+    :param text: the text, split on its line breaks, or its lines
+    :returns: the lines
+
+    :raises TypeError: if the text is not a string or an iterable of strings
+    """
+    if isinstance(text, str):
+        return _split_lines(text)
+
+    # bytes are iterable, as integers
+    lines = (list(text)
+             if isinstance(text, collections.abc.Iterable) and
+             not isinstance(text, (bytes, bytearray))
+             else None
+             )
+    if lines is None or not all(isinstance(line, str) for line in lines):
+        raise TypeError(
+            f'Expected the text as a string or a sequence of lines, '
+            f'got {text!r}'
+            )
+    return lines
 
 
 def _retime_captions(
@@ -1064,9 +1089,13 @@ class Style:
     def __init__(self, text: typing.Union[str, typing.List[str]]):
         """Initialize.
 
-        :param: text: the style text
+        :param text: the style text, or a list of its lines, which is
+            copied, as for a caption
         """
-        self.lines = _split_lines(text) if isinstance(text, str) else text
+        self.lines = (_split_lines(text)
+                      if isinstance(text, str)
+                      else list(text)
+                      )
         self.comments: typing.List[str] = []
 
     @property
@@ -1099,6 +1128,7 @@ class Region(_Settings):
         }
 
     _KIND = 'region setting'
+    _ERROR = MalformedRegionError
 
     def __init__(self,
                  *,
@@ -1121,7 +1151,7 @@ class Region(_Settings):
             to, as two percentages of the video, e.g. ``10%,90%``
         :param scroll: ``up`` for the lines to scroll up
 
-        :raises MalformedCaptionError: if a value is not valid
+        :raises MalformedRegionError: if a value is not valid
         """
         super().__init__()
         self.id = id
@@ -1143,12 +1173,12 @@ class Region(_Settings):
             valid or repeated instead of keeping them
         :returns: a `Region` instance
 
-        :raises MalformedCaptionError: if the value is not a string or
+        :raises MalformedRegionError: if the value is not a string or
             contains ``-->``, which cannot be in a region block, or if strict
             and a setting is not known, not valid or repeated
         """
         if type(value) is str and '-->' in value:
-            raise MalformedCaptionError(f'Invalid region settings {value!r}')
+            raise MalformedRegionError(f'Invalid region settings {value!r}')
         return super().from_string(value, strict)
 
     id = _setting_property('id', 'Identifier of the region.')

@@ -654,6 +654,37 @@ class TestSRTModule(unittest.TestCase):
             ''').strip() + '\n'
             )
 
+    def test_write_leaves_out_captions_without_text(self):
+        captions = [
+            Caption('00:00:00.000', '00:00:01.000', ' '),
+            Caption('00:00:01.000', '00:00:02.000', 'b'),
+            Caption('00:00:02.000', '00:00:03.000', ''),
+            Caption('00:00:03.000', '00:00:04.000', ['', '  ']),
+            Caption('00:00:04.000', '00:00:05.000', 'c'),
+            Caption('00:00:05.000', '00:00:06.000', '<v Bob></v>'),
+            Caption('00:00:06.000', '00:00:07.000', ['<i> </i>', '<b></b>']),
+            Caption('00:00:07.000', '00:00:08.000', '<c.red> </c>'),
+            ]
+
+        for styles in (None, [], [Style('::cue(.red) { color: red; }')]):
+            with self.subTest(styles=styles):
+                out = io.StringIO()
+
+                srt.write(out, captions, styles)
+
+                self.assertEqual(
+                    out.getvalue(),
+                    '1\n00:00:01,000 --> 00:00:02,000\nb\n\n'
+                    '2\n00:00:04,000 --> 00:00:05,000\nc\n'
+                    )
+
+    def test_write_only_captions_without_text(self):
+        out = io.StringIO()
+
+        srt.write(out, [Caption('00:00:00.000', '00:00:01.000', ' ')])
+
+        self.assertEqual(out.getvalue(), '')
+
     def test_write_without_styles_removes_cue_tags(self):
         out = io.StringIO()
         captions = [

@@ -10,6 +10,7 @@ Contents:
    usage
    cli
    package
+   upgrading
    history
 
 Indices and tables

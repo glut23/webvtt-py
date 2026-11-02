@@ -4,7 +4,7 @@ import time
 import unittest
 
 from webvtt.models import Timestamp, Caption, CueSettings, Region, Style
-from webvtt.errors import MalformedCaptionError
+from webvtt.errors import MalformedCaptionError, MalformedRegionError
 
 
 class TestTimestamp(unittest.TestCase):
@@ -801,13 +801,40 @@ class TestCaption(unittest.TestCase):
 
     def test_update_text_wrong_type(self):
         c = Caption(text='Caption line #1')
+        for value in (123, None, b'text', ['line 1', 2]):
+            with self.subTest(value=value):
+                with self.assertRaises(TypeError) as cm:
+                    c.text = value
 
-        self.assertRaises(
-            AttributeError,
-            setattr,
-            c,
-            'text',
-            123
+                self.assertIn(repr(value), str(cm.exception))
+                self.assertListEqual(c.lines, ['Caption line #1'])
+
+    def test_update_text_with_lines(self):
+        c = Caption(text='Caption line #1')
+        for value in (['line 1', 'line 2'], ('line 1', 'line 2')):
+            with self.subTest(value=value):
+                c.text = value
+
+                self.assertListEqual(c.lines, ['line 1', 'line 2'])
+                self.assertEqual(c.text, 'line 1\nline 2')
+
+        lines = ['line 1']
+        c.text = lines
+        lines.append('line 2')
+        self.assertListEqual(c.lines, ['line 1'])
+
+    def test_text_wrong_type(self):
+        for text in (123, 0, b'text', b'', ['line 1', 2]):
+            with self.subTest(text=text):
+                with self.assertRaises(TypeError) as cm:
+                    Caption(text=text)
+
+                self.assertIn(repr(text), str(cm.exception))
+
+    def test_text_from_iterable_of_lines(self):
+        self.assertListEqual(
+            Caption(text=(line for line in ('line 1', 'line 2'))).lines,
+            ['line 1', 'line 2']
             )
 
     def test_manipulate_lines(self):
@@ -914,6 +941,16 @@ class TestStyle(unittest.TestCase):
     def test_text_accept_list_of_strings(self):
         style = Style(text=['::cue(b) {', 'color: peachpuff;', '}'])
         self.assertEqual(style.text, '::cue(b) {\ncolor: peachpuff;\n}')
+        self.assertListEqual(
+            style.lines,
+            ['::cue(b) {', 'color: peachpuff;', '}']
+            )
+
+    def test_text_list_is_copied(self):
+        lines = ['::cue(b) {', 'color: peachpuff;', '}']
+        style = Style(lines)
+        lines.append('::cue(i) {}')
+
         self.assertListEqual(
             style.lines,
             ['::cue(b) {', 'color: peachpuff;', '}']
@@ -1259,7 +1296,7 @@ class TestRegion(unittest.TestCase):
             Region('fred')
 
     def test_instantiation_invalid_value(self):
-        with self.assertRaises(MalformedCaptionError) as cm:
+        with self.assertRaises(MalformedRegionError) as cm:
             Region(scroll='down')
         self.assertIn('scroll region setting', str(cm.exception))
 
@@ -1298,12 +1335,12 @@ class TestRegion(unittest.TestCase):
                                ('id:fred id:bill', 'Repeated'),
                                ):
             with self.subTest(value=value):
-                with self.assertRaises(MalformedCaptionError) as cm:
+                with self.assertRaises(MalformedRegionError) as cm:
                     Region.from_string(value, strict=True)
                 self.assertIn(f'{message} region setting', str(cm.exception))
 
     def test_from_string_wrong_type(self):
-        with self.assertRaises(MalformedCaptionError) as cm:
+        with self.assertRaises(MalformedRegionError) as cm:
             Region.from_string(None)
         self.assertIn('Invalid region settings', str(cm.exception))
 
@@ -1340,27 +1377,27 @@ class TestRegion(unittest.TestCase):
         for name, values in invalid_values.items():
             for value in values:
                 with self.subTest(name=name, value=value):
-                    with self.assertRaises(MalformedCaptionError):
+                    with self.assertRaises(MalformedRegionError):
                         setattr(Region(), name, value)
                     self.assertIsNone(
                         getattr(Region.from_string(f'{name}:{value}'), name)
                         )
 
     def test_set_value_with_arrow(self):
-        with self.assertRaises(MalformedCaptionError):
+        with self.assertRaises(MalformedRegionError):
             Region().id = 'a-->b'
 
     def test_from_string_with_arrow(self):
         for value in ('id:a-->b', 'id:fred -->', 'id:fred\n-->'):
             with self.subTest(value=value):
-                with self.assertRaises(MalformedCaptionError) as cm:
+                with self.assertRaises(MalformedRegionError) as cm:
                     Region.from_string(value)
                 self.assertIn('Invalid region settings', str(cm.exception))
 
     def test_set_value_with_spaces(self):
         for value in ('fred bill', 'fred\nbill'):
             with self.subTest(value=value):
-                with self.assertRaises(MalformedCaptionError):
+                with self.assertRaises(MalformedRegionError):
                     Region().id = value
 
     def test_update_settings(self):

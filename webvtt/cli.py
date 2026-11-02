@@ -1,16 +1,23 @@
 """CLI module."""
 
 import argparse
+import errno
 import fractions
 import math
 import os
+import pathlib
 import sys
 import typing
 
-from . import segmenter
+from . import __version__, segmenter
 from .webvtt import WebVTT
 from .models import Timestamp, _sync_mapping
-from .errors import MalformedFileError, MalformedCaptionError
+from .errors import (
+    MalformedFileError, MalformedCaptionError, MissingFilenameError
+    )
+
+# the path that reads the captions from standard input
+_STDIN = '-'
 
 
 def main(argv: typing.Optional[typing.Sequence] = None):
@@ -22,6 +29,11 @@ def main(argv: typing.Optional[typing.Sequence] = None):
     arguments = argparse.ArgumentParser(
         prog='webvtt',
         description='Segment, shift and sync WebVTT caption files.'
+        )
+    arguments.add_argument(
+        '--version',
+        action='version',
+        version=f'%(prog)s {__version__}'
         )
     commands = arguments.add_subparsers(
         dest='command',
@@ -37,13 +49,14 @@ def main(argv: typing.Optional[typing.Sequence] = None):
             'The output directory will contain a playlist named '
             'prog_index.m3u8 and one fileSequenceN.webvtt file per segment. '
             'Captions spanning multiple segments are included in each of '
-            'them.'
+            'them. An output directory with the files of an earlier run is '
+            'an error unless --overwrite is given.'
             )
         )
     segment_command.add_argument(
         'file',
         metavar='PATH',
-        help='WebVTT file'
+        help='WebVTT file, or - to read standard input'
         )
     segment_command.add_argument(
         '-o', '--output',
@@ -66,6 +79,20 @@ def main(argv: typing.Optional[typing.Sequence] = None):
         help=('MPEG-TS value for the X-TIMESTAMP-MAP header of each segment, '
               'default: %(default)s')
         )
+    segment_command.add_argument(
+        '--duration',
+        metavar='TIME',
+        type=_media_duration,
+        help=('length of the media, as a timestamp or a number of seconds, '
+              'so the playlist covers all of it and its last segment ends '
+              'with it')
+        )
+    segment_command.add_argument(
+        '--overwrite',
+        action='store_true',
+        help=('replace the playlist and segments of an earlier run in the '
+              'output directory')
+        )
     segment_command.set_defaults(run=_segment)
 
     shift_command = commands.add_parser(
@@ -83,7 +110,7 @@ def main(argv: typing.Optional[typing.Sequence] = None):
     shift_command.add_argument(
         'file',
         metavar='PATH',
-        help='WebVTT file'
+        help='WebVTT file, or - to read standard input'
         )
     shift_command.add_argument(
         'offset',
@@ -124,7 +151,7 @@ def main(argv: typing.Optional[typing.Sequence] = None):
     sync_command.add_argument(
         'file',
         metavar='PATH',
-        help='WebVTT file'
+        help='WebVTT file, or - to read standard input'
         )
     timing = sync_command.add_mutually_exclusive_group(required=True)
     timing.add_argument(
@@ -153,25 +180,42 @@ def main(argv: typing.Optional[typing.Sequence] = None):
     sync_command.set_defaults(run=_sync)
 
     args = arguments.parse_args(argv)
-    if args.command == 'sync':
-        _check_sync_points(sync_command, args.points)
+    _check_arguments(arguments, sync_command, args)
 
+    name = 'standard input' if args.file == _STDIN else args.file
     try:
         args.run(args)
     except OSError as error:
-        message = f'{error.filename or args.file}: {error.strerror or error}'
+        message = f'{error.filename or name}: {error.strerror or error}'
     except UnicodeDecodeError as error:
-        message = f'{args.file}: cannot be decoded as {error.encoding}'
+        message = f'{name}: cannot be decoded as {error.encoding}'
     except MalformedFileError:
-        message = f'{args.file}: not a valid WebVTT file'
+        message = f'{name}: not a valid WebVTT file'
     except ValueError as error:
         # the captions cannot be moved as asked, e.g. after the largest
         # timestamp
-        message = f'{args.file}: {error}'
+        message = f'{name}: {error}'
+    except MissingFilenameError:
+        # the output is a directory, and standard input has no file name
+        # to save to in it
+        message = (f'{args.output}: is a directory, give a file name to '
+                   'save the captions read from standard input')
     else:
         return
 
     arguments.exit(1, f'{arguments.prog}: error: {message}\n')
+
+
+def _check_arguments(
+        parser: argparse.ArgumentParser,
+        sync_parser: argparse.ArgumentParser,
+        args: argparse.Namespace
+        ):
+    """Exit with an error if the arguments cannot be used."""
+    if args.command == 'sync':
+        _check_sync_points(sync_parser, args.points)
+    elif args.command == 'segment' and not args.overwrite:
+        _check_output(parser, args.output)
 
 
 def _check_sync_points(
@@ -186,31 +230,63 @@ def _check_sync_points(
         parser.error(str(error))
 
 
+def _check_output(parser: argparse.ArgumentParser, output: str):
+    """Exit with an error if the output has the files of an earlier run."""
+    try:
+        earlier_file = segmenter._earlier_output(pathlib.Path(output))
+    except OSError:
+        # reported as the other errors when segmenting
+        return
+    if earlier_file:
+        parser.exit(
+            1,
+            f'{parser.prog}: error: {output}: has the files of an earlier '
+            f'segmentation, such as {earlier_file}; use --overwrite to '
+            'replace them\n'
+            )
+
+
 def _segment(args: argparse.Namespace):
     """Run the segment command."""
     segmenter.segment(
-        args.file,
+        _read(args.file),
         args.output,
         args.target_duration,
-        args.mpegts
+        args.mpegts,
+        overwrite=args.overwrite,
+        duration=args.duration
         )
 
 
 def _shift(args: argparse.Namespace):
     """Run the shift command."""
-    vtt = WebVTT.read(args.file)
+    vtt = _read(args.file)
     vtt.shift(args.offset, start=args.start)
     _write(vtt, args.output)
 
 
 def _sync(args: argparse.Namespace):
     """Run the sync command."""
-    vtt = WebVTT.read(args.file)
+    vtt = _read(args.file)
     if args.points:
         vtt.sync(*args.points)
     else:
         vtt.change_framerate(*args.fps)
     _write(vtt, args.output)
+
+
+def _read(path: str) -> WebVTT:
+    """Read the captions of a file, or of standard input for ``-``."""
+    if path != _STDIN:
+        return WebVTT.read(path)
+
+    if sys.stdin is None:
+        # standard input is closed, as in ``webvtt shift - 1 <&-``
+        raise OSError(errno.EBADF, os.strerror(errno.EBADF))
+
+    # read the bytes, decoded as UTF-8 as WebVTT requires, whatever the
+    # encoding of standard input is
+    return WebVTT.from_buffer(getattr(sys.stdin, 'buffer', sys.stdin))
 
 
 def _write(vtt: WebVTT, output: typing.Optional[str]):
@@ -297,6 +373,17 @@ def _duration(value: str) -> int:
         raise argparse.ArgumentTypeError(f'invalid duration: {value!r}')
 
     return seconds
+
+
+def _media_duration(value: str) -> typing.Union[str, float]:
+    """Return the length of the media of a command line argument."""
+    try:
+        duration = _position(value)
+        segmenter._duration_in_milliseconds(duration)
+    except (argparse.ArgumentTypeError, ValueError):
+        raise argparse.ArgumentTypeError(f'invalid duration: {value!r}')
+
+    return duration
 
 
 def _mpegts(value: str) -> int:

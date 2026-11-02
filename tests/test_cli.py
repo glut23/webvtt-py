@@ -1,12 +1,17 @@
 import unittest
 import errno
 import contextlib
+import importlib
 import io
 import tempfile
 import os
 import pathlib
+import runpy
+import sys
 import textwrap
+from unittest import mock
 
+import webvtt
 from webvtt.cli import main
 
 
@@ -222,6 +227,44 @@ class CLITestCase(unittest.TestCase):
                         (output / 'fileSequence0.webvtt').read_text()
                         )
 
+    def test_cli_segment_with_duration(self):
+        vtt_file = str(
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'sample.vtt'
+            )
+
+        for duration in ('00:01:25.500', '01:25.500', '85.5'):
+            with self.subTest(duration=duration):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    main(['segment', vtt_file, '-o', temp_dir,
+                          '--duration', duration])
+
+                    manifest = (
+                        pathlib.Path(temp_dir) / 'prog_index.m3u8'
+                        ).read_text()
+                    self.assertEqual(
+                        [line for line in manifest.splitlines()
+                         if line.startswith('#EXTINF:')],
+                        ['#EXTINF:10.00000,'] * 8 + ['#EXTINF:5.50000,']
+                        )
+                    self.assertEqual(len(os.listdir(temp_dir)), 10)
+
+    def test_cli_segment_caption_after_duration(self):
+        vtt_file = str(
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'sample.vtt'
+            )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = os.path.join(temp_dir, 'output')
+
+            self.assert_cli_error(
+                ['segment', vtt_file, '-o', output, '--duration', '30'],
+                f'{vtt_file}: Caption at 00:00:30.280 does not start before '
+                'the end of the media at 00:00:30.000'
+                )
+            self.assertFalse(os.path.exists(output))
+
     def test_cli_segment_invalid_arguments(self):
         vtt_file = str(
             pathlib.Path(__file__).resolve().parent
@@ -240,7 +283,13 @@ class CLITestCase(unittest.TestCase):
                 (['-m', '8589934592'], "argument -m/--mpegts: invalid "
                                        "MPEG-TS value: '8589934592'"),
                 (['-m', 'x'], "argument -m/--mpegts: invalid MPEG-TS "
-                              "value: 'x'")):
+                              "value: 'x'"),
+                (['--duration', '0'], "argument --duration: invalid "
+                                      "duration: '0'"),
+                (['--duration', '-5'], "argument --duration: invalid "
+                                       "duration: '-5'"),
+                (['--duration', 'x'], "argument --duration: invalid "
+                                      "duration: 'x'")):
             with self.subTest(argv=argv):
                 with tempfile.TemporaryDirectory() as temp_dir:
                     output = os.path.join(temp_dir, 'output')
@@ -311,6 +360,87 @@ class CLITestCase(unittest.TestCase):
                 ['segment', vtt_file, '-o', output],
                 f'{output}: {cm.exception.strerror}'
                 )
+
+    def test_cli_segment_into_folder_with_earlier_segments(self):
+        vtt_file = str(
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'sample.vtt'
+            )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            main(['segment', vtt_file, '-o', temp_dir])
+            earlier_files = sorted(os.listdir(temp_dir))
+
+            self.assert_cli_error(
+                ['segment', vtt_file, '-o', temp_dir],
+                f'{temp_dir}: has the files of an earlier segmentation, '
+                'such as fileSequence0.webvtt; use --overwrite to replace '
+                'them'
+                )
+            self.assertEqual(sorted(os.listdir(temp_dir)), earlier_files)
+
+            main(['segment', vtt_file, '-o', temp_dir, '-d', '20',
+                  '--overwrite'])
+
+            self.assertEqual(
+                sorted(os.listdir(temp_dir)),
+                [f'fileSequence{index}.webvtt' for index in range(4)]
+                + ['prog_index.m3u8']
+                )
+            self.assertIn(
+                '#EXT-X-TARGETDURATION:20',
+                (pathlib.Path(temp_dir) / 'prog_index.m3u8').read_text()
+                )
+
+    def test_cli_segment_output_cannot_be_listed(self):
+        vtt_file = str(
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'sample.vtt'
+            )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            error = PermissionError(
+                errno.EACCES, os.strerror(errno.EACCES), temp_dir
+                )
+            with mock.patch.object(pathlib.Path, 'iterdir',
+                                   side_effect=error):
+                self.assert_cli_error(
+                    ['segment', vtt_file, '-o', temp_dir],
+                    f'{temp_dir}: {os.strerror(errno.EACCES)}'
+                    )
+
+    def test_cli_version(self):
+        with contextlib.redirect_stdout(io.StringIO()) as stdout:
+            with self.assertRaises(SystemExit) as cm:
+                main(['--version'])
+
+        self.assertEqual(cm.exception.code, 0)
+        self.assertEqual(stdout.getvalue(), f'webvtt {webvtt.__version__}\n')
+
+    def test_cli_as_module(self):
+        vtt_file = str(
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'one_caption.vtt'
+            )
+
+        with mock.patch.object(sys, 'argv', ['webvtt', 'shift', vtt_file,
+                                             '1']), \
+                contextlib.redirect_stdout(io.StringIO()) as stdout:
+            with self.assertRaises(SystemExit) as cm:
+                runpy.run_module('webvtt', run_name='__main__')
+
+        self.assertIsNone(cm.exception.code)
+        self.assertIn('00:00:01.500 --> 00:00:08.000', stdout.getvalue())
+
+    def test_cli_module_import_does_not_run(self):
+        with mock.patch.object(sys, 'argv', ['webvtt', '--version']), \
+                mock.patch.dict(sys.modules), \
+                contextlib.redirect_stdout(io.StringIO()) as stdout:
+            # import it again, also when another test or tool imported it
+            sys.modules.pop('webvtt.__main__', None)
+            importlib.import_module('webvtt.__main__')
+
+        self.assertEqual(stdout.getvalue(), '')
 
     def test_cli_requires_command(self):
         with contextlib.redirect_stderr(io.StringIO()) as stderr:
@@ -609,6 +739,120 @@ class CLIShiftTestCase(CLICommandTestCase):
             stderr.getvalue(),
             f'webvtt: error: {vtt_file}: not a valid WebVTT file\n'
             )
+
+
+class CLIStdinTestCase(CLICommandTestCase):
+
+    def run_cli_stdin(self, argv, data, stdin_encoding='ascii'):
+        stdin = io.TextIOWrapper(io.BytesIO(data), encoding=stdin_encoding)
+        with mock.patch.object(sys, 'stdin', stdin):
+            return self.run_cli(argv)
+
+    def assert_cli_stdin_error(self, argv, data, expected_message):
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as cm:
+                self.run_cli_stdin(argv, data)
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(stderr.getvalue(),
+                         f'webvtt: error: {expected_message}\n')
+
+    def test_shift_and_sync_from_stdin(self):
+        for argv in (['shift', '{}', '1.25'],
+                     ['shift', '{}', '1', '--start', '00:00:01.500'],
+                     ['sync', '{}', '--fps', '25', '24'],
+                     ['sync', '{}', '-p', '1', '2', '-p', '4', '6']):
+            with self.subTest(argv=argv):
+                self.assertEqual(
+                    self.run_cli_stdin(
+                        [arg.format('-') for arg in argv],
+                        self.CAPTIONS.encode('utf-8')
+                        ),
+                    self.run_cli([arg.format(self.vtt_file) for arg in argv])
+                    )
+
+    def test_segment_from_stdin(self):
+        from_file = os.path.join(self.temp_dir.name, 'from_file')
+        from_stdin = os.path.join(self.temp_dir.name, 'from_stdin')
+
+        main(['segment', self.vtt_file, '-o', from_file, '-d', '2'])
+        self.run_cli_stdin(['segment', '-', '-o', from_stdin, '-d', '2'],
+                           self.CAPTIONS.encode('utf-8'))
+
+        self.assertEqual(sorted(os.listdir(from_stdin)),
+                         sorted(os.listdir(from_file)))
+        for name in os.listdir(from_file):
+            self.assertEqual(
+                pathlib.Path(from_stdin, name).read_text(),
+                pathlib.Path(from_file, name).read_text()
+                )
+
+    def test_segment_from_stdin_invalid_content(self):
+        output = os.path.join(self.temp_dir.name, 'output')
+
+        self.assert_cli_stdin_error(['segment', '-', '-o', output],
+                                    b'not WebVTT',
+                                    'standard input: not a valid WebVTT file')
+        self.assertFalse(os.path.exists(output))
+
+    def test_stdin_is_read_as_utf8(self):
+        captions = self.CAPTIONS.replace('Caption #1', 'Subtítulo #1')
+
+        for data in (captions.encode('utf-8'),
+                     b'\xef\xbb\xbf' + captions.encode('utf-8'),
+                     captions.replace('\n', '\r\n').encode('utf-8')):
+            with self.subTest(data=data[:8]):
+                self.assertEqual(
+                    self.run_cli_stdin(['shift', '-', '0'], data),
+                    captions
+                    )
+
+    def test_stdin_without_buffer(self):
+        with mock.patch.object(sys, 'stdin', io.StringIO(self.CAPTIONS)):
+            self.assertEqual(self.run_cli(['shift', '-', '0']),
+                             self.CAPTIONS)
+
+    def test_stdin_closed(self):
+        with mock.patch.object(sys, 'stdin', None), \
+                contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as cm:
+                main(['shift', '-', '1'])
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(
+            stderr.getvalue(),
+            f'webvtt: error: standard input: {os.strerror(errno.EBADF)}\n'
+            )
+
+    def test_stdin_to_output_file(self):
+        output = os.path.join(self.temp_dir.name, 'shifted')
+
+        self.assertEqual(
+            self.run_cli_stdin(['shift', '-', '0', '-o', output],
+                               self.CAPTIONS.encode('utf-8')),
+            ''
+            )
+
+        self.assertEqual(pathlib.Path(f'{output}.vtt').read_text(),
+                         self.CAPTIONS)
+
+    def test_stdin_to_output_directory(self):
+        self.assert_cli_stdin_error(
+            ['shift', '-', '0', '-o', self.temp_dir.name],
+            self.CAPTIONS.encode('utf-8'),
+            f'{self.temp_dir.name}: is a directory, give a file name to '
+            'save the captions read from standard input'
+            )
+        self.assertEqual(os.listdir(self.temp_dir.name), ['captions.vtt'])
+
+    def test_stdin_invalid_content(self):
+        for data, message in (
+                (b'not WebVTT', 'not a valid WebVTT file'),
+                (b'WEBVTT\n\n\xff\n', 'cannot be decoded as utf-8')):
+            with self.subTest(data=data):
+                self.assert_cli_stdin_error(['sync', '-', '--fps', '25', '24'],
+                                            data,
+                                            f'standard input: {message}')
 
 
 class CLISyncTestCase(CLICommandTestCase):

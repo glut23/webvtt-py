@@ -3,9 +3,12 @@ import unittest
 import tempfile
 import pathlib
 import textwrap
+import datetime
+import math
 
+import webvtt
 from webvtt import segmenter
-from webvtt.models import Caption
+from webvtt.models import Caption, Timestamp
 
 PATH_TO_SAMPLES = pathlib.Path(__file__).resolve().parent / 'samples'
 
@@ -17,6 +20,10 @@ class TestSegmenter(unittest.TestCase):
 
     def tearDown(self):
         self.temp_dir.cleanup()
+
+    def read_folder(self, folder):
+        return {path.name: path.read_text()
+                for path in pathlib.Path(folder).iterdir()}
 
     def test_segmentation_with_defaults(self):
         segmenter.segment(PATH_TO_SAMPLES / 'sample.vtt', self.temp_dir.name)
@@ -335,6 +342,102 @@ class TestSegmenter(unittest.TestCase):
                     [f'#EXTINF:{seconds:.5f},'] * 2
                     )
 
+    def test_manifest_with_duration(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+
+        for duration, last in ((25.5, '5.50000'), (30, '10.00000'),
+                               (20.001, '0.00100')):
+            with self.subTest(duration=duration):
+                segmenter.write_manifest(output_folder, [[], [], []], 10,
+                                         duration=duration)
+
+                manifest = (output_folder / 'prog_index.m3u8').read_text()
+                self.assertIn('#EXT-X-TARGETDURATION:10\n', manifest)
+                self.assertEqual(
+                    [line for line in manifest.splitlines()
+                     if line.startswith('#EXTINF:')],
+                    ['#EXTINF:10.00000,', '#EXTINF:10.00000,',
+                     f'#EXTINF:{last},']
+                    )
+
+    def test_manifest_duration_not_in_last_segment(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+
+        for segments, duration, message in (
+                ([[], [], []], 20,
+                 'Duration 00:00:20.000 does not end in the last of 3 '
+                 'segments of 10 seconds'),
+                ([[], [], []], 30.001,
+                 'Duration 00:00:30.001 does not end in the last of 3 '
+                 'segments of 10 seconds'),
+                ([], 5,
+                 'Duration 00:00:05.000 does not end in the last of 0 '
+                 'segments of 10 seconds')):
+            with self.subTest(segments=segments, duration=duration):
+                with self.assertRaises(ValueError) as cm:
+                    segmenter.write_manifest(output_folder, segments, 10,
+                                             duration=duration)
+
+                self.assertEqual(str(cm.exception), message)
+                self.assertEqual(os.listdir(output_folder), [])
+
+    def test_slice_segments_with_duration(self):
+        captions = [
+            Caption('00:00:00.500', '00:00:07.000', 'first'),
+            Caption('00:00:22.000', '00:00:40.000', 'past the end'),
+            ]
+
+        for duration in (25.5, 25.5004, '00:00:25.500', '00:25.500',
+                         Timestamp(0, 0, 25, 500),
+                         datetime.timedelta(seconds=25.5)):
+            with self.subTest(duration=duration):
+                segments = segmenter.slice_segments(captions, 10,
+                                                    duration=duration)
+
+                self.assertEqual(
+                    [[c.text for c in segment] for segment in segments],
+                    [['first'], [], ['past the end']]
+                    )
+
+    def test_slice_segments_with_duration_and_no_captions(self):
+        self.assertEqual(segmenter.slice_segments([], 10, duration=1), [[]])
+        self.assertEqual(segmenter.slice_segments([], 10, duration=30),
+                         [[], [], []])
+
+    def test_slice_segments_caption_not_before_duration(self):
+        for start in ('00:00:25.000', '00:01:00.000'):
+            with self.subTest(start=start):
+                captions = [
+                    Caption('00:00:01.000', '00:00:02.000', 'first'),
+                    Caption(start, '00:02:00.000', 'after the end'),
+                    ]
+
+                with self.assertRaises(ValueError) as cm:
+                    segmenter.slice_segments(captions, 10, duration=25)
+
+                self.assertEqual(
+                    str(cm.exception),
+                    f'Caption at {start} does not start before the end of '
+                    'the media at 00:00:25.000'
+                    )
+
+    def test_slice_segments_invalid_duration(self):
+        for duration, error in ((0, ValueError),
+                                (-1, ValueError),
+                                (0.0004, ValueError),
+                                (math.nan, ValueError),
+                                (math.inf, ValueError),
+                                ('00:00:00.000', ValueError),
+                                ('25 seconds', ValueError),
+                                (True, TypeError),
+                                ([25], TypeError)):
+            with self.subTest(duration=duration):
+                with self.assertRaises(error) as cm:
+                    segmenter.slice_segments([], 10, duration=duration)
+
+                self.assertEqual(str(cm.exception),
+                                 f'Invalid duration {duration!r}')
+
     def test_slice_segments_last_caption_ends_on_segment_boundary(self):
         captions = [
             Caption('00:00.000', '00:09.000', 'first'),
@@ -515,7 +618,10 @@ class TestSegmenter(unittest.TestCase):
                                  ({'mpegts': -1}, ValueError),
                                  ({'mpegts': 2 ** 33}, ValueError),
                                  ({'mpegts': 9e5}, TypeError),
-                                 ({'mpegts': None}, TypeError)):
+                                 ({'mpegts': None}, TypeError),
+                                 ({'duration': 0}, ValueError),
+                                 ({'duration': 1}, ValueError),
+                                 ({'duration': b'25'}, TypeError)):
             with self.subTest(arguments=arguments):
                 with self.assertRaises(error):
                     segmenter.segment(webvtt_path, output_path, **arguments)
@@ -558,6 +664,95 @@ class TestSegmenter(unittest.TestCase):
                 f'previous run {index}'
                 )
 
+    def test_segment_into_folder_with_earlier_segments(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+        segmenter.segment(PATH_TO_SAMPLES / 'sample.vtt', output_folder)
+        earlier_files = self.read_folder(output_folder)
+
+        with self.assertRaises(FileExistsError) as cm:
+            segmenter.segment(PATH_TO_SAMPLES / 'one_caption.vtt',
+                              output_folder)
+
+        self.assertEqual(
+            str(cm.exception),
+            f'{str(output_folder)!r} has the files of an earlier '
+            "segmentation, such as 'fileSequence0.webvtt'; use "
+            'overwrite=True to replace them'
+            )
+        self.assertEqual(self.read_folder(output_folder), earlier_files)
+
+    def test_segment_into_folder_with_earlier_playlist(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+        (output_folder / 'prog_index.m3u8').write_text('video playlist')
+
+        with self.assertRaisesRegex(FileExistsError, "'prog_index.m3u8'"):
+            segmenter.segment(PATH_TO_SAMPLES / 'one_caption.vtt',
+                              output_folder)
+
+        self.assertEqual(os.listdir(output_folder), ['prog_index.m3u8'])
+        self.assertEqual((output_folder / 'prog_index.m3u8').read_text(),
+                         'video playlist')
+
+    def test_segment_into_folder_with_earlier_files_in_other_case(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+        for name in ['PROG_INDEX.M3U8', 'FileSequence3.WebVTT']:
+            (output_folder / name).write_text('earlier run')
+
+            with self.assertRaisesRegex(FileExistsError, repr(name)):
+                segmenter.segment(PATH_TO_SAMPLES / 'one_caption.vtt',
+                                  output_folder)
+
+            (output_folder / name).unlink()
+
+    def test_segment_into_folder_with_other_files(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+        others = ['fileSequence01.webvtt', 'fileSequence5.vtt',
+                  'fileSequence-1.webvtt', 'notes.txt']
+        for name in others:
+            (output_folder / name).write_text('other file')
+
+        segmenter.segment(PATH_TO_SAMPLES / 'one_caption.vtt', output_folder)
+
+        self.assertEqual(
+            sorted(os.listdir(output_folder)),
+            sorted(others + ['fileSequence0.webvtt', 'prog_index.m3u8'])
+            )
+
+    def test_segment_overwrite(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+        segmenter.segment(PATH_TO_SAMPLES / 'sample.vtt', output_folder)
+        self.assertIn('fileSequence6.webvtt', os.listdir(output_folder))
+        others = ['fileSequence01.webvtt', 'fileSequence5.vtt',
+                  'fileSequence-1.webvtt', 'notes.txt']
+        for name in others:
+            (output_folder / name).write_text('other file')
+        (output_folder / 'fileSequence9.webvtt').mkdir()
+
+        segmenter.segment(PATH_TO_SAMPLES / 'one_caption.vtt', output_folder,
+                          overwrite=True)
+
+        self.assertEqual(
+            sorted(os.listdir(output_folder)),
+            sorted(others + ['fileSequence0.webvtt', 'fileSequence9.webvtt',
+                             'prog_index.m3u8'])
+            )
+        for name in others:
+            self.assertEqual((output_folder / name).read_text(), 'other file')
+        manifest = (output_folder / 'prog_index.m3u8').read_text()
+        self.assertIn('fileSequence0.webvtt', manifest)
+        self.assertNotIn('fileSequence1.webvtt', manifest)
+        self.assertIn('00:00:00.500 --> 00:00:07.000',
+                      (output_folder / 'fileSequence0.webvtt').read_text())
+
+    def test_segment_overwrite_without_earlier_files(self):
+        output_folder = pathlib.Path(self.temp_dir.name) / 'output'
+
+        segmenter.segment(PATH_TO_SAMPLES / 'one_caption.vtt', output_folder,
+                          overwrite=True)
+
+        self.assertEqual(sorted(os.listdir(output_folder)),
+                         ['fileSequence0.webvtt', 'prog_index.m3u8'])
+
     def test_segmentation_mpegts_range(self):
         output_path = pathlib.Path(self.temp_dir.name) / 'output'
 
@@ -568,6 +763,92 @@ class TestSegmenter(unittest.TestCase):
             'X-TIMESTAMP-MAP=MPEGTS:8589934591,LOCAL:00:00:00.000',
             (output_path / 'fileSequence0.webvtt').read_text()
             )
+
+    def test_segment_with_duration(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+
+        segmenter.segment(PATH_TO_SAMPLES / 'one_caption.vtt', output_folder,
+                          duration='00:00:25.500')
+
+        self.assertEqual(
+            sorted(os.listdir(output_folder)),
+            ['fileSequence0.webvtt', 'fileSequence1.webvtt',
+             'fileSequence2.webvtt', 'prog_index.m3u8']
+            )
+        self.assertEqual(
+            (output_folder / 'fileSequence2.webvtt').read_text(),
+            'WEBVTT\n'
+            'X-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000\n'
+            )
+        self.assertEqual(
+            (output_folder / 'prog_index.m3u8').read_text(),
+            textwrap.dedent(
+                '''
+                #EXTM3U
+                #EXT-X-TARGETDURATION:10
+                #EXT-X-VERSION:3
+                #EXT-X-PLAYLIST-TYPE:VOD
+                #EXTINF:10.00000,
+                fileSequence0.webvtt
+                #EXTINF:10.00000,
+                fileSequence1.webvtt
+                #EXTINF:5.50000,
+                fileSequence2.webvtt
+                #EXT-X-ENDLIST
+                '''
+                ).lstrip()
+            )
+
+    def test_segment_invalid_duration_before_reading_file(self):
+        with self.assertRaises(ValueError):
+            segmenter.segment(PATH_TO_SAMPLES / 'missing.vtt',
+                              self.temp_dir.name, duration=0)
+
+    def test_segment_webvtt_instance(self):
+        from_path = pathlib.Path(self.temp_dir.name) / 'from_path'
+        from_instance = pathlib.Path(self.temp_dir.name) / 'from_instance'
+        vtt = webvtt.read(PATH_TO_SAMPLES / 'regions.vtt')
+        captions = [(c.start, c.end, c.raw_text) for c in vtt.captions]
+
+        segmenter.segment(PATH_TO_SAMPLES / 'regions.vtt', from_path)
+        segmenter.segment(vtt, from_instance)
+
+        self.assertEqual(self.read_folder(from_instance),
+                         self.read_folder(from_path))
+        self.assertEqual(
+            [(c.start, c.end, c.raw_text) for c in vtt.captions], captions
+            )
+        self.assertEqual(vtt.file, str(PATH_TO_SAMPLES / 'regions.vtt'))
+
+    def test_segment_captions_in_memory(self):
+        vtt = webvtt.WebVTT(captions=[
+            Caption('00:00:01.000', '00:00:04.000', 'Hello'),
+            Caption('00:00:12.000', '00:00:13.000', 'World'),
+            ])
+        vtt.shift(1)
+
+        segmenter.segment(vtt, self.temp_dir.name, seconds=5)
+
+        self.assertEqual(
+            self.read_folder(self.temp_dir.name)['fileSequence2.webvtt'],
+            'WEBVTT\n'
+            'X-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000\n'
+            '\n'
+            '00:00:13.000 --> 00:00:14.000\n'
+            'World\n'
+            )
+        self.assertIsNone(vtt.file)
+
+    def test_segment_captions_read_from_srt(self):
+        from_vtt = pathlib.Path(self.temp_dir.name) / 'from_vtt'
+        from_srt = pathlib.Path(self.temp_dir.name) / 'from_srt'
+        srt_captions = webvtt.from_srt(PATH_TO_SAMPLES / 'sample.srt')
+
+        segmenter.segment(srt_captions, from_srt)
+        segmenter.segment(webvtt.from_string(srt_captions.content), from_vtt)
+
+        self.assertEqual(self.read_folder(from_srt),
+                         self.read_folder(from_vtt))
 
     def test_segment_with_no_captions(self):
         segmenter.segment(

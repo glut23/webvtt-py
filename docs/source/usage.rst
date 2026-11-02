@@ -21,7 +21,7 @@ Reading WebVTT caption files
     for line in vtt[0].lines:
         print(line)
 
-    # the caption text is returned clean without class tags,
+    # the caption text is returned clean without cue tags,
     # the raw text of a caption is available in raw_text
     vtt[0].text      # 'This is a caption text'
     vtt[0].raw_text  # 'This is a <c.colorE5E5E5>caption</c> text'
@@ -39,7 +39,7 @@ Reading WebVTT caption files from a file-like object
     import requests
     from io import StringIO
 
-    payload = requests.get('http://subtitles.com/1234.vtt').text
+    payload = requests.get('https://example.com/captions.vtt').text
     buffer = StringIO(payload)
 
     for caption in webvtt.from_buffer(buffer):
@@ -74,6 +74,12 @@ encoding and the Byte Order Mark, as when reading a file.
 
 A string is not a file-like object and raises ``TypeError``: use
 ``from_string`` to read captions from a string.
+
+The path of a file opened by name is kept in the ``file`` attribute, so
+``save()`` without a path saves to it. A file-like object without a path,
+such as standard input, a file opened from a file descriptor or a
+``BytesIO`` object, gives captions without a file, as when creating
+``WebVTT`` objects, so ``save()`` needs a path.
 
 
 Reading WebVTT captions from a string
@@ -159,6 +165,11 @@ Creating captions
     # save the captions to a file
     vtt.save('captions.vtt')
 
+The lists given to ``WebVTT``, such as ``WebVTT(captions=captions)``, are
+kept as its attributes, not copied, so changes to them show in the
+instance. The list of lines given to a ``Caption`` or a ``Style`` is
+copied.
+
 As in WebVTT, only CR, LF and CRLF break text into lines. Other characters
 such as U+2028 or a form feed stay in the line.
 
@@ -211,8 +222,15 @@ Manipulating captions
     # update caption text
     vtt[0].text = 'New caption text'
 
+    # or set its lines
+    vtt[0].text = ['New caption text', 'on two lines']
+
     # delete a caption
     del vtt.captions[2]
+
+The text of a caption is a string, split on its line breaks, or a sequence
+of lines, as when creating a ``Caption``. Any other value raises
+``TypeError``.
 
 
 Cue settings
@@ -294,9 +312,8 @@ seconds or a ``timedelta``:
     vtt.save()
 
 The offset is rounded to the nearest millisecond of its decimal value, with
-halves
-rounded away from zero, so ``0.0005`` is 1 millisecond and ``-0.0005`` is -1
-millisecond. A timestamp that would fall before zero is set to
+halves rounded away from zero, so ``0.0005`` is 1 millisecond and ``-0.0005``
+is -1 millisecond. A timestamp that would fall before zero is set to
 ``00:00:00.000``, so a caption moved entirely before the start is kept with
 ``00:00:00.000 --> 00:00:00.000`` timings.
 
@@ -416,8 +433,14 @@ Saving captions
     with open('other_captions.vtt', 'w') as f:
         vtt.write(f)
 
+Without a path, or with a folder, the name of the file that was read or
+last saved is used. A file with the ``.vtt`` or ``.webvtt`` extension
+keeps it, and any other extension is replaced by ``.vtt``, so captions
+read from ``captions.srt`` are saved to ``captions.vtt``. ``save_as_srt()``
+does the same with ``.srt``.
 
-Retrieving WebVTT formatted captions
+
+Retrieving WebVTT-formatted captions
 ------------------------------------
 
 WebVTT content can be retrieved without an output file:
@@ -435,7 +458,7 @@ WebVTT content can be retrieved without an output file:
 Converting captions
 -------------------
 
-You can read captions from the following formats:
+Captions can be read from the following formats:
 
 * SubRip (.srt)
 * YouTube SBV (.sbv)
@@ -490,10 +513,14 @@ Convert WebVTT captions to other formats:
     with open('captions.srt', 'w') as f:
         vtt.write(f, format='srt')
 
+Captions without text, such as text of blank lines, are left out of the SRT
+file, as SRT cannot have a cue without text, and the others are numbered
+consecutively.
+
 The cue tags are removed when converting to SRT. To keep the formatting
 instead, use ``keep_formatting``. Bold, italic, underline and ``font`` tags are
 kept, and the cue classes with a ``color`` in the styles become ``font`` tags
-with that colour. Other cue tags are removed, keeping their text:
+with that color. Other cue tags are removed, keeping their text:
 
 .. code-block:: python
 
@@ -516,8 +543,32 @@ with that colour. Other cue tags are removed, keeping their text:
     # <font color="#ff00ff"><i>Hello</i> world</font>
 
 Only the ``color`` of ``::cue(.class)`` selectors is read. When a cue has more
-than one class with a colour, the rule that comes last in the styles applies.
+than one class with a color, the rule that comes last in the styles applies.
 Character references such as ``&lt;`` are written as they are.
+
+The ``encoding`` given to read a file without a Byte Order Mark is only
+used for reading, as WebVTT files are UTF-8: ``save()`` writes UTF-8 unless
+another encoding is given. SRT files have no fixed encoding, so captions
+read with ``from_srt`` or ``from_buffer`` in SRT format and an
+``encoding`` are saved by ``save_as_srt()`` in the same encoding:
+
+.. code-block:: python
+
+    import webvtt
+
+    vtt = webvtt.from_srt('captions.srt', encoding='cp1252')
+
+    # saved in cp1252
+    vtt.save_as_srt('edited.srt')
+
+    # saved in UTF-8, also for text that cp1252 cannot write
+    vtt.save_as_srt('edited.srt', encoding='utf-8')
+
+    # saved in UTF-8
+    vtt.save()
+
+Saving text that the encoding cannot write raises ``UnicodeEncodeError``,
+leaving an existing file unchanged.
 
 
 Segmenting captions for HLS
@@ -531,12 +582,44 @@ Segmenting captions for HLS
     webvtt.segment('captions.vtt', 'output/path')
 
     # use 6-second segments and a different MPEG-TS value
-    webvtt.segment('captions.vtt', 'output/path', seconds=6, mpegts=0)
+    webvtt.segment('captions.vtt', 'other/path', seconds=6, mpegts=0)
 
-Every segment has the styles and regions of the file, and the captions keep
-their identifiers and cue settings. Comments are not written to the
-segments. ``seconds`` is a whole number above zero and ``mpegts`` a whole
-number from 0 to 8589934591.
+    # segment captions already read, edited or from another format,
+    # without saving them first
+    vtt = webvtt.from_srt('captions.srt')
+    vtt.change_framerate(25, 23.976)
+    webvtt.segment(vtt, 'srt/path')
+
+Every segment has the styles and regions of the captions, and the captions
+in it keep their identifiers and cue settings. Comments are not written to
+the segments. ``seconds`` is a whole number above zero and ``mpegts`` a
+whole number from 0 to 8589934591.
+
+Segmenting into a folder with the playlist or segments of an earlier run
+raises ``FileExistsError``, so they are not replaced by mistake. Use
+``overwrite=True`` to replace them, which also deletes the segments of the
+earlier run that the new playlist does not have. Other files in the folder
+are left alone:
+
+.. code-block:: python
+
+    # segment again into output/path, replacing the earlier segments
+    webvtt.segment('captions.vtt', 'output/path', overwrite=True)
+
+The playlist ends with the segment of the last caption, and every segment
+lasts ``seconds``, as the length of the media is not known. Give it with
+``duration``, as a timestamp, a number of seconds or a ``timedelta``, so the
+playlist covers all the media, with empty segments after the last caption,
+and its last segment ends with the media:
+
+.. code-block:: python
+
+    # a video of 1 minute 25.5 seconds: 9 segments, the last of 5.5 seconds
+    webvtt.segment('captions.vtt', 'output/path', duration='00:01:25.500')
+
+A caption starting at or after the end of the media raises ``ValueError``, as
+the duration is likely wrong, and a caption ending after it is kept in the
+last segment.
 
 Segmentation is also available from the command line, see :doc:`cli`.
 
@@ -595,6 +678,16 @@ Save a file with a different encoding:
              add_bom=True
              )
 
+Encoding names are matched as Python does, so ``UTF-8`` and ``utf8`` are
+the same as ``utf-8``. The ``utf-8-sig``, ``utf-16`` and ``utf-32``
+codecs always write a BOM, ``utf-16`` and ``utf-32`` in the byte order of
+the platform, so ``add_bom=False`` raises ``ValueError`` with them: use
+``utf-16-le``, ``utf-16-be``, ``utf-32-le`` or ``utf-32-be`` to choose the
+byte order and whether to add a BOM. ``add_bom=True`` raises
+``ValueError`` for an encoding without a BOM, such as ``latin-1``, while
+the BOM of the file that was read is left out when saving in such an
+encoding. When saving raises, an existing file is left unchanged.
+
 
 WebVTT styles
 -------------
@@ -610,6 +703,10 @@ WebVTT styles
 
         # retrieve list of lines
         print(style.lines)
+
+``STYLE`` blocks after the first cue are not styles as per the WebVTT
+specification and are ignored, or raise ``MalformedCaptionError`` with
+strict parsing.
 
 
 Adding styles:
@@ -680,12 +777,12 @@ value or ``None`` when it is not set:
     vtt.captions[0].settings.region = 'fred'
 
 The supported settings are ``id``, ``width``, ``lines``, ``regionanchor``,
-``viewportanchor`` and ``scroll``. As with cue settings, setting a value
-that is not valid raises ``MalformedCaptionError``, and the settings are
-saved as they were read, including the ones that are not valid or not
-known, with a setting per line. ``REGION`` blocks after the first cue are
-not regions as per the WebVTT specification and are ignored, or raise
-``MalformedCaptionError`` with strict parsing. When converting to SRT, the
+``viewportanchor`` and ``scroll``. Setting a value that is not valid raises
+``MalformedRegionError``, a subclass of ``MalformedCaptionError``, and the
+settings are saved as they were read, including the ones that are not valid
+or not known, with a setting per line. ``REGION`` blocks after the first cue
+are not regions as per the WebVTT specification and are ignored, or raise
+``MalformedRegionError`` with strict parsing. When converting to SRT, the
 regions are not included.
 
 Removing or renaming a region does not update the captions that use it.
@@ -755,7 +852,9 @@ Comments can be added to or retrieved from different items:
     # comments are just a list of strings
     vtt.captions[5].comments.append('caption for review')
 
-A ``NOTE`` block containing ``-->`` is not a comment as per the WebVTT
+A block is a comment when it starts with ``NOTE`` followed by a space, a
+tab or a line break. A block starting with other text, such as
+``NOTEBOOK``, or containing ``-->`` is not a comment as per the WebVTT
 specification, so it is ignored when reading, or raises
 ``MalformedCaptionError`` with strict parsing.
 
@@ -768,8 +867,11 @@ module:
 
 * ``MalformedFileError``: the content is not valid for the expected
   format (WebVTT, SRT or SBV).
-* ``MalformedCaptionError``: a caption, cue setting or region is not
-  valid, or the content does not pass strict parsing.
+* ``MalformedCaptionError``: a caption or cue setting is not valid, or the
+  content does not pass strict parsing.
+* ``MalformedRegionError``: a region setting is not valid, or a region does
+  not pass strict parsing. It is a subclass of ``MalformedCaptionError``, so
+  catching that error also catches it.
 * ``MissingFilenameError``: captions are saved without an output path
   and there is no file to derive it from.
 
@@ -839,6 +941,17 @@ raised instead. Strict parsing also raises the error for:
 * styles and regions after the first cue
 * a cue that is not separated from the previous cue, comment or style by
   an empty line
+
+For region settings and regions after the first cue, the error is
+``MalformedRegionError``, a subclass of ``MalformedCaptionError``.
+
+Strict parsing also raises ``MalformedFileError`` when ``WEBVTT`` is
+followed by text other than a space or a tab in the first line, such as
+``WEBVTTX``, which the default parsing reads.
+
+Strict parsing is only for WebVTT. SRT and SBV have no specification to
+validate against, so ``from_buffer`` raises ``ValueError`` for ``strict=True``
+with the ``srt`` or ``sbv`` format.
 
 .. code-block:: python
 

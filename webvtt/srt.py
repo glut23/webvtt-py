@@ -405,6 +405,10 @@ def write(
     """
     Write captions to an output.
 
+    Captions without text, such as text of blank lines or only of cue tags,
+    are left out, as a cue without text cannot be read back from SRT, and
+    the others are numbered consecutively.
+
     :param f: file or file-like object
     :param captions: Iterable of `Caption` objects
     :param styles: Iterable of `Style` objects to keep the formatting of
@@ -412,15 +416,22 @@ def write(
     """
     colours = None if styles is None else _cue_colours(styles)
     output = []
-    for index, caption in enumerate(captions, start=1):
+    index = 0
+    for caption in captions:
+        # the text without cue tags, so tags with no text are left out also
+        # when keeping the formatting
+        if not caption.text.strip():
+            continue
         text = (caption.text if colours is None
                 else _format_cue_text(caption.raw_text, colours))
+        lines = [line for line in text.split('\n') if line.strip()]
+        index += 1
         output.extend([
             f'{index}',
             '{} --> {}'.format(*map(lambda x: x.replace('.', ','),
                                     (caption.start, caption.end))
                                ),
-            *(line for line in text.split('\n') if line.strip()),
+            *lines,
             ''
             ])
     f.write('\n'.join(output))

@@ -1,5 +1,6 @@
 """WebVTT module."""
 
+import codecs
 import datetime
 import os
 import io
@@ -24,6 +25,11 @@ from .models import (
 from .errors import MissingFilenameError
 
 DEFAULT_ENCODING = 'utf-8'
+
+_T = typing.TypeVar('_T')
+
+# the extensions of each format, kept when saving a file to the same format
+_FORMAT_EXTENSIONS = {'vtt': ('.vtt', '.webvtt'), 'srt': ('.srt',)}
 
 
 class WebVTT:
@@ -62,6 +68,9 @@ class WebVTT:
         from or last saved to, which `save` uses when no output is given,
         and can be set to choose where they are saved.
 
+        The lists are kept as the attributes, not copied, so changes to a
+        list after creating the instance show in it.
+
         :param file: DEPRECATED, set the ``file`` attribute instead
         :param captions: the list of captions
         :param styles: the list of styles
@@ -95,15 +104,17 @@ class WebVTT:
                 )
 
         self.file = file
-        self.captions = captions or []
-        self.styles = styles or []
-        self.header_comments = header_comments or []
-        self.footer_comments = footer_comments or []
+        self.captions = _list_or_new(captions)
+        self.styles = _list_or_new(styles)
+        self.header_comments = _list_or_new(header_comments)
+        self.footer_comments = _list_or_new(footer_comments)
         self.header_text = header_text or ''
-        self.metadata = metadata or []
-        self.regions = regions or []
+        self.metadata = _list_or_new(metadata)
+        self.regions = _list_or_new(regions)
         self._has_bom = False
         self.encoding = DEFAULT_ENCODING
+        # the encoding given to read SRT, which save_as_srt keeps
+        self._srt_encoding: typing.Optional[str] = None
 
     def __len__(self):
         """Return the number of captions."""
@@ -134,7 +145,9 @@ class WebVTT:
         Read a WebVTT captions file.
 
         :param file: the file path
-        :param encoding: encoding of the file
+        :param encoding: encoding of a file without a Byte Order Mark, UTF-8
+            by default. It is only used for reading, as WebVTT files are
+            saved in UTF-8 unless another encoding is given
         :param strict: raise an error on blocks that are not valid WebVTT
             instead of ignoring them
         :returns: a `WebVTT` instance
@@ -189,25 +202,41 @@ class WebVTT:
         tempfile.TemporaryFile object, etc. Binary data is decoded with the
         encoding of its Byte Order Mark, if any, or else with ``encoding``.
 
+        The ``name`` of the file-like object is kept as the ``file`` to save
+        to when it is a path, so a file-like object without one, such as
+        standard input, a file opened from a file descriptor or an
+        io.BytesIO object, gives captions without a file, as when they are
+        not read from a file.
+
         :param buffer: the file-like object to read captions from, or an
             iterable of lines
         :param format: the format of the data (vtt, srt or sbv)
         :param strict: raise an error on blocks that are not valid WebVTT
-            instead of ignoring them, only for the vtt format
+            instead of ignoring them, only for the vtt format, as SRT and
+            SBV have no strict parsing
         :param encoding: encoding of binary data without a Byte Order Mark,
-            UTF-8 by default
+            UTF-8 by default. For the srt format, `save_as_srt` saves in the
+            same encoding
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the data is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp,
             or if strict and a block is not valid WebVTT
-        :raises ValueError: if the format is not supported
+        :raises ValueError: if the format is not supported, or strict is
+            given for the srt or sbv format
         :raises UnicodeDecodeError: if binary data cannot be decoded
         :raises TypeError: if the buffer is a string or bytes, use
             from_string to read a string or io.BytesIO to read bytes
         """
-        file = getattr(buffer, 'name', None)
-        lines, bom_encoding = cls._read_buffer(buffer, encoding)
+        if format not in ('vtt', 'srt', 'sbv'):
+            raise ValueError(f'Format {format} is not supported.')
+        if strict and format != 'vtt':
+            raise ValueError(
+                f'Strict parsing is not supported for the {format} format'
+                )
+
+        file = _buffer_file(buffer)
+        lines, bom_encoding, binary = cls._read_buffer(buffer, encoding)
 
         if format == 'vtt':
             output = vtt.parse(cls._get_lines(lines), strict)
@@ -222,22 +251,24 @@ class WebVTT:
                 )
         elif format == 'srt':
             instance = cls(captions=srt.parse(cls._get_lines(lines)))
-        elif format == 'sbv':
-            instance = cls(captions=sbv.parse(cls._get_lines(lines)))
         else:
-            raise ValueError(f'Format {format} is not supported.')
+            instance = cls(captions=sbv.parse(cls._get_lines(lines)))
 
         instance.file = file
         if bom_encoding:
             instance.encoding = bom_encoding
             instance._has_bom = True
+        elif format == 'srt' and binary:
+            instance._srt_encoding = encoding
         return instance
 
     @staticmethod
     def _read_buffer(
             buffer: typing.Union[typing.Iterable[str], typing.BinaryIO],
             encoding: typing.Optional[str]
-            ) -> typing.Tuple[typing.Iterable[str], typing.Optional[str]]:
+            ) -> typing.Tuple[
+                typing.Iterable[str], typing.Optional[str], bool
+                ]:
         """
         Return the lines of a buffer and the encoding of its BOM.
 
@@ -246,8 +277,8 @@ class WebVTT:
 
         :param buffer: the file-like object, or an iterable of lines
         :param encoding: encoding of binary data without a BOM
-        :returns: the lines and the encoding of the BOM of binary data, or
-            None
+        :returns: the lines, the encoding of the BOM of binary data or
+            None, and whether the data was binary
 
         :raises TypeError: if the buffer is a string or bytes
         """
@@ -265,16 +296,20 @@ class WebVTT:
 
         read = getattr(buffer, 'read', None)
         if read is None:
-            return typing.cast(typing.Iterable[str], buffer), None
+            return typing.cast(typing.Iterable[str], buffer), None, False
 
         data = read()
         if isinstance(data, str):
-            return [data], None
+            return [data], None, False
 
         bom_encoding = utils._bom_encoding(data)
         if bom_encoding:
             data = data[len(utils.CODEC_BOMS[bom_encoding]):]
-        return [data.decode(bom_encoding or encoding or 'utf-8')], bom_encoding
+        return (
+            [data.decode(bom_encoding or encoding or 'utf-8')],
+            bom_encoding,
+            True
+            )
 
     @classmethod
     def from_srt(
@@ -286,14 +321,19 @@ class WebVTT:
         Read captions from a file in SubRip format.
 
         :param file: the file path
-        :param encoding: encoding of the file
+        :param encoding: encoding of a file without a Byte Order Mark, UTF-8
+            by default. `save_as_srt` saves in the same encoding, while
+            `save` saves WebVTT in UTF-8 unless another encoding is given
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the file is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp
         """
         with utils.FileWrapper.open(file, encoding=encoding) as fw:
-            return cls.from_buffer(fw.file, format='srt')
+            instance = cls.from_buffer(fw.file, format='srt')
+            if not fw.bom_encoding:
+                instance._srt_encoding = encoding
+            return instance
 
     @classmethod
     def from_sbv(
@@ -305,7 +345,9 @@ class WebVTT:
         Read captions from a file in YouTube SBV format.
 
         :param file: the file path
-        :param encoding: encoding of the file
+        :param encoding: encoding of a file without a Byte Order Mark, UTF-8
+            by default. It is only used for reading, as WebVTT files are
+            saved in UTF-8 unless another encoding is given
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the file is not in the right format
@@ -377,9 +419,7 @@ class WebVTT:
             raise MissingFilenameError
 
         if not destination_path and self.file:
-            destination_path = (
-                f'{os.path.splitext(self.file)[0]}.{extension}'
-                )
+            destination_path = _with_extension(self.file, extension)
 
         assert destination_path is not None
 
@@ -389,8 +429,9 @@ class WebVTT:
                 raise MissingFilenameError
 
             # store the file in specified directory
-            base_name = os.path.splitext(os.path.basename(self.file))[0]
-            new_filename = f'{base_name}.{extension}'
+            new_filename = os.path.basename(
+                _with_extension(self.file, extension)
+                )
             return os.path.join(target, new_filename)
 
         # a path with an extension is written as given, e.g. .webvtt
@@ -415,25 +456,29 @@ class WebVTT:
 
         :param output: destination path of the file, with ``.vtt`` added
             when it has no extension, or a folder to save the file there
-            with the name of the file that was read
-        :param encoding: encoding of the file
-        :param add_bom: save the file with Byte Order Mark
+            with the name of the file that was read. Without it, the file
+            is saved to the ``file`` attribute, with its extension replaced
+            by ``.vtt`` unless it is ``.vtt`` or ``.webvtt``
+        :param encoding: encoding of the file, by default the ``encoding``
+            attribute: the encoding of the Byte Order Mark of the file that
+            was read, or UTF-8
+        :param add_bom: save the file with Byte Order Mark, or without it
+            if false. By default, the Byte Order Mark of the file that was
+            read is kept
 
         :raises MissingFilenameError: if output cannot be determined
+        :raises LookupError: if the encoding is not known
         :raises ValueError: if the header text or metadata are not valid,
             or the text of a caption, style or comment could not be read
-            back, leaving an existing file unchanged
+            back, or add_bom is true and the encoding has no Byte Order
+            Mark, or false and the encoding always writes one, such as
+            ``utf-16``, leaving an existing file unchanged
         """
         destination = self._get_destination_file(output)
         # build the content first so an invalid header leaves no file behind
         content = self.content
         encoding = encoding or self.encoding
-
-        if add_bom is None and self._has_bom:
-            add_bom = True
-
-        if add_bom and encoding in utils.CODEC_BOMS:
-            content = utils.CODEC_BOMS[encoding].decode(encoding) + content
+        content = _byte_order_mark(encoding, add_bom, self._has_bom) + content
 
         utils._write_text_file(destination, content, encoding)
         self.file = destination
@@ -441,7 +486,7 @@ class WebVTT:
     def save_as_srt(
             self,
             output: typing.Optional[str] = None,
-            encoding: typing.Optional[str] = DEFAULT_ENCODING,
+            encoding: typing.Optional[str] = None,
             keep_formatting: bool = False
             ):
         """
@@ -453,8 +498,11 @@ class WebVTT:
 
         :param output: destination path of the file, with ``.srt`` added
             when it has no extension, or a folder to save the file there
-            with the name of the file that was read
-        :param encoding: encoding of the file
+            with the name of the file that was read. Without it, the file
+            is saved to the ``file`` attribute, with its extension replaced
+            by ``.srt`` unless it is ``.srt``
+        :param encoding: encoding of the file, by default the encoding
+            given to read the captions from SRT, or UTF-8
         :param keep_formatting: keep bold, italic, underline and the colours
             of the cue classes in the styles, instead of removing the cue tags
 
@@ -467,7 +515,11 @@ class WebVTT:
                   self.styles if keep_formatting else None
                   )
 
-        utils._write_text_file(destination, content.getvalue(), encoding)
+        utils._write_text_file(
+            destination,
+            content.getvalue(),
+            encoding or self._srt_encoding or DEFAULT_ENCODING
+            )
         self.file = destination
 
     def write(
@@ -654,3 +706,88 @@ class WebVTT:
             self.metadata,
             self.regions
             )
+
+
+def _buffer_file(buffer: typing.Any) -> typing.Optional[str]:
+    """
+    Return the path of the file of a file-like object, if it has one.
+
+    A name that is not a path is not kept, such as the file descriptor of
+    a file opened from one or a name in angle brackets like ``<stdin>``
+    that is not a file.
+
+    :param buffer: the file-like object
+    :returns: the path, or None
+    """
+    name = getattr(buffer, 'name', None)
+    if isinstance(name, (str, bytes, os.PathLike)):
+        name = os.fsdecode(name)
+    if (not isinstance(name, str) or not name or
+            (name.startswith('<') and name.endswith('>') and
+             not os.path.exists(name))):
+        return None
+    return name
+
+
+def _with_extension(file: str, extension: str) -> str:
+    """
+    Return the path of a file with the extension of a format.
+
+    :param file: the path of the file
+    :param extension: the extension of the format, such as ``vtt``
+    :returns: the path as it is if its extension is one of the format, as
+        ``.webvtt`` for ``vtt``, or else with the extension replaced
+    """
+    name, current = os.path.splitext(file)
+    if current.lower() in _FORMAT_EXTENSIONS[extension]:
+        return file
+    return f'{name}.{extension}'
+
+
+def _byte_order_mark(
+        encoding: str,
+        add_bom: typing.Optional[bool],
+        has_bom: bool
+        ) -> str:
+    """
+    Return the Byte Order Mark to write before the content.
+
+    :param encoding: the encoding, under any of its names
+    :param add_bom: true to add a Byte Order Mark, false to leave it out,
+        or None to keep the Byte Order Mark of the file that was read
+    :param has_bom: true if the file that was read has a Byte Order Mark
+    :returns: the Byte Order Mark as text, empty if there is none or the
+        codec of the encoding writes it
+
+    :raises LookupError: if the encoding is not known
+    :raises ValueError: if add_bom is true and the encoding has no Byte
+        Order Mark, or false and the codec of the encoding always writes one
+    """
+    # equivalent names such as UTF-8 and utf8 become utf-8
+    name = codecs.lookup(encoding).name
+
+    if name in utils._BOM_WRITING_CODECS:
+        if add_bom is False:
+            raise ValueError(
+                f'The {encoding} encoding always writes a Byte Order Mark'
+                )
+        return ''
+
+    if name not in utils.CODEC_BOMS:
+        if add_bom:
+            raise ValueError(f'The {encoding} encoding has no Byte Order Mark')
+        return ''
+
+    if add_bom or (add_bom is None and has_bom):
+        return utils.CODEC_BOMS[name].decode(name)
+    return ''
+
+
+def _list_or_new(items: typing.Optional[typing.List[_T]]) -> typing.List[_T]:
+    """
+    Return the list given, even if empty, or a new list for None.
+
+    :param items: the list, kept so that changes to it show
+    :returns: the list, or a new empty list
+    """
+    return [] if items is None else items

@@ -9,10 +9,12 @@ Synopsis
 
 ::
 
-    webvtt segment PATH -o OUTPUT [-d NUMBER] [-m NUMBER]
+    webvtt segment PATH -o OUTPUT [-d NUMBER] [-m NUMBER] [--duration TIME]
+                   [--overwrite]
     webvtt shift PATH OFFSET [-o OUTPUT] [-s TIMESTAMP]
     webvtt sync PATH (-p FROM TO -p FROM TO ... | --fps FROM TO) [-o OUTPUT]
     webvtt -h
+    webvtt --version
 
 Description
 -----------
@@ -20,10 +22,12 @@ Description
 ``webvtt`` segments a WebVTT caption file for `HTTP Live Streaming`_ (HLS)
 and shifts or synchronizes the timestamps of its captions.
 
-``segment`` splits the captions in ``PATH`` into segments of a target duration. Each
-segment is written to ``OUTPUT`` as ``fileSequenceN.webvtt``, where ``N`` is
-the segment index starting at 0, along with a playlist named
-``prog_index.m3u8`` that lists all the segments.
+``segment`` splits the captions in ``PATH`` into segments of a target
+duration. Each segment is written to ``OUTPUT`` as ``fileSequenceN.webvtt``,
+where ``N`` is the segment index starting at 0, along with a playlist named
+``prog_index.m3u8`` that lists all the segments. An ``OUTPUT`` with the
+playlist or segments of an earlier run is an error, unless ``--overwrite`` is
+given.
 
 A caption whose time span crosses a segment boundary is included in every
 segment it overlaps, so players display it regardless of which segment they
@@ -53,6 +57,13 @@ With ``--fps``, the timing is changed from one frame rate to another. Times
 are rounded and set to zero like with ``shift``, and the output is written
 the same way.
 
+The commands can also be run as ``python -m webvtt``, as in
+``python -m webvtt shift captions.vtt 2``.
+
+``segment``, ``shift`` and ``sync`` read the captions from standard input
+when ``PATH`` is ``-``, decoded as UTF-8 as WebVTT requires, so they can be
+used in pipes. A file named ``-`` can be read as ``./-``.
+
 Commands
 --------
 
@@ -72,23 +83,40 @@ Options
     Show the help message and exit. Also available for each command, as in
     ``webvtt shift -h``.
 
+``--version``
+    Show the version of webvtt-py and exit.
+
 Segment options
 ~~~~~~~~~~~~~~~
 
 ``-o OUTPUT``, ``--output OUTPUT``
     Directory where the segments and playlist are written. It is created if
-    it does not exist. Existing files with the same names are overwritten.
-    Required.
+    it does not exist. Required.
 
 ``-d NUMBER``, ``--target-duration NUMBER``
     Target duration of each segment in seconds, a whole number above zero.
-    Also used for the ``#EXT-X-TARGETDURATION`` and ``#EXTINF`` values of
-    the playlist. Default: ``10``.
+    Also used for the ``#EXT-X-TARGETDURATION`` value of the playlist and the
+    ``#EXTINF`` of its segments, except the last with ``--duration``.
+    Default: ``10``.
 
 ``-m NUMBER``, ``--mpegts NUMBER``
     MPEG-TS value written to the ``X-TIMESTAMP-MAP`` header of each segment,
     a whole number from 0 to 8589934591, as MPEG-TS timestamps have 33
     bits. Default: ``900000`` (10 seconds at the 90 kHz MPEG-TS clock).
+
+``--duration TIME``
+    Length of the media, as a timestamp such as ``01:25.500`` or a number of
+    seconds such as ``85.5``. The playlist then covers all the media, with
+    empty segments after the last caption, and the ``#EXTINF`` of its last
+    segment ends with the media. A caption starting at or after it is an
+    error. Without it, the playlist ends with the segment of the last
+    caption, and every segment lasts the target duration.
+
+``--overwrite``
+    Replace the playlist and segments of an earlier run in ``OUTPUT``, and
+    delete the segments of that run that the new playlist does not have.
+    Other files in ``OUTPUT`` are left alone. Without it, an ``OUTPUT`` with
+    a ``prog_index.m3u8`` or ``fileSequenceN.webvtt`` file is an error.
 
 Shift options
 ~~~~~~~~~~~~~
@@ -102,7 +130,7 @@ Shift options
     Byte Order Mark of the input file. It can be the input file itself to
     shift it in place. A ``.vtt`` extension is added if it has no
     extension, and if it is a directory the file is written there with the
-    input file name.
+    input file name, which is an error when reading standard input.
     Default: standard output.
 
 ``-s TIMESTAMP``, ``--start TIMESTAMP``
@@ -137,9 +165,12 @@ Exit status
     The command completed successfully.
 
 ``1``
-    The input file could not be read or is not a valid WebVTT file, or the
-    output could not be written. An error message is printed to
-    standard error, for example::
+    The input could not be read or is not a valid WebVTT file, the captions
+    could not be moved as asked, or the output could not be written. For
+    ``segment``, it is also an error when the output directory has the files
+    of an earlier run without ``--overwrite``, or when a caption starts at or
+    after ``--duration``. An error message is printed to standard error, for
+    example::
 
         webvtt: error: captions.vtt: not a valid WebVTT file
 
@@ -165,7 +196,7 @@ Given ``captions.vtt``:
     00:00:14.500 --> 00:00:18.000
     Thanks for watching!
 
-Segment it into 10 second segments:
+Segment it into 10-second segments:
 
 ::
 
@@ -213,11 +244,14 @@ Segment it into 10 second segments:
     00:00:14.500 --> 00:00:18.000
     Thanks for watching!
 
-Use 6 second segments and a different MPEG-TS value:
+Segment it again into ``out``, with 6-second segments and a different
+MPEG-TS value, replacing the earlier segments:
 
 ::
 
-    $ webvtt segment captions.vtt -o out -d 6 -m 0
+    $ webvtt segment captions.vtt -o out
+    webvtt: error: out: has the files of an earlier segmentation, such as fileSequence0.webvtt; use --overwrite to replace them
+    $ webvtt segment captions.vtt -o out -d 6 -m 0 --overwrite
 
 Show the captions 1.5 seconds earlier:
 
@@ -264,6 +298,19 @@ updating the file in place:
 ::
 
     $ webvtt sync captions.vtt --fps 25 23.976 -o captions.vtt
+
+Shift and synchronize the captions in a pipe, reading them from standard
+input:
+
+::
+
+    $ webvtt shift captions.vtt 2 | webvtt sync - --fps 25 23.976 > fixed.vtt
+
+Synchronize the captions and segment them, without a file in between:
+
+::
+
+    $ webvtt sync captions.vtt --fps 25 23.976 | webvtt segment - -o out
 
 See also
 --------
