@@ -556,6 +556,22 @@ read with ``from_srt`` or ``from_buffer`` in SRT format and an
 Saving text that the encoding cannot write raises ``UnicodeEncodeError``,
 leaving an existing file unchanged.
 
+A file with bytes that are not valid in its encoding raises
+``UnicodeDecodeError`` when it is read. This is common with SRT files saved
+in Windows-1252: read them with ``encoding='cp1252'``, or, when the encoding
+is not known, give ``errors`` to ``read``, ``from_srt``, ``from_sbv`` or
+``from_buffer``, as in ``bytes.decode``, to replace or drop those bytes:
+
+.. code-block:: python
+
+    import webvtt
+
+    # invalid bytes are read as U+FFFD
+    vtt = webvtt.from_srt('captions.srt', errors='replace')
+
+    # invalid bytes are dropped
+    vtt = webvtt.from_srt('captions.srt', errors='ignore')
+
 
 Segmenting captions for HLS
 ---------------------------

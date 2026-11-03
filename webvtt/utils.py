@@ -45,7 +45,8 @@ class FileWrapper:
             self,
             file_path: str,
             mode: typing.Optional[str] = None,
-            encoding: typing.Optional[str] = None
+            encoding: typing.Optional[str] = None,
+            errors: typing.Optional[str] = None
             ):
         """
         Initialize.
@@ -53,9 +54,11 @@ class FileWrapper:
         :param file_path: path to the file
         :param mode: mode in which the file is opened
         :param encoding: name of the encoding used to decode the file
+        :param errors: how decoding errors are handled, as in open()
         """
         self.file_path = file_path
         self.mode = mode or 'r'
+        self.errors = errors
         self.bom_encoding = self.detect_bom_encoding(file_path)
         self.encoding = (self.bom_encoding or
                          encoding or
@@ -67,7 +70,8 @@ class FileWrapper:
             cls,
             file_path: str,
             mode: typing.Optional[str] = None,
-            encoding: typing.Optional[str] = None
+            encoding: typing.Optional[str] = None,
+            errors: typing.Optional[str] = None
             ) -> 'FileWrapper':
         """
         Open a file.
@@ -75,15 +79,17 @@ class FileWrapper:
         :param file_path: path to the file
         :param mode: mode in which the file is opened
         :param encoding: name of the encoding used to decode the file
+        :param errors: how decoding errors are handled, as in open()
         """
-        return cls(file_path, mode, encoding)
+        return cls(file_path, mode, encoding, errors)
 
     def __enter__(self):
         """Enter context."""
         self.file = open(
             file=self.file_path,
             mode=self.mode,
-            encoding=self.encoding
+            encoding=self.encoding,
+            errors=self.errors
             )
         if self.bom_encoding:
             self.file.seek(len(CODEC_BOMS[self.bom_encoding]))

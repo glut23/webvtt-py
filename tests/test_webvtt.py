@@ -842,6 +842,48 @@ class TestWebVTT(unittest.TestCase):
         self.assertEqual(vtt[0].text, 'Caption ñ')
         self.assertEqual(vtt.encoding, 'utf-8')
 
+    def test_read_errors(self):
+        vtt = 'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCaf\xe9\n'
+        srt = '1\n00:00:00,500 --> 00:00:07,000\nCaf\xe9\n'
+        sbv = '0:00:00.500,0:00:07.000\nCaf\xe9\n'
+        with tempfile.TemporaryDirectory() as td:
+            for name, content, read in (
+                    ('in.vtt', vtt, webvtt.read),
+                    ('in.srt', srt, webvtt.from_srt),
+                    ('in.sbv', sbv, webvtt.from_sbv)):
+                with self.subTest(name=name):
+                    path = pathlib.Path(td, name)
+                    path.write_bytes(content.encode('cp1252'))
+
+                    with self.assertRaises(UnicodeDecodeError):
+                        read(path)
+                    with self.assertRaises(UnicodeDecodeError):
+                        read(path, errors='strict')
+
+                    self.assertEqual(
+                        read(path, errors='replace')[0].text,
+                        'Caf\ufffd'
+                        )
+                    self.assertEqual(
+                        read(path, errors='ignore')[0].text,
+                        'Caf'
+                        )
+
+    def test_from_buffer_binary_errors(self):
+        content = 'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCaf\xe9\n'
+        buffer = io.BytesIO(content.encode('cp1252'))
+
+        with self.assertRaises(UnicodeDecodeError):
+            webvtt.from_buffer(buffer)
+
+        buffer.seek(0)
+        vtt = webvtt.from_buffer(buffer, errors='replace')
+        self.assertEqual(vtt[0].text, 'Caf\ufffd')
+
+        buffer.seek(0)
+        vtt = webvtt.from_buffer(buffer, format='vtt', errors='ignore')
+        self.assertEqual(vtt[0].text, 'Caf')
+
     def test_from_buffer_string(self):
         content = 'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCaption\n'
         for buffer, hint in (

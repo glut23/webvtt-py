@@ -139,7 +139,8 @@ class WebVTT:
             cls,
             file: str,
             encoding: typing.Optional[str] = None,
-            strict: bool = False
+            strict: bool = False,
+            errors: str = 'strict'
             ) -> 'WebVTT':
         """
         Read a WebVTT captions file.
@@ -150,13 +151,19 @@ class WebVTT:
             saved in UTF-8 unless another encoding is given
         :param strict: raise an error on blocks that are not valid WebVTT
             instead of ignoring them
+        :param errors: how bytes that are not valid in the encoding are
+            handled, as in ``bytes.decode``: ``'strict'`` (the default)
+            raises ``UnicodeDecodeError``, ``'replace'`` reads them as
+            U+FFFD and ``'ignore'`` drops them
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the file is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp,
             or if strict and a block is not valid WebVTT
         """
-        with utils.FileWrapper.open(file, encoding=encoding) as fw:
+        with utils.FileWrapper.open(
+                file, encoding=encoding, errors=errors
+                ) as fw:
             instance = cls.from_buffer(fw.file, strict=strict)
             if fw.bom_encoding:
                 instance.encoding = fw.bom_encoding
@@ -192,7 +199,8 @@ class WebVTT:
             buffer: typing.Union[typing.Iterable[str], typing.BinaryIO],
             format: str = 'vtt',
             strict: bool = False,
-            encoding: typing.Optional[str] = None
+            encoding: typing.Optional[str] = None,
+            errors: str = 'strict'
             ) -> 'WebVTT':
         """
         Read WebVTT captions from a file-like object.
@@ -217,6 +225,10 @@ class WebVTT:
         :param encoding: encoding of binary data without a Byte Order Mark,
             UTF-8 by default. For the srt format, `save_as_srt` saves in the
             same encoding
+        :param errors: how bytes of binary data that are not valid in the
+            encoding are handled, as in ``bytes.decode``: ``'strict'`` (the
+            default) raises ``UnicodeDecodeError``, ``'replace'`` reads them
+            as U+FFFD and ``'ignore'`` drops them
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the data is not in the right format
@@ -236,7 +248,9 @@ class WebVTT:
                 )
 
         file = _buffer_file(buffer)
-        lines, bom_encoding, binary = cls._read_buffer(buffer, encoding)
+        lines, bom_encoding, binary = cls._read_buffer(
+            buffer, encoding, errors
+            )
 
         if format == 'vtt':
             output = vtt.parse(cls._get_lines(lines), strict)
@@ -265,7 +279,8 @@ class WebVTT:
     @staticmethod
     def _read_buffer(
             buffer: typing.Union[typing.Iterable[str], typing.BinaryIO],
-            encoding: typing.Optional[str]
+            encoding: typing.Optional[str],
+            errors: str = 'strict'
             ) -> typing.Tuple[
                 typing.Iterable[str], typing.Optional[str], bool
                 ]:
@@ -277,6 +292,7 @@ class WebVTT:
 
         :param buffer: the file-like object, or an iterable of lines
         :param encoding: encoding of binary data without a BOM
+        :param errors: how decoding errors are handled
         :returns: the lines, the encoding of the BOM of binary data or
             None, and whether the data was binary
 
@@ -306,7 +322,7 @@ class WebVTT:
         if bom_encoding:
             data = data[len(utils.CODEC_BOMS[bom_encoding]):]
         return (
-            [data.decode(bom_encoding or encoding or 'utf-8')],
+            [data.decode(bom_encoding or encoding or 'utf-8', errors)],
             bom_encoding,
             True
             )
@@ -315,7 +331,8 @@ class WebVTT:
     def from_srt(
             cls,
             file: str,
-            encoding: typing.Optional[str] = None
+            encoding: typing.Optional[str] = None,
+            errors: str = 'strict'
             ) -> 'WebVTT':
         """
         Read captions from a file in SubRip format.
@@ -324,12 +341,18 @@ class WebVTT:
         :param encoding: encoding of a file without a Byte Order Mark, UTF-8
             by default. `save_as_srt` saves in the same encoding, while
             `save` saves WebVTT in UTF-8 unless another encoding is given
+        :param errors: how bytes that are not valid in the encoding are
+            handled, as in ``bytes.decode``: ``'strict'`` (the default)
+            raises ``UnicodeDecodeError``, ``'replace'`` reads them as
+            U+FFFD and ``'ignore'`` drops them
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the file is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp
         """
-        with utils.FileWrapper.open(file, encoding=encoding) as fw:
+        with utils.FileWrapper.open(
+                file, encoding=encoding, errors=errors
+                ) as fw:
             instance = cls.from_buffer(fw.file, format='srt')
             if not fw.bom_encoding:
                 instance._srt_encoding = encoding
@@ -339,7 +362,8 @@ class WebVTT:
     def from_sbv(
             cls,
             file: str,
-            encoding: typing.Optional[str] = None
+            encoding: typing.Optional[str] = None,
+            errors: str = 'strict'
             ) -> 'WebVTT':
         """
         Read captions from a file in YouTube SBV format.
@@ -348,12 +372,18 @@ class WebVTT:
         :param encoding: encoding of a file without a Byte Order Mark, UTF-8
             by default. It is only used for reading, as WebVTT files are
             saved in UTF-8 unless another encoding is given
+        :param errors: how bytes that are not valid in the encoding are
+            handled, as in ``bytes.decode``: ``'strict'`` (the default)
+            raises ``UnicodeDecodeError``, ``'replace'`` reads them as
+            U+FFFD and ``'ignore'`` drops them
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the file is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp
         """
-        with utils.FileWrapper.open(file, encoding=encoding) as fw:
+        with utils.FileWrapper.open(
+                file, encoding=encoding, errors=errors
+                ) as fw:
             return cls.from_buffer(fw.file, format='sbv')
 
     @classmethod
