@@ -38,6 +38,20 @@ def _split_lines(text: str) -> typing.List[str]:
     return lines
 
 
+def _check_errors(errors: typing.Optional[str]):
+    """
+    Check the name of an error handler for decoding.
+
+    Decoding only looks up the handler on invalid bytes, so a wrong name
+    would otherwise go unnoticed until a file has them.
+
+    :param errors: the name of the error handler, or None for the default
+    :raises LookupError: if the error handler is not known
+    """
+    if errors is not None:
+        codecs.lookup_error(errors)
+
+
 class FileWrapper:
     """File handling functionality with built-in support for Byte OrderMark."""
 
@@ -45,7 +59,8 @@ class FileWrapper:
             self,
             file_path: str,
             mode: typing.Optional[str] = None,
-            encoding: typing.Optional[str] = None
+            encoding: typing.Optional[str] = None,
+            errors: typing.Optional[str] = None
             ):
         """
         Initialize.
@@ -53,9 +68,14 @@ class FileWrapper:
         :param file_path: path to the file
         :param mode: mode in which the file is opened
         :param encoding: name of the encoding used to decode the file
+        :param errors: how decoding errors are handled, as in open()
+
+        :raises LookupError: if the error handler is not known
         """
+        _check_errors(errors)
         self.file_path = file_path
         self.mode = mode or 'r'
+        self.errors = errors
         self.bom_encoding = self.detect_bom_encoding(file_path)
         self.encoding = (self.bom_encoding or
                          encoding or
@@ -67,7 +87,8 @@ class FileWrapper:
             cls,
             file_path: str,
             mode: typing.Optional[str] = None,
-            encoding: typing.Optional[str] = None
+            encoding: typing.Optional[str] = None,
+            errors: typing.Optional[str] = None
             ) -> 'FileWrapper':
         """
         Open a file.
@@ -75,15 +96,17 @@ class FileWrapper:
         :param file_path: path to the file
         :param mode: mode in which the file is opened
         :param encoding: name of the encoding used to decode the file
+        :param errors: how decoding errors are handled, as in open()
         """
-        return cls(file_path, mode, encoding)
+        return cls(file_path, mode, encoding, errors)
 
     def __enter__(self):
         """Enter context."""
         self.file = open(
             file=self.file_path,
             mode=self.mode,
-            encoding=self.encoding
+            encoding=self.encoding,
+            errors=self.errors
             )
         if self.bom_encoding:
             self.file.seek(len(CODEC_BOMS[self.bom_encoding]))

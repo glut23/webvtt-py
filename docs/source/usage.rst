@@ -556,6 +556,39 @@ read with ``from_srt`` or ``from_buffer`` in SRT format and an
 Saving text that the encoding cannot write raises ``UnicodeEncodeError``,
 leaving an existing file unchanged.
 
+A file with bytes that are not valid in its encoding raises
+``UnicodeDecodeError`` when it is read. This is common with SRT files saved
+in Windows-1252: read them with ``encoding='cp1252'``, or, when the encoding
+is not known, give ``errors`` to ``read``, ``from_srt``, ``from_sbv`` or
+``from_buffer``, as in ``bytes.decode``, to replace or drop those bytes:
+
+.. code-block:: python
+
+    import webvtt
+
+    # invalid bytes are read as U+FFFD
+    vtt = webvtt.from_srt('captions.srt', errors='replace')
+
+    # invalid bytes are dropped
+    vtt = webvtt.from_srt('captions.srt', errors='ignore')
+
+    # keep the original file, as the bytes cannot be recovered
+    vtt.save_as_srt('edited.srt')
+
+Replaced or dropped bytes are lost for good, and ``save_as_srt()`` without an
+output overwrites an SRT file that was read, so save to another path to keep
+the original. With an ``encoding`` that cannot write U+FFFD, such as
+``cp1252``, saving replaced bytes with ``save_as_srt()`` raises
+``UnicodeEncodeError``: give ``encoding='utf-8'`` to save them.
+
+An invalid byte in a timing line also affects the cue. With ``'replace'`` the
+timing is not valid, so the cue is handled like any other with invalid timing:
+ignored, or raising an error with strict parsing or in SBV format. With
+``'ignore'`` the timing is read without the byte.
+
+``from_buffer`` only uses ``errors`` for binary data. A file opened in text
+mode decodes its own data, so give ``errors`` to ``open`` for it instead.
+
 
 Segmenting captions for HLS
 ---------------------------

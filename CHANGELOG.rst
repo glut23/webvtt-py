@@ -1,6 +1,13 @@
 History
 =======
 
+Unreleased
+----------
+
+Changes:
+
+* Added an ``errors`` argument to ``read``, ``from_srt``, ``from_sbv`` and ``from_buffer``, passed to the decoder (``'strict'`` by default), to read files with bytes that are not valid in their encoding, thanks to `@emirmrkaljevic <https://github.com/emirmrkaljevic>`_ (#180, #212)
+
 0.7.0 (01-11-2026)
 ------------------
 
