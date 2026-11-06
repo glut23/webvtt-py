@@ -9,6 +9,7 @@ import functools
 import math
 import re
 import typing
+from dataclasses import dataclass
 
 from .errors import MalformedCaptionError, MalformedRegionError
 from .utils import _split_lines
@@ -1060,6 +1061,41 @@ def _caption_from_timings(
         return None
 
     return Caption(str(start_time), str(end_time), lines)
+
+
+@dataclass
+class ParseIssue:
+    """
+    Record of a block that was skipped when reading captions.
+
+    :param line: the line number where the block starts, from 1
+    :param message: why the block was skipped
+    :param lines: the lines of the block
+    """
+
+    line: int
+    message: str
+    lines: typing.List[str]
+
+    def __str__(self):
+        """Return the line number and the message."""
+        return f'line {self.line}: {self.message}'
+
+
+def _skipped_block(
+        number: int,
+        kind: str,
+        lines: typing.List[str]
+        ) -> ParseIssue:
+    """
+    Return the record of a block of SRT or SBV that is skipped.
+
+    :param number: the line number where the block starts
+    :param kind: the description of what is wrong with the block
+    :param lines: the lines of the block
+    :returns: a `ParseIssue` instance
+    """
+    return ParseIssue(number, f'{kind} {lines!r}', lines)
 
 
 class Style:

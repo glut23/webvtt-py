@@ -1,10 +1,16 @@
 """SRT format module."""
 
+import operator
 import typing
 import re
 
 from .models import (
-    Caption, Style, _caption_from_timings, _iter_cue_text_tokens
+    Caption,
+    ParseIssue,
+    Style,
+    _caption_from_timings,
+    _iter_cue_text_tokens,
+    _skipped_block
     )
 from .errors import MalformedFileError
 from . import utils
@@ -87,11 +93,15 @@ class SRTCueBlock:
         return cls(index, match.group(1), match.group(2), payload)
 
 
-def parse(lines: typing.Sequence[str]) -> typing.List[Caption]:
+def parse(
+        lines: typing.Sequence[str],
+        issues: typing.Optional[typing.List[ParseIssue]] = None
+        ) -> typing.List[Caption]:
     """
     Parse SRT captions from lines of text.
 
     :param lines: lines of text
+    :param issues: a list to add the blocks that are skipped to
     :returns: list of `Caption` objects
 
     :raises MalformedFileError: if the content is not in SRT format
@@ -99,7 +109,7 @@ def parse(lines: typing.Sequence[str]) -> typing.List[Caption]:
     if not is_valid_content(lines):
         raise MalformedFileError('Invalid format')
 
-    return parse_captions(lines)
+    return parse_captions(lines, issues)
 
 
 def is_valid_content(lines: typing.Sequence[str]) -> bool:
@@ -154,7 +164,7 @@ def _is_index_and_timings(line: str, next_line: str) -> bool:
 
 def _iter_cue_blocks(
         lines: typing.Sequence[str]
-        ) -> typing.Generator[typing.List[str], None, None]:
+        ) -> typing.Generator[utils._NumberedBlock, None, None]:
     """
     Iterate blocks of text, also splitting a block where a cue starts.
 
@@ -164,21 +174,23 @@ def _iter_cue_blocks(
     that cue.
 
     :param lines: lines of text
+    :returns: the line number where each block starts, from 1, and its lines
     """
-    index_block: typing.Optional[typing.List[str]] = None
+    index_block: typing.Optional[utils._NumberedBlock] = None
 
-    for block_lines in _iter_split_blocks(lines):
+    for number, block_lines in _iter_split_blocks(lines):
         if index_block is not None:
             if '-->' in block_lines[0]:
-                block_lines = index_block + block_lines
+                number = index_block[0]
+                block_lines = index_block[1] + block_lines
             else:
                 yield index_block
             index_block = None
 
         if len(block_lines) == 1 and _is_index(block_lines[0]):
-            index_block = block_lines
+            index_block = number, block_lines
         else:
-            yield block_lines
+            yield number, block_lines
 
     if index_block is not None:
         yield index_block
@@ -186,50 +198,84 @@ def _iter_cue_blocks(
 
 def _iter_split_blocks(
         lines: typing.Sequence[str]
-        ) -> typing.Generator[typing.List[str], None, None]:
+        ) -> typing.Generator[utils._NumberedBlock, None, None]:
     """
     Iterate blocks of text, splitting a block where a cue index follows.
 
     :param lines: lines of text
+    :returns: the line number where each block starts, from 1, and its lines
     """
-    for block_lines in utils.iter_blocks_of_lines(lines):
+    for number, block_lines in utils._iter_numbered_blocks(lines):
         start = 0
         for i in range(1, len(block_lines) - 1):
             if _is_index_and_timings(block_lines[i], block_lines[i + 1]):
-                yield block_lines[start:i]
+                yield number + start, block_lines[start:i]
                 start = i
-        yield block_lines[start:]
+        yield number + start, block_lines[start:]
 
 
-def parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
+def parse_captions(
+        lines: typing.Sequence[str],
+        issues: typing.Optional[typing.List[ParseIssue]] = None
+        ) -> typing.List[Caption]:
     """
     Parse captions from the text.
 
     Blocks of text that do not start a cue are taken as part of the text
     of the previous cue, as some files have empty lines in the caption
-    text.
+    text. They are skipped when there is no such cue, as when the previous
+    cue is not valid.
 
     :param lines: lines of text
+    :param issues: a list to add the blocks that are skipped to
     :returns: list of `Caption` objects
     """
-    captions: typing.List[Caption] = []
+    skipped: typing.List[ParseIssue] = []
+    cues: typing.List[typing.Tuple[int, typing.List[str], Caption]] = []
     caption: typing.Optional[Caption] = None
 
-    for block_lines in _iter_cue_blocks(lines):
+    for number, block_lines in _iter_cue_blocks(lines):
         if _is_cue_start(block_lines):
-            caption = None
-            if SRTCueBlock.is_valid(block_lines):
-                cue_block = SRTCueBlock.from_lines(block_lines)
-                caption = _caption_from_timings(cue_block.start,
-                                                cue_block.end,
-                                                cue_block.payload
-                                                )
-                if caption is not None:
-                    captions.append(caption)
+            caption = _parse_cue(block_lines)
+            if caption is None:
+                skipped.append(_skipped_block(
+                    number, 'Invalid cue block', block_lines
+                    ))
+            else:
+                cues.append((number, block_lines, caption))
         elif caption is not None:
             caption.lines.extend(block_lines)
+        else:
+            skipped.append(_skipped_block(
+                number, 'Invalid block', block_lines
+                ))
 
-    return [caption for caption in captions if caption.lines]
+    # a cue has no text only after the blocks that can add to it are read
+    skipped.extend(
+        _skipped_block(number, 'Cue without text', block_lines)
+        for number, block_lines, caption in cues if not caption.lines
+        )
+    if issues is not None:
+        issues.extend(sorted(skipped, key=operator.attrgetter('line')))
+
+    return [caption for _, _, caption in cues if caption.lines]
+
+
+def _parse_cue(lines: typing.Sequence[str]) -> typing.Optional[Caption]:
+    """
+    Parse a cue from the lines of a block that starts a cue.
+
+    :param lines: the lines of the block
+    :returns: a `Caption`, or None if the cue is not valid
+    """
+    if not SRTCueBlock.is_valid(lines):
+        return None
+
+    cue_block = SRTCueBlock.from_lines(lines)
+    return _caption_from_timings(cue_block.start,
+                                 cue_block.end,
+                                 cue_block.payload
+                                 )
 
 
 def _strip_css_comments(css: str) -> str:

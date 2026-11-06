@@ -8,6 +8,7 @@ from webvtt.utils import (
     FileWrapper,
     CODEC_BOMS,
     iter_blocks_of_lines,
+    _iter_numbered_blocks,
     _split_lines,
     _write_text_file
     )
@@ -79,6 +80,21 @@ class TestUtils(unittest.TestCase):
                 )),
             [['block 1', 'line 2'], ['block 2']]
             )
+
+    def test_iter_numbered_blocks(self):
+        for lines, blocks in (
+                ([], []),
+                (['', ' '], []),
+                (['block'], [(1, ['block'])]),
+                (['block', ''], [(1, ['block'])]),
+                (['', '', 'a', 'b', ' ', '', 'c', 'd'],
+                 [(3, ['a', 'b']), (7, ['c', 'd'])]),
+                ):
+            with self.subTest(lines=lines):
+                self.assertListEqual(
+                    list(_iter_numbered_blocks(lines)),
+                    blocks
+                    )
 
     def test_split_lines(self):
         for text in ('',
