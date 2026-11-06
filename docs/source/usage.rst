@@ -126,9 +126,44 @@ Iterating over a slice of captions
         print(caption.end)
         print(caption.text)
 
-Only the captions within the range are returned: a caption that starts
-before ``start`` or ends after ``end`` is left out, even if part of it is in
-the range.
+By default only the captions within the range are returned: a caption that
+starts before ``start`` or ends after ``end`` is left out, even if part of it
+is in the range. To cut the captions of a clip, ``overlapping`` also returns
+those captions, and ``clip`` trims them to the range:
+
+.. code-block:: python
+
+    # captions from 1 s to 5 s and from 3 s to 4 s
+    start, end = '00:00:02.000', '00:00:06.000'
+
+    [c.text for c in vtt.iter_slice(start, end)]
+    # ['second']
+
+    [c.text for c in vtt.iter_slice(start, end, overlapping=True)]
+    # ['first', 'second']
+
+    [c.start for c in vtt.iter_slice(start, end, overlapping=True, clip=True)]
+    # ['00:00:02.000', '00:00:03.000']
+
+A caption that only touches the range, ending at ``start`` or starting at
+``end``, does not overlap it. With ``clip`` the captions returned are copies,
+so neither trimming them nor later changes to them affect the captions of
+``vtt``. The text of a copy is kept as it is, including any timestamp tags.
+``clip`` needs ``overlapping``, and ``ValueError`` is raised without it, when
+the iteration starts.
+
+To save the captions of a clip, keep the styles and regions the captions may
+use, and move the captions to the start of the clip:
+
+.. code-block:: python
+
+    clip = webvtt.WebVTT(
+        captions=list(vtt.iter_slice(start, end, overlapping=True, clip=True)),
+        styles=vtt.styles,
+        regions=vtt.regions
+        )
+    clip.shift(-2)
+    clip.save('clip.vtt')
 
 
 Creating captions

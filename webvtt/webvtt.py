@@ -1,6 +1,7 @@
 """WebVTT module."""
 
 import codecs
+import copy
 import datetime
 import os
 import io
@@ -617,27 +618,46 @@ class WebVTT:
     def iter_slice(
             self,
             start: typing.Optional[str] = None,
-            end: typing.Optional[str] = None
+            end: typing.Optional[str] = None,
+            *,
+            overlapping: bool = False,
+            clip: bool = False
             ) -> typing.Generator[Caption, None, None]:
         """
         Iterate a slice of the captions based on a time range.
 
-        Only the captions within the range are returned: a caption that
-        starts before ``start`` or ends after ``end`` is left out.
+        By default only the captions within the range are returned: a
+        caption that starts before ``start`` or ends after ``end`` is left
+        out.
 
         :param start: start timestamp of the range
         :param end: end timestamp of the range
+        :param overlapping: also return the captions with part of them in
+            the range. A caption that only touches the range, ending at
+            ``start`` or starting at ``end``, is not in it, and a range with
+            ``end`` not after ``start`` overlaps no caption
+        :param clip: return copies of the captions trimmed to the range,
+            leaving the captions unchanged. It needs ``overlapping``, as
+            only those captions have a part out of the range. The text is
+            kept as it is, including any timestamp tags
         :returns: generator of Captions
+
+        :raises ValueError: when the iteration starts, if clip is given
+            without overlapping
+        :raises MalformedCaptionError: when the iteration starts, if start or
+            end are not valid
         """
+        if clip and not overlapping:
+            raise ValueError('clip needs overlapping')
+
         start_time = Timestamp.from_string(start) if start else None
         end_time = Timestamp.from_string(end) if end else None
+        in_range = _overlaps_range if overlapping else _within_range
 
         for caption in self.captions:
-            if (
-                    (not start_time or caption.start_time >= start_time) and
-                    (not end_time or caption.end_time <= end_time)
-                    ):
-                yield caption
+            if in_range(caption, start_time, end_time):
+                yield (_clipped(caption, start_time, end_time) if clip
+                       else caption)
 
     def shift(
             self,
@@ -844,3 +864,73 @@ def _list_or_new(items: typing.Optional[typing.List[_T]]) -> typing.List[_T]:
     :returns: the list, or a new empty list
     """
     return [] if items is None else items
+
+
+def _within_range(
+        caption: Caption,
+        start: typing.Optional[Timestamp],
+        end: typing.Optional[Timestamp]
+        ) -> bool:
+    """
+    Return whether a caption is within a time range.
+
+    :param caption: the caption
+    :param start: the start of the range, or None if it has no start
+    :param end: the end of the range, or None if it has no end
+    :returns: true if the caption does not start before the range or end
+        after it
+    """
+    return (
+        (not start or caption.start_time >= start) and
+        (not end or caption.end_time <= end)
+        )
+
+
+def _overlaps_range(
+        caption: Caption,
+        start: typing.Optional[Timestamp],
+        end: typing.Optional[Timestamp]
+        ) -> bool:
+    """
+    Return whether a caption has any part in a time range.
+
+    A caption within the range is always in it, also one without duration
+    on its limits. Others must share some time with the range, so a caption
+    only touching the range is not in it, and a range without duration
+    overlaps nothing.
+
+    :param caption: the caption
+    :param start: the start of the range, or None if it has no start
+    :param end: the end of the range, or None if it has no end
+    :returns: true if the caption is within or overlaps the range
+    """
+    if _within_range(caption, start, end):
+        return True
+    if start and end and start >= end:
+        return False
+    return (
+        (not start or caption.end_time > start) and
+        (not end or caption.start_time < end)
+        )
+
+
+def _clipped(
+        caption: Caption,
+        start: typing.Optional[Timestamp],
+        end: typing.Optional[Timestamp]
+        ) -> Caption:
+    """
+    Return a copy of a caption trimmed to a time range.
+
+    :param caption: the caption, which is left unchanged
+    :param start: the start of the range, or None if it has no start
+    :param end: the end of the range, or None if it has no end
+    :returns: a copy sharing nothing with the caption, nor its times with
+        other copies
+    """
+    clipped = copy.deepcopy(caption)
+    if start and clipped.start_time < start:
+        clipped.start = str(start)
+    if end and clipped.end_time > end:
+        clipped.end = str(end)
+    return clipped

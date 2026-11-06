@@ -2943,3 +2943,215 @@ class TestParseSBV(unittest.TestCase):
 
         with self.assertRaises(StopIteration):
             next(slice_of_captions)
+
+    def _iter_slice_captions(self):
+        return webvtt.WebVTT(captions=[
+            Caption('00:00:01.000', '00:00:05.000', 'a'),
+            Caption('00:00:03.000', '00:00:04.000', 'b'),
+            Caption('00:00:05.000', '00:00:09.000', 'c'),
+            Caption('00:00:09.000', '00:00:10.000', 'd')
+            ])
+
+    def test_iter_slice_default_leaves_out_overlapping_captions(self):
+        vtt = self._iter_slice_captions()
+        self.assertEqual(
+            [c.text for c in vtt.iter_slice('00:00:02.000', '00:00:06.000')],
+            ['b']
+            )
+
+    def test_iter_slice_overlapping(self):
+        vtt = self._iter_slice_captions()
+        for start, end, expected in (
+                ('00:00:02.000', '00:00:06.000', ['a', 'b', 'c']),
+                ('00:00:03.500', '00:00:03.600', ['a', 'b']),
+                (None, '00:00:02.000', ['a']),
+                ('00:00:08.000', None, ['c', 'd']),
+                (None, None, ['a', 'b', 'c', 'd']),
+                ('00:00:20.000', None, [])):
+            with self.subTest(start=start, end=end):
+                self.assertEqual(
+                    [c.text for c in
+                     vtt.iter_slice(start, end, overlapping=True)],
+                    expected
+                    )
+
+    def test_iter_slice_overlapping_returns_the_captions(self):
+        vtt = self._iter_slice_captions()
+        captions = list(vtt.iter_slice('00:00:02.000', '00:00:06.000',
+                                       overlapping=True
+                                       ))
+        self.assertEqual(len(captions), 3)
+        for caption, expected in zip(captions, vtt.captions):
+            self.assertIs(caption, expected)
+
+    def test_iter_slice_overlapping_caption_only_touching_the_range(self):
+        vtt = self._iter_slice_captions()
+        for start, end, expected in (
+                ('00:00:05.000', '00:00:09.000', ['c']),
+                ('00:00:04.000', '00:00:05.000', ['a']),
+                ('00:00:10.000', None, []),
+                (None, '00:00:01.000', [])):
+            with self.subTest(start=start, end=end):
+                self.assertEqual(
+                    [c.text for c in
+                     vtt.iter_slice(start, end, overlapping=True)],
+                    expected
+                    )
+
+    def test_iter_slice_overlapping_includes_what_the_default_returns(self):
+        vtt = webvtt.WebVTT(captions=[
+            Caption('00:00:02.000', '00:00:02.000', 'at start'),
+            Caption('00:00:04.000', '00:00:04.000', 'inside'),
+            Caption('00:00:06.000', '00:00:06.000', 'at end'),
+            Caption('00:00:07.000', '00:00:07.000', 'after')
+            ])
+        range_ = ('00:00:02.000', '00:00:06.000')
+        self.assertEqual(
+            list(vtt.iter_slice(*range_, overlapping=True)),
+            list(vtt.iter_slice(*range_))
+            )
+        self.assertEqual(
+            [c.text for c in vtt.iter_slice(*range_, overlapping=True)],
+            ['at start', 'inside', 'at end']
+            )
+
+    def test_iter_slice_overlapping_range_without_duration(self):
+        vtt = self._iter_slice_captions()
+        for start, end in (('00:00:03.500', '00:00:03.500'),
+                           ('00:00:06.000', '00:00:02.000')):
+            with self.subTest(start=start, end=end):
+                self.assertEqual(
+                    list(vtt.iter_slice(start, end, overlapping=True)),
+                    []
+                    )
+
+    def test_iter_slice_clip(self):
+        vtt = self._iter_slice_captions()
+        self.assertEqual(
+            [(c.start, c.end, c.text) for c in vtt.iter_slice(
+                '00:00:02.000', '00:00:06.000', overlapping=True, clip=True
+                )],
+            [('00:00:02.000', '00:00:05.000', 'a'),
+             ('00:00:03.000', '00:00:04.000', 'b'),
+             ('00:00:05.000', '00:00:06.000', 'c')]
+            )
+
+    def test_iter_slice_clip_open_range(self):
+        vtt = self._iter_slice_captions()
+        for start, end, expected in (
+                (None, '00:00:02.000', [('00:00:01.000', '00:00:02.000')]),
+                ('00:00:09.500', None, [('00:00:09.500', '00:00:10.000')])):
+            with self.subTest(start=start, end=end):
+                self.assertEqual(
+                    [(c.start, c.end) for c in vtt.iter_slice(
+                        start, end, overlapping=True, clip=True
+                        )],
+                    expected
+                    )
+
+    def test_iter_slice_clip_inside_a_caption(self):
+        vtt = self._iter_slice_captions()
+        caption = next(vtt.iter_slice('00:00:01.500', '00:00:02.500',
+                                      overlapping=True, clip=True
+                                      ))
+        self.assertEqual(
+            (caption.start, caption.end),
+            ('00:00:01.500', '00:00:02.500')
+            )
+
+    def test_iter_slice_clip_keeps_the_rest_of_the_caption(self):
+        original = Caption('00:00:01.000', '00:00:05.000',
+                           ['<v Bob>one', 'two'], 'cue-1', 'line:0'
+                           )
+        original.comments = ['comment']
+        vtt = webvtt.WebVTT(captions=[original])
+        caption = next(vtt.iter_slice('00:00:02.000', overlapping=True,
+                                      clip=True
+                                      ))
+        self.assertEqual(caption.raw_text, original.raw_text)
+        self.assertEqual(caption.identifier, 'cue-1')
+        self.assertEqual(str(caption.settings), 'line:0')
+        self.assertEqual(caption.comments, ['comment'])
+
+    def test_iter_slice_clip_leaves_the_captions_unchanged(self):
+        vtt = self._iter_slice_captions()
+        expected = [(c.start, c.end) for c in vtt.captions]
+        copies = list(vtt.iter_slice('00:00:02.000', '00:00:06.000',
+                                     overlapping=True, clip=True
+                                     ))
+        self.assertEqual([(c.start, c.end) for c in vtt.captions], expected)
+
+        self.assertEqual(len(copies), 3)
+        for caption, source in zip(copies, vtt.captions):
+            self.assertIsNot(caption, source)
+
+        # also a copy with nothing to trim
+        copies[1].lines.append('changed')
+        copies[1].comments.append('changed')
+        copies[1].settings.line = '0'
+        copies[1].start_time.seconds = 1
+        self.assertEqual(vtt.captions[1].text, 'b')
+        self.assertEqual(vtt.captions[1].comments, [])
+        self.assertFalse(vtt.captions[1].settings)
+        self.assertEqual(vtt.captions[1].start, '00:00:03.000')
+
+    def test_iter_slice_clip_copies_do_not_share_their_times(self):
+        vtt = webvtt.WebVTT(captions=[
+            Caption('00:00:01.000', '00:00:03.000', 'x'),
+            Caption('00:00:01.000', '00:00:03.000', 'y')
+            ])
+        x, y = vtt.iter_slice('00:00:02.000', '00:00:02.500',
+                              overlapping=True, clip=True
+                              )
+        x.start_time.seconds = 0
+        x.end_time.seconds = 0
+        self.assertEqual((y.start, y.end), ('00:00:02.000', '00:00:02.500'))
+
+    def test_iter_slice_clip_needs_overlapping(self):
+        vtt = self._iter_slice_captions()
+        with self.assertRaises(ValueError):
+            list(vtt.iter_slice('00:00:02.000', clip=True))
+
+    def test_iter_slice_new_arguments_are_keyword_only(self):
+        vtt = self._iter_slice_captions()
+        with self.assertRaises(TypeError):
+            vtt.iter_slice('00:00:02.000', '00:00:06.000', True)
+
+    def test_iter_slice_invalid_timestamp(self):
+        vtt = self._iter_slice_captions()
+        for kwargs in ({'overlapping': True},
+                       {'overlapping': True, 'clip': True}):
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaises(MalformedCaptionError):
+                    list(vtt.iter_slice('invalid', **kwargs))
+
+    def test_iter_slice_clip_can_be_saved(self):
+        vtt = webvtt.from_string(
+            'WEBVTT\n\nREGION\nid:r\n\nSTYLE\n::cue(.a) {color:red}\n\n'
+            '00:00:01.000 --> 00:00:05.000 region:r\n<c.a>one</c>\n\n'
+            '00:00:05.000 --> 00:00:09.000\ntwo\n'
+            )
+        clip = webvtt.WebVTT(
+            captions=list(vtt.iter_slice('00:00:02.000', '00:00:06.000',
+                                         overlapping=True, clip=True
+                                         )),
+            styles=vtt.styles,
+            regions=vtt.regions
+            )
+        clip.shift(-2)
+
+        self.assertEqual(
+            [(c.start, c.end) for c in clip],
+            [('00:00:00.000', '00:00:03.000'),
+             ('00:00:03.000', '00:00:04.000')]
+            )
+        self.assertEqual(
+            [(c.start, c.end) for c in vtt],
+            [('00:00:01.000', '00:00:05.000'),
+             ('00:00:05.000', '00:00:09.000')]
+            )
+
+        saved = webvtt.from_string(clip.content, strict=True)
+        self.assertEqual(saved.captions, clip.captions)
+        self.assertEqual(len(saved.regions), 1)
+        self.assertEqual(len(saved.styles), 1)
