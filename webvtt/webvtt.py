@@ -140,7 +140,7 @@ class WebVTT:
             file: str,
             encoding: typing.Optional[str] = None,
             strict: bool = False,
-            errors: str = 'strict'
+            errors: typing.Optional[str] = 'strict'
             ) -> 'WebVTT':
         """
         Read a WebVTT captions file.
@@ -160,6 +160,9 @@ class WebVTT:
         :raises MalformedFileError: if the file is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp,
             or if strict and a block is not valid WebVTT
+        :raises UnicodeDecodeError: if the file cannot be decoded and errors
+            is ``'strict'``
+        :raises LookupError: if the errors handler is not known
         """
         with utils.FileWrapper.open(
                 file, encoding=encoding, errors=errors
@@ -200,7 +203,7 @@ class WebVTT:
             format: str = 'vtt',
             strict: bool = False,
             encoding: typing.Optional[str] = None,
-            errors: str = 'strict'
+            errors: typing.Optional[str] = 'strict'
             ) -> 'WebVTT':
         """
         Read WebVTT captions from a file-like object.
@@ -228,7 +231,8 @@ class WebVTT:
         :param errors: how bytes of binary data that are not valid in the
             encoding are handled, as in ``bytes.decode``: ``'strict'`` (the
             default) raises ``UnicodeDecodeError``, ``'replace'`` reads them
-            as U+FFFD and ``'ignore'`` drops them
+            as U+FFFD and ``'ignore'`` drops them. It has no effect on text,
+            as a file opened in text mode decodes its own data
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the data is not in the right format
@@ -236,7 +240,9 @@ class WebVTT:
             or if strict and a block is not valid WebVTT
         :raises ValueError: if the format is not supported, or strict is
             given for the srt or sbv format
-        :raises UnicodeDecodeError: if binary data cannot be decoded
+        :raises UnicodeDecodeError: if binary data cannot be decoded and
+            errors is ``'strict'``
+        :raises LookupError: if the errors handler is not known
         :raises TypeError: if the buffer is a string or bytes, use
             from_string to read a string or io.BytesIO to read bytes
         """
@@ -246,6 +252,7 @@ class WebVTT:
             raise ValueError(
                 f'Strict parsing is not supported for the {format} format'
                 )
+        utils._check_errors(errors)
 
         file = _buffer_file(buffer)
         lines, bom_encoding, binary = cls._read_buffer(
@@ -280,7 +287,7 @@ class WebVTT:
     def _read_buffer(
             buffer: typing.Union[typing.Iterable[str], typing.BinaryIO],
             encoding: typing.Optional[str],
-            errors: str = 'strict'
+            errors: typing.Optional[str]
             ) -> typing.Tuple[
                 typing.Iterable[str], typing.Optional[str], bool
                 ]:
@@ -322,7 +329,10 @@ class WebVTT:
         if bom_encoding:
             data = data[len(utils.CODEC_BOMS[bom_encoding]):]
         return (
-            [data.decode(bom_encoding or encoding or 'utf-8', errors)],
+            [data.decode(
+                bom_encoding or encoding or 'utf-8',
+                errors or 'strict'
+                )],
             bom_encoding,
             True
             )
@@ -332,7 +342,7 @@ class WebVTT:
             cls,
             file: str,
             encoding: typing.Optional[str] = None,
-            errors: str = 'strict'
+            errors: typing.Optional[str] = 'strict'
             ) -> 'WebVTT':
         """
         Read captions from a file in SubRip format.
@@ -349,6 +359,9 @@ class WebVTT:
 
         :raises MalformedFileError: if the file is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp
+        :raises UnicodeDecodeError: if the file cannot be decoded and errors
+            is ``'strict'``
+        :raises LookupError: if the errors handler is not known
         """
         with utils.FileWrapper.open(
                 file, encoding=encoding, errors=errors
@@ -363,7 +376,7 @@ class WebVTT:
             cls,
             file: str,
             encoding: typing.Optional[str] = None,
-            errors: str = 'strict'
+            errors: typing.Optional[str] = 'strict'
             ) -> 'WebVTT':
         """
         Read captions from a file in YouTube SBV format.
@@ -380,6 +393,9 @@ class WebVTT:
 
         :raises MalformedFileError: if the file is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp
+        :raises UnicodeDecodeError: if the file cannot be decoded and errors
+            is ``'strict'``
+        :raises LookupError: if the errors handler is not known
         """
         with utils.FileWrapper.open(
                 file, encoding=encoding, errors=errors

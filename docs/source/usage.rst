@@ -572,6 +572,23 @@ is not known, give ``errors`` to ``read``, ``from_srt``, ``from_sbv`` or
     # invalid bytes are dropped
     vtt = webvtt.from_srt('captions.srt', errors='ignore')
 
+    # keep the original file, as the bytes cannot be recovered
+    vtt.save_as_srt('edited.srt')
+
+Replaced or dropped bytes are lost for good, and ``save_as_srt()`` without an
+output overwrites an SRT file that was read, so save to another path to keep
+the original. With an ``encoding`` that cannot write U+FFFD, such as
+``cp1252``, saving replaced bytes with ``save_as_srt()`` raises
+``UnicodeEncodeError``: give ``encoding='utf-8'`` to save them.
+
+An invalid byte in a timing line also affects the cue. With ``'replace'`` the
+timing is not valid, so the cue is handled like any other with invalid timing:
+ignored, or raising an error with strict parsing or in SBV format. With
+``'ignore'`` the timing is read without the byte.
+
+``from_buffer`` only uses ``errors`` for binary data. A file opened in text
+mode decodes its own data, so give ``errors`` to ``open`` for it instead.
+
 
 Segmenting captions for HLS
 ---------------------------

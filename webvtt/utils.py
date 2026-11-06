@@ -38,6 +38,20 @@ def _split_lines(text: str) -> typing.List[str]:
     return lines
 
 
+def _check_errors(errors: typing.Optional[str]):
+    """
+    Check the name of an error handler for decoding.
+
+    Decoding only looks up the handler on invalid bytes, so a wrong name
+    would otherwise go unnoticed until a file has them.
+
+    :param errors: the name of the error handler, or None for the default
+    :raises LookupError: if the error handler is not known
+    """
+    if errors is not None:
+        codecs.lookup_error(errors)
+
+
 class FileWrapper:
     """File handling functionality with built-in support for Byte OrderMark."""
 
@@ -55,7 +69,10 @@ class FileWrapper:
         :param mode: mode in which the file is opened
         :param encoding: name of the encoding used to decode the file
         :param errors: how decoding errors are handled, as in open()
+
+        :raises LookupError: if the error handler is not known
         """
+        _check_errors(errors)
         self.file_path = file_path
         self.mode = mode or 'r'
         self.errors = errors
