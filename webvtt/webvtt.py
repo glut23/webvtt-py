@@ -12,6 +12,7 @@ from . import srt
 from . import sbv
 from .models import (
     Caption,
+    ParseIssue,
     Region,
     Style,
     Timestamp,
@@ -66,7 +67,9 @@ class WebVTT:
         `from_srt`, `from_sbv`, `from_buffer` or `from_string` to read
         captions. The ``file`` attribute is the path the captions were read
         from or last saved to, which `save` uses when no output is given,
-        and can be set to choose where they are saved.
+        and can be set to choose where they are saved. The ``parse_issues``
+        attribute is the list of `ParseIssue` of the blocks that were skipped
+        when reading the captions, empty when they were not read.
 
         The lists are kept as the attributes, not copied, so changes to a
         list after creating the instance show in it.
@@ -111,6 +114,7 @@ class WebVTT:
         self.header_text = header_text or ''
         self.metadata = _list_or_new(metadata)
         self.regions = _list_or_new(regions)
+        self.parse_issues: typing.List[ParseIssue] = []
         self._has_bom = False
         self.encoding = DEFAULT_ENCODING
         # the encoding given to read SRT, which save_as_srt keeps
@@ -150,7 +154,7 @@ class WebVTT:
             by default. It is only used for reading, as WebVTT files are
             saved in UTF-8 unless another encoding is given
         :param strict: raise an error on blocks that are not valid WebVTT
-            instead of ignoring them
+            instead of skipping them, which keeps them in ``parse_issues``
         :param errors: how bytes that are not valid in the encoding are
             handled, as in ``bytes.decode``: ``'strict'`` (the default)
             raises ``UnicodeDecodeError``, ``'replace'`` reads them as
@@ -223,8 +227,8 @@ class WebVTT:
             iterable of lines
         :param format: the format of the data (vtt, srt or sbv)
         :param strict: raise an error on blocks that are not valid WebVTT
-            instead of ignoring them, only for the vtt format, as SRT and
-            SBV have no strict parsing
+            instead of skipping them, which keeps them in ``parse_issues``,
+            only for the vtt format, as SRT and SBV have no strict parsing
         :param encoding: encoding of binary data without a Byte Order Mark,
             UTF-8 by default. For the srt format, `save_as_srt` saves in the
             same encoding
@@ -259,8 +263,10 @@ class WebVTT:
             buffer, encoding, errors
             )
 
+        issues: typing.List[ParseIssue] = []
         if format == 'vtt':
             output = vtt.parse(cls._get_lines(lines), strict)
+            issues = output.issues
             instance = cls(
                 captions=output.captions,
                 styles=output.styles,
@@ -271,10 +277,11 @@ class WebVTT:
                 regions=output.regions
                 )
         elif format == 'srt':
-            instance = cls(captions=srt.parse(cls._get_lines(lines)))
+            instance = cls(captions=srt.parse(cls._get_lines(lines), issues))
         else:
-            instance = cls(captions=sbv.parse(cls._get_lines(lines)))
+            instance = cls(captions=sbv.parse(cls._get_lines(lines), issues))
 
+        instance.parse_issues = issues
         instance.file = file
         if bom_encoding:
             instance.encoding = bom_encoding
@@ -409,7 +416,7 @@ class WebVTT:
 
         :param string: the captions in a string
         :param strict: raise an error on blocks that are not valid WebVTT
-            instead of ignoring them
+            instead of skipping them, which keeps them in ``parse_issues``
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the string is not in the right format
@@ -417,7 +424,7 @@ class WebVTT:
             or if strict and a block is not valid WebVTT
         """
         output = vtt.parse(cls._get_lines([string]), strict)
-        return cls(
+        instance = cls(
             captions=output.captions,
             styles=output.styles,
             header_comments=output.header_comments,
@@ -426,6 +433,8 @@ class WebVTT:
             metadata=output.metadata,
             regions=output.regions
         )
+        instance.parse_issues = output.issues
+        return instance
 
     @staticmethod
     def _get_lines(lines: typing.Iterable[str]) -> typing.List[str]:

@@ -4,7 +4,9 @@ import typing
 import re
 
 from . import utils
-from .models import Caption, _caption_from_timings
+from .models import (
+    Caption, ParseIssue, _caption_from_timings, _skipped_block
+    )
 from .errors import MalformedFileError
 
 
@@ -69,11 +71,15 @@ class SBVCueBlock:
         return cls(match.group(1), match.group(2), payload)
 
 
-def parse(lines: typing.Sequence[str]) -> typing.List[Caption]:
+def parse(
+        lines: typing.Sequence[str],
+        issues: typing.Optional[typing.List[ParseIssue]] = None
+        ) -> typing.List[Caption]:
     """
     Parse SBV captions from lines of text.
 
     :param lines: lines of text
+    :param issues: a list to add the blocks that are skipped to
     :returns: list of `Caption` objects
 
     :raises MalformedFileError: if the content is not in SBV format
@@ -81,7 +87,7 @@ def parse(lines: typing.Sequence[str]) -> typing.List[Caption]:
     if not _is_valid_content(lines):
         raise MalformedFileError('Invalid format')
 
-    return _parse_captions(lines)
+    return _parse_captions(lines, [] if issues is None else issues)
 
 
 def _is_valid_content(lines: typing.Sequence[str]) -> bool:
@@ -101,7 +107,10 @@ def _is_valid_content(lines: typing.Sequence[str]) -> bool:
         )
 
 
-def _parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
+def _parse_captions(
+        lines: typing.Sequence[str],
+        issues: typing.List[ParseIssue]
+        ) -> typing.List[Caption]:
     """
     Parse captions from the text.
 
@@ -109,20 +118,46 @@ def _parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
     over, as in ``0:61:00.000``.
 
     :param lines: lines of text
+    :param issues: a list to add the blocks that are skipped to
     :returns: list of `Caption` objects
     """
     captions = []
 
-    for block_lines in utils.iter_blocks_of_lines(lines):
-        if not SBVCueBlock.is_valid(block_lines):
-            continue
-
-        cue_block = SBVCueBlock.from_lines(block_lines)
-        caption = _caption_from_timings(cue_block.start,
-                                        cue_block.end,
-                                        cue_block.payload
-                                        )
-        if caption is not None:
+    for number, block_lines in utils._iter_numbered_blocks(lines):
+        caption = _parse_cue(block_lines)
+        if caption is None:
+            kind = _skipped_block_kind(block_lines)
+            issues.append(_skipped_block(number, kind, block_lines))
+        else:
             captions.append(caption)
 
     return captions
+
+
+def _parse_cue(lines: typing.Sequence[str]) -> typing.Optional[Caption]:
+    """
+    Parse a cue from the lines of a block.
+
+    :param lines: the lines of the block
+    :returns: a `Caption`, or None if the block is not a valid cue
+    """
+    if not SBVCueBlock.is_valid(lines):
+        return None
+
+    cue_block = SBVCueBlock.from_lines(lines)
+    return _caption_from_timings(cue_block.start,
+                                 cue_block.end,
+                                 cue_block.payload
+                                 )
+
+
+def _skipped_block_kind(lines: typing.Sequence[str]) -> str:
+    """
+    Return the description of a block that is not a valid cue.
+
+    :param lines: the lines of the block
+    :returns: the description of what is wrong with the block
+    """
+    if not re.match(SBVCueBlock.CUE_TIMINGS_PATTERN, lines[0]):
+        return 'Invalid block'
+    return 'Invalid cue block' if len(lines) > 1 else 'Cue without text'

@@ -7,6 +7,8 @@ Unreleased
 Changes:
 
 * Added an ``errors`` argument to ``read``, ``from_srt``, ``from_sbv`` and ``from_buffer``, passed to the decoder (``'strict'`` by default), to read files with bytes that are not valid in their encoding, thanks to `@emirmrkaljevic <https://github.com/emirmrkaljevic>`_ (#180, #212)
+* The errors of strict parsing start with the line number of the block, as in ``line 42: Invalid cue block [...]`` (#170)
+* Added the ``parse_issues`` attribute to ``WebVTT``, with the ``ParseIssue`` of each block that was skipped when reading WebVTT, SRT or SBV (#170)
 
 0.7.0 (01-11-2026)
 ------------------

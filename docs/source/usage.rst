@@ -946,7 +946,30 @@ Strict parsing
 
 By default the parser ignores blocks it cannot parse, so a cue with
 malformed timings such as ``00:00:00.-004 --> 00:00:04.300`` or out of
-range ones such as ``00:00:61.000 --> 00:00:62.000`` is skipped.
+range ones such as ``00:00:61.000 --> 00:00:62.000`` is skipped. The blocks
+that are skipped are kept in the ``parse_issues`` attribute as
+``webvtt.ParseIssue`` objects, each with its line number, a message and its
+lines, for WebVTT, SRT and SBV:
+
+.. code-block:: python
+
+    import webvtt
+
+    vtt = webvtt.read('captions.vtt')
+
+    for issue in vtt.parse_issues:
+        # line 42: Invalid cue block ['00:00.000 --> 00:0x.000', 'bad']
+        print(issue)
+
+        issue.line     # 42
+        issue.message  # "Invalid cue block ['00:00.000 --> 00:0x.000', 'bad']"
+        issue.lines    # ['00:00.000 --> 00:0x.000', 'bad']
+
+Only whole blocks are recorded, including SRT and SBV cues without text.
+Content dropped from a block that is still read, such as a cue setting that
+is not valid, is not recorded. ``parse_issues`` is empty for captions that
+were not read from a file, a buffer or a string.
+
 To validate the content, pass ``strict=True`` to ``read``,
 ``from_buffer`` or ``from_string`` and a ``MalformedCaptionError`` is
 raised instead. Strict parsing also raises the error for:
@@ -961,11 +984,15 @@ raised instead. Strict parsing also raises the error for:
 * a cue that is not separated from the previous cue, comment or style by
   an empty line
 
+The message of these errors starts with the line number of the block, or of
+the cue timings line for a cue that is not separated by an empty line, as in
+``line 42: Invalid cue block ['00:00.000 --> 00:0x.000', 'bad']``.
+
 For region settings and regions after the first cue, the error is
 ``MalformedRegionError``, a subclass of ``MalformedCaptionError``.
 
-Strict parsing also raises ``MalformedFileError`` when ``WEBVTT`` is
-followed by text other than a space or a tab in the first line, such as
+Strict parsing also raises ``MalformedFileError``, also starting with the
+line number, when ``WEBVTT`` is followed by text other than a space or a tab in the first line, such as
 ``WEBVTTX``, which the default parsing reads.
 
 Strict parsing is only for WebVTT. SRT and SBV have no specification to

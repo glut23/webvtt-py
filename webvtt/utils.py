@@ -20,6 +20,9 @@ _BOM_WRITING_CODECS = ('utf-8-sig', 'utf-16', 'utf-32')
 # the line terminators of WebVTT, characters like U+2028 do not break lines
 _LINE_TERMINATOR = re.compile(r'\r\n|\r|\n')
 
+# the line number where a block of text starts, from 1, and its lines
+_NumberedBlock = typing.Tuple[int, typing.List[str]]
+
 
 def _split_lines(text: str) -> typing.List[str]:
     """
@@ -176,14 +179,28 @@ def iter_blocks_of_lines(
 
     :param lines: lines of text.
     """
-    current_text_block = []
+    for _, block in _iter_numbered_blocks(lines):
+        yield block
 
-    for line in lines:
+
+def _iter_numbered_blocks(
+        lines: typing.Iterable[str]
+        ) -> typing.Generator[_NumberedBlock, None, None]:
+    """
+    Iterate blocks of text with the line number where each one starts.
+
+    :param lines: lines of text.
+    :returns: the line number where each block starts, from 1, and its lines
+    """
+    current_text_block: typing.List[str] = []
+    number = 0
+
+    for number, line in enumerate(lines, 1):
         if line.strip():
             current_text_block.append(line)
         elif current_text_block:
-            yield current_text_block
+            yield number - len(current_text_block), current_text_block
             current_text_block = []
 
     if current_text_block:
-        yield current_text_block
+        yield number + 1 - len(current_text_block), current_text_block
