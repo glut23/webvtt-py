@@ -269,15 +269,75 @@ def _position_in_milliseconds(value: _Position) -> int:
         return Timestamp.from_string(value).in_milliseconds()
 
     if isinstance(value, Timestamp):
-        return value.in_milliseconds()
+        if not all(type(field) is int for field in value.to_tuple()):
+            raise TypeError(f'Invalid timestamp {value!r}')
+        milliseconds = value.in_milliseconds()
+    else:
+        milliseconds = _offset_in_milliseconds(value, name='timestamp')
 
-    milliseconds = _offset_in_milliseconds(value, name='timestamp')
     if milliseconds < 0:
         raise ValueError(f'Invalid timestamp {value!r}')
     if milliseconds > _MAX_MILLISECONDS:
         raise ValueError(_OUT_OF_RANGE)
 
     return milliseconds
+
+
+def _to_timestamp(value: _Position) -> Timestamp:
+    """
+    Return a time of a caption or of a range as a new `Timestamp`.
+
+    The value is read as the times of ``sync``, and a `Timestamp` is
+    copied, so it is not shared with where it comes from.
+
+    :param value: a timestamp, as a string or a `Timestamp`, a number of
+        seconds or a ``timedelta``
+    :returns: the time rounded to the nearest millisecond, halves away from
+        zero
+
+    :raises MalformedCaptionError: if the value is not of a supported type,
+        is not finite, is before zero or is after the largest timestamp
+    """
+    if isinstance(value, str):
+        return Timestamp.from_string(value)
+
+    try:
+        milliseconds = _position_in_milliseconds(value)
+    except (TypeError, ValueError) as error:
+        raise MalformedCaptionError(str(error)) from None
+
+    return Timestamp._from_milliseconds(milliseconds)
+
+
+def _optional_timestamp(
+        value: typing.Optional[_Position]
+        ) -> typing.Optional[Timestamp]:
+    """
+    Return a time that may be missing as a new `Timestamp`.
+
+    :param value: the time, or None or an empty string when it is missing,
+        as times were only strings before and an empty one was accepted
+    :returns: the time as with `_to_timestamp`, or None when it is missing
+
+    :raises MalformedCaptionError: if the value is not a valid time
+    """
+    if value is None or value == '':
+        return None
+    return _to_timestamp(value)
+
+
+def _time_or_zero(value: typing.Optional[_Position]) -> Timestamp:
+    """
+    Return a time that may be missing as a new `Timestamp`, or zero.
+
+    :param value: the time, or None or an empty string when it is missing
+    :returns: the time as with `_to_timestamp`, or ``00:00:00.000`` when it
+        is missing
+
+    :raises MalformedCaptionError: if the value is not a valid time
+    """
+    timestamp = _optional_timestamp(value)
+    return Timestamp() if timestamp is None else timestamp
 
 
 def _divide_rounded(numerator: int, denominator: int) -> int:
@@ -779,8 +839,8 @@ class Caption:
     VOICE_SPAN_PATTERN = re.compile(r'<v(?:\.\w+)*\s+([^>\s][^>]*)>')
 
     def __init__(self,
-                 start: typing.Optional[str] = None,
-                 end: typing.Optional[str] = None,
+                 start: typing.Optional[_Position] = None,
+                 end: typing.Optional[_Position] = None,
                  text: typing.Optional[typing.Union[str,
                                                     typing.Sequence[str]
                                                     ]] = None,
@@ -792,8 +852,10 @@ class Caption:
         """
         Initialize.
 
-        :param start: start time of the caption
-        :param end: end time of the caption
+        :param start: start time of the caption, a timestamp string, a
+            `Timestamp`, a number of seconds or a ``timedelta``, rounded to
+            the nearest millisecond. Default: ``00:00:00.000``
+        :param end: end time of the caption, as the start time
         :param text: the text of the caption, or a sequence of its lines
         :param identifier: optional identifier
         :param settings: optional cue settings, as a string such as
@@ -803,8 +865,8 @@ class Caption:
             settings is not a string, a `CueSettings` instance or None
         :raises TypeError: if text is not a string or a sequence of strings
         """
-        self.start = start or '00:00:00.000'
-        self.end = end or '00:00:00.000'
+        self.start_time = _time_or_zero(start)
+        self.end_time = _time_or_zero(end)
         self.identifier = identifier
         self._settings = _to_cue_settings(settings)
         self.lines = _caption_lines([] if text is None else text)
@@ -839,24 +901,38 @@ class Caption:
                 )
 
     @property
-    def start(self):
+    def start(self) -> str:
         """Return the start time of the caption."""
         return str(self.start_time)
 
     @start.setter
-    def start(self, value: str):
-        """Set the start time of the caption."""
-        self.start_time = Timestamp.from_string(value)
+    def start(self, value: _Position):
+        """
+        Set the start time of the caption.
+
+        :param value: a timestamp string, a `Timestamp`, a number of seconds
+            or a ``timedelta``, rounded to the nearest millisecond
+
+        :raises MalformedCaptionError: if the value is not a valid time
+        """
+        self.start_time = _to_timestamp(value)
 
     @property
-    def end(self):
+    def end(self) -> str:
         """Return the end time of the caption."""
         return str(self.end_time)
 
     @end.setter
-    def end(self, value: str):
-        """Set the end time of the caption."""
-        self.end_time = Timestamp.from_string(value)
+    def end(self, value: _Position):
+        """
+        Set the end time of the caption.
+
+        :param value: a timestamp string, a `Timestamp`, a number of seconds
+            or a ``timedelta``, rounded to the nearest millisecond
+
+        :raises MalformedCaptionError: if the value is not a valid time
+        """
+        self.end_time = _to_timestamp(value)
 
     @property
     def settings(self) -> CueSettings:
@@ -1081,7 +1157,7 @@ def _caption_from_timings(
     except ValueError:
         return None
 
-    return Caption(str(start_time), str(end_time), lines)
+    return Caption(start_time, end_time, lines)
 
 
 @dataclass

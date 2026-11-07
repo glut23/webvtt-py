@@ -17,6 +17,8 @@ Changes:
 * Moved the packaging to ``pyproject.toml``, and ``make build`` builds with ``python -m build`` without regenerating the man page (#184)
 * Removed ``webvtt.__author__`` and ``webvtt.__author_email__``, as the author is in the package metadata (#184)
 * Added ``start_in_milliseconds``, ``end_in_milliseconds`` and ``duration`` to ``Caption``, thanks to `@emirmrkaljevic <https://github.com/emirmrkaljevic>`_ (#188, #193)
+* The times of ``Caption``, its ``start`` and ``end``, ``iter_slice`` and the ``start`` of ``shift`` can be ``Timestamp`` objects, numbers of seconds or ``timedelta`` objects, as with ``sync``, besides timestamp strings (#171)
+* ``sync`` raises ``ValueError`` for a ``Timestamp`` before zero, as it does for the other times, and ``TypeError`` for one with fields that are not integers, instead of moving the captions to timestamps that cannot be written (#171)
 
 0.7.0 (01-11-2026)
 ------------------

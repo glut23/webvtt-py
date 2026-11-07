@@ -20,6 +20,7 @@ from .models import (
     _FrameRate,
     _Position,
     _offset_in_milliseconds,
+    _optional_timestamp,
     _retime_captions,
     _sync_mapping,
     _framerate_mapping
@@ -617,8 +618,8 @@ class WebVTT:
 
     def iter_slice(
             self,
-            start: typing.Optional[str] = None,
-            end: typing.Optional[str] = None,
+            start: typing.Optional[_Position] = None,
+            end: typing.Optional[_Position] = None,
             *,
             overlapping: bool = False,
             clip: bool = False
@@ -630,8 +631,10 @@ class WebVTT:
         caption that starts before ``start`` or ends after ``end`` is left
         out.
 
-        :param start: start timestamp of the range
-        :param end: end timestamp of the range
+        :param start: start of the range, a timestamp string, a
+            `Timestamp`, a number of seconds or a ``timedelta``, rounded to
+            the nearest millisecond. Default: no start
+        :param end: end of the range, as the start. Default: no end
         :param overlapping: also return the captions with part of them in
             the range. A caption that only touches the range, ending at
             ``start`` or starting at ``end``, is not in it, and a range with
@@ -650,8 +653,8 @@ class WebVTT:
         if clip and not overlapping:
             raise ValueError('clip needs overlapping')
 
-        start_time = Timestamp.from_string(start) if start else None
-        end_time = Timestamp.from_string(end) if end else None
+        start_time = _optional_timestamp(start)
+        end_time = _optional_timestamp(end)
         in_range = _overlaps_range if overlapping else _within_range
 
         for caption in self.captions:
@@ -662,7 +665,7 @@ class WebVTT:
     def shift(
             self,
             offset: typing.Union[float, datetime.timedelta],
-            start: typing.Optional[str] = None
+            start: typing.Optional[_Position] = None
             ):
         """
         Shift the start and end time of the captions.
@@ -674,12 +677,13 @@ class WebVTT:
         :param offset: a number of seconds or a ``timedelta``, negative
             values move the captions earlier
         :param start: only shift the captions starting at or after this
-            timestamp
+            time, a timestamp string, a `Timestamp`, a number of seconds or
+            a ``timedelta``
 
         :raises TypeError: if the offset is not a number or a ``timedelta``
         :raises ValueError: if the offset is not finite, or would move a
             time after the largest timestamp, leaving the captions unchanged
-        :raises MalformedCaptionError: if the start timestamp is not valid
+        :raises MalformedCaptionError: if the start time is not valid
         """
         offset_ms = _offset_in_milliseconds(offset)
 
@@ -932,7 +936,7 @@ def _clipped(
     """
     clipped = copy.deepcopy(caption)
     if start and clipped.start_time < start:
-        clipped.start = str(start)
+        clipped.start = start
     if end and clipped.end_time > end:
-        clipped.end = str(end)
+        clipped.end = end
     return clipped
