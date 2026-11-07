@@ -130,6 +130,26 @@ class WebVTT:
         """Return a caption by index."""
         return self.captions[index]
 
+    def __eq__(self, other):
+        """
+        Compare equality with another object.
+
+        Instances are equal when they have the same captions, styles,
+        regions, header text and metadata, so they write the same content
+        except for the comments. The comments are not compared, as for
+        captions, styles and regions, nor where the captions are saved,
+        their encoding or the issues found when reading them.
+        """
+        if not isinstance(other, WebVTT):
+            return NotImplemented
+
+        return (self.captions == other.captions and
+                self.styles == other.styles and
+                self.regions == other.regions and
+                self.header_text == other.header_text and
+                self.metadata == other.metadata
+                )
+
     def __repr__(self):
         """Return the string representation of the WebVTT file."""
         return (f'<{self.__class__.__name__} file={self.file!r} '
@@ -616,6 +636,17 @@ class WebVTT:
 
         raise ValueError(f'Format {format} is not supported.')
 
+    def copy(self) -> 'WebVTT':
+        """
+        Return a copy of the captions that shares nothing with them.
+
+        The copy has its own lists of captions, styles, regions, comments,
+        metadata and parse issues, and copies of each item, so changing it
+        leaves the original unchanged. It keeps where the captions are saved
+        and their encoding.
+        """
+        return copy.deepcopy(self)
+
     def iter_slice(
             self,
             start: typing.Optional[_Position] = None,
@@ -934,7 +965,7 @@ def _clipped(
     :returns: a copy sharing nothing with the caption, nor its times with
         other copies
     """
-    clipped = copy.deepcopy(caption)
+    clipped = caption.copy()
     if start and clipped.start_time < start:
         clipped.start = start
     if end and clipped.end_time > end:

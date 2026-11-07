@@ -2,6 +2,7 @@
 
 import bisect
 import collections.abc
+import copy
 import datetime
 import decimal
 import fractions
@@ -983,6 +984,15 @@ class Caption:
             self.end_in_milliseconds - self.start_in_milliseconds, 0
             ) / 1000
 
+    def copy(self) -> 'Caption':
+        """
+        Return a copy of the caption that shares nothing with it.
+
+        Changing the times, lines, settings or comments of the copy leaves
+        the caption unchanged, unlike ``copy.copy``, which shares them.
+        """
+        return copy.deepcopy(self)
+
     def shift(self, offset: typing.Union[float, datetime.timedelta]):
         """
         Shift the start and end time of the caption.
@@ -1209,6 +1219,22 @@ class Style:
                       else list(text)
                       )
         self.comments: typing.List[str] = []
+
+    def __repr__(self):
+        """Return the string representation of the style."""
+        return f'<{self.__class__.__name__} text={self.text!r}>'
+
+    def __eq__(self, other):
+        """
+        Compare equality with another object.
+
+        Styles are equal when they have the same lines. The comments are not
+        compared, as for captions and regions.
+        """
+        if not isinstance(other, Style):
+            return NotImplemented
+
+        return self.lines == other.lines
 
     @property
     def text(self):

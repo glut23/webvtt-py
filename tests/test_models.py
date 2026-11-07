@@ -1,9 +1,13 @@
+import copy
 import datetime
 import re
 import time
 import unittest
+import unittest.mock
 
-from webvtt.models import Timestamp, Caption, CueSettings, Region, Style
+from webvtt.models import (
+    Timestamp, Caption, CueSettings, ParseIssue, Region, Style
+    )
 from webvtt.errors import MalformedCaptionError, MalformedRegionError
 
 
@@ -615,6 +619,30 @@ class TestCaption(unittest.TestCase):
                 self.assertEqual((caption.start, caption.end),
                                  ('00:00:01.000', '00:00:02.000'))
 
+    def test_copy(self):
+        caption = Caption('00:00:01.000', '00:00:02.000', ['a', 'b'],
+                          identifier='1', settings='line:0')
+        caption.comments.append('note')
+
+        copied = caption.copy()
+        self.assertIsNot(copied, caption)
+        self.assertEqual(copied, caption)
+        self.assertEqual(copied.comments, ['note'])
+
+        copied.lines.append('c')
+        copied.comments.append('other')
+        copied.settings.line = '1'
+        copied.start_time.seconds = 5
+        copied.end_time.seconds = 6
+        copied.identifier = '2'
+
+        self.assertEqual(caption.lines, ['a', 'b'])
+        self.assertEqual(caption.comments, ['note'])
+        self.assertEqual(str(caption.settings), 'line:0')
+        self.assertEqual((caption.start, caption.end),
+                         ('00:00:01.000', '00:00:02.000'))
+        self.assertEqual(caption.identifier, '1')
+
     def test_equality(self):
         caption1 = Caption(
             start='00:00:07.000',
@@ -1039,6 +1067,28 @@ class TestStyle(unittest.TestCase):
         self.assertEqual(
             style.text,
             '::cue(b) {\n  color: peachpuff;\n}'
+            )
+
+    def test_equality(self):
+        style = Style('::cue(b) {\ncolor: peachpuff;\n}')
+        other = Style(['::cue(b) {', 'color: peachpuff;', '}'])
+        other.comments.append('Comments are not compared')
+        self.assertEqual(style, other)
+        self.assertNotEqual(style, Style('::cue(b) {}'))
+        self.assertNotEqual(style, '::cue(b) {\ncolor: peachpuff;\n}')
+
+    def test_equality_subclass_and_other_types(self):
+        class MyStyle(Style):
+            pass
+
+        self.assertEqual(Style('a'), MyStyle('a'))
+        self.assertEqual(MyStyle('a'), Style('a'))
+        self.assertEqual(Style('a'), unittest.mock.ANY)
+
+    def test_repr(self):
+        self.assertEqual(
+            repr(Style('::cue(b) {\ncolor: peachpuff;\n}')),
+            "<Style text='::cue(b) {\\ncolor: peachpuff;\\n}'>"
             )
 
 
@@ -1500,3 +1550,27 @@ class TestRegion(unittest.TestCase):
             repr(Region(id='fred', width='40%')),
             "<Region text='id:fred width:40%'>"
             )
+
+
+class TestDeepCopy(unittest.TestCase):
+
+    def test_deepcopy(self):
+        caption = Caption('00:00:01.000', '00:00:02.000', ['a', 'b'],
+                          identifier='1', settings='line:0')
+        caption.comments.append('note')
+        region = Region(id='fred', width='40%')
+        region.comments.append('note')
+        style = Style('::cue(b) {}')
+        style.comments.append('note')
+
+        for value in (Timestamp(1, 2, 3, 4),
+                      CueSettings.from_string('line:0 align:start'),
+                      caption,
+                      style,
+                      region,
+                      ParseIssue(3, 'Invalid cue block', ['x'])):
+            with self.subTest(value=value):
+                copied = copy.deepcopy(value)
+                self.assertIsNot(copied, value)
+                self.assertEqual(copied, value)
+                self.assertEqual(vars(copied), vars(value))
