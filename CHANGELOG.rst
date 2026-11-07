@@ -4,6 +4,10 @@ History
 Unreleased
 ----------
 
+Changes that may need updates to the code using the library:
+
+* ``total_length`` returns a float with the milliseconds, from the earliest start to the latest end of the captions, instead of whole seconds from the first caption to the last one, which was wrong for captions out of order, thanks to `@emirmrkaljevic <https://github.com/emirmrkaljevic>`_ (#188, #193)
+
 Changes:
 
 * Added an ``errors`` argument to ``read``, ``from_srt``, ``from_sbv`` and ``from_buffer``, passed to the decoder (``'strict'`` by default), to read files with bytes that are not valid in their encoding, thanks to `@emirmrkaljevic <https://github.com/emirmrkaljevic>`_ (#180, #212)
@@ -12,6 +16,7 @@ Changes:
 * Added the ``overlapping`` argument to ``iter_slice`` to also return the captions with part of them in the range, and ``clip`` to return copies of them trimmed to the range (#172)
 * Moved the packaging to ``pyproject.toml``, and ``make build`` builds with ``python -m build`` without regenerating the man page (#184)
 * Removed ``webvtt.__author__`` and ``webvtt.__author_email__``, as the author is in the package metadata (#184)
+* Added ``start_in_milliseconds``, ``end_in_milliseconds`` and ``duration`` to ``Caption``, thanks to `@emirmrkaljevic <https://github.com/emirmrkaljevic>`_ (#188, #193)
 
 0.7.0 (01-11-2026)
 ------------------
