@@ -282,6 +282,38 @@ of lines, as when creating a ``Caption``. Any other value raises
 ``TypeError``.
 
 
+Comparing and copying captions
+------------------------------
+
+Captions, styles and regions are equal when they have the same content, and
+``WebVTT`` instances when they have the same captions, styles, regions,
+header text and metadata. Comments are not compared, nor where the captions
+are saved, their encoding or the issues found when reading them:
+
+.. code-block:: python
+
+    import webvtt
+
+    vtt = webvtt.read('captions.vtt')
+
+    vtt == webvtt.from_string(vtt.content)  # True
+    vtt[0] == vtt[0].copy()                 # True
+
+``copy`` returns a copy of a caption, or of all the captions, that shares
+nothing with the original, so changing it leaves the original unchanged.
+``copy.deepcopy`` works as ``copy``, while ``copy.copy`` shares what the
+original has: the lines, times and settings of a caption, or the lists of
+captions, styles and regions of a ``WebVTT``:
+
+.. code-block:: python
+
+    edited = vtt.copy()
+    edited.shift(2)
+    edited[0].text = 'New caption text'
+
+    vtt[0].text  # unchanged
+
+
 Cue settings
 ------------
 

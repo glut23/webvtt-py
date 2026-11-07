@@ -1,7 +1,9 @@
 import codecs
+import copy
 import datetime
 import fractions
 import unittest
+import unittest.mock
 import os
 import io
 import textwrap
@@ -1408,6 +1410,128 @@ class TestWebVTT(unittest.TestCase):
                     Caption test line 4
                     """).strip() + '\n'
             )
+
+    EQUALITY_CONTENT = textwrap.dedent('''\
+        WEBVTT header text
+        X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:0
+
+        NOTE header comment
+
+        REGION
+        id:fred width:40%
+
+        STYLE
+        ::cue(b) {color: red}
+
+        NOTE caption comment
+
+        00:00:01.000 --> 00:00:02.000 region:fred
+        <b>One</b>
+
+        00:00:03.000 --> 00:00:04.000
+        Two
+
+        NOTE footer comment
+        ''')
+
+    def test_equality(self):
+        vtt = webvtt.from_string(self.EQUALITY_CONTENT)
+        self.assertEqual(vtt, webvtt.from_string(self.EQUALITY_CONTENT))
+        self.assertEqual(vtt, webvtt.from_string(vtt.content))
+        self.assertEqual(webvtt.WebVTT(), webvtt.WebVTT())
+        self.assertNotEqual(vtt, webvtt.WebVTT())
+        self.assertNotEqual(vtt, self.EQUALITY_CONTENT)
+
+    def test_equality_subclass_and_other_types(self):
+        class MyWebVTT(webvtt.WebVTT):
+            pass
+
+        self.assertEqual(webvtt.WebVTT(), MyWebVTT())
+        self.assertEqual(MyWebVTT(), webvtt.WebVTT())
+        self.assertEqual(webvtt.WebVTT(), unittest.mock.ANY)
+        self.assertNotEqual(MyWebVTT(), [])
+
+    def test_not_equality(self):
+        changes = {
+            'captions': lambda vtt: vtt.captions[1].shift(1),
+            'caption order': lambda vtt: vtt.captions.reverse(),
+            'styles': lambda vtt: vtt.styles.clear(),
+            'regions': lambda vtt: setattr(vtt.regions[0], 'width', '50%'),
+            'header text': lambda vtt: setattr(vtt, 'header_text', 'other'),
+            'metadata': lambda vtt: vtt.metadata.clear(),
+            }
+        for name, change in changes.items():
+            with self.subTest(change=name):
+                vtt = webvtt.from_string(self.EQUALITY_CONTENT)
+                other = webvtt.from_string(self.EQUALITY_CONTENT)
+                change(other)
+                self.assertNotEqual(vtt, other)
+
+    def test_equality_not_compared(self):
+        changes = {
+            'header comments': lambda vtt: vtt.header_comments.clear(),
+            'footer comments': lambda vtt: vtt.footer_comments.clear(),
+            'caption comments': lambda vtt: vtt.captions[0].comments.clear(),
+            'file': lambda vtt: setattr(vtt, 'file', 'other.vtt'),
+            'encoding': lambda vtt: setattr(vtt, 'encoding', 'utf-16'),
+            'parse issues': lambda vtt: vtt.parse_issues.append(
+                webvtt.ParseIssue(1, 'issue', ['x'])
+                ),
+            }
+        for name, change in changes.items():
+            with self.subTest(change=name):
+                vtt = webvtt.from_string(self.EQUALITY_CONTENT)
+                other = webvtt.from_string(self.EQUALITY_CONTENT)
+                change(other)
+                self.assertEqual(vtt, other)
+
+    def test_copy(self):
+        vtt = webvtt.from_string(self.EQUALITY_CONTENT)
+        vtt.file = 'captions.vtt'
+        vtt.encoding = 'utf-16'
+        vtt.parse_issues.append(webvtt.ParseIssue(1, 'issue', ['x']))
+
+        copied = vtt.copy()
+        self.assertIsNot(copied, vtt)
+        self.assertEqual(copied, vtt)
+        self.assertEqual(copied.content, vtt.content)
+        self.assertEqual(
+            (copied.file, copied.encoding, copied.parse_issues,
+             copied.header_comments, copied.footer_comments),
+            (vtt.file, vtt.encoding, vtt.parse_issues,
+             vtt.header_comments, vtt.footer_comments)
+            )
+
+        content = vtt.content
+        copied.captions[0].text = 'Changed'
+        copied.captions[0].shift(1)
+        copied.captions.append(webvtt.Caption(5, 6, 'Three'))
+        copied.styles[0].lines.append('::cue(i) {}')
+        copied.regions[0].width = '50%'
+        copied.header_comments.append('other')
+        copied.metadata.clear()
+        copied.parse_issues.clear()
+
+        self.assertEqual(vtt.content, content)
+        self.assertEqual(len(vtt.parse_issues), 1)
+
+    def test_copy_keeps_the_byte_order_mark(self):
+        vtt = webvtt.from_buffer(io.BytesIO(
+            codecs.BOM_UTF8 + b'WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nx\n'
+            ))
+
+        with named_temporary_file(suffix='.vtt') as f:
+            vtt.copy().save(f.name)
+            content = pathlib.Path(f.name).read_bytes()
+
+        self.assertTrue(content.startswith(codecs.BOM_UTF8))
+
+    def test_deepcopy(self):
+        vtt = webvtt.from_string(self.EQUALITY_CONTENT)
+        copied = copy.deepcopy(vtt)
+        self.assertEqual(copied, vtt)
+        self.assertEqual(vars(copied).keys(), vars(vtt).keys())
+        self.assertIsNot(copied.captions, vtt.captions)
 
     def test_repr(self):
         test_file = PATH_TO_SAMPLES / 'sample.vtt'
