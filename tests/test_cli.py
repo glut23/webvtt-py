@@ -417,6 +417,15 @@ class CLITestCase(unittest.TestCase):
         self.assertEqual(cm.exception.code, 0)
         self.assertEqual(stdout.getvalue(), f'webvtt {webvtt.__version__}\n')
 
+    def test_man_page_version(self):
+        # the man page is shipped as it is, run make man after a new version
+        man_page = pathlib.Path(__file__).parent.parent / 'man' / 'webvtt.1'
+        header = next(
+            line for line in man_page.read_text(encoding='utf-8').splitlines()
+            if line.startswith('.TH')
+            )
+        self.assertIn(f'"{webvtt.__version__}"', header)
+
     def test_cli_as_module(self):
         vtt_file = str(
             pathlib.Path(__file__).resolve().parent

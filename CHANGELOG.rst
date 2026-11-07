@@ -10,6 +10,8 @@ Changes:
 * The errors of strict parsing start with the line number of the block, as in ``line 42: Invalid cue block [...]`` (#170)
 * Added the ``parse_issues`` attribute to ``WebVTT``, with the ``ParseIssue`` of each block that was skipped when reading WebVTT, SRT or SBV (#170)
 * Added the ``overlapping`` argument to ``iter_slice`` to also return the captions with part of them in the range, and ``clip`` to return copies of them trimmed to the range (#172)
+* Moved the packaging to ``pyproject.toml``, and ``make build`` builds with ``python -m build`` without regenerating the man page (#184)
+* Removed ``webvtt.__author__`` and ``webvtt.__author_email__``, as the author is in the package metadata (#184)
 
 0.7.0 (01-11-2026)
 ------------------

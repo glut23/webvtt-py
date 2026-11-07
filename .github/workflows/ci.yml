@@ -54,9 +54,12 @@ jobs:
     - name: Check manpage is up to date
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
       run: |
-        pip install -r docs/requirements.txt
         make man
         git diff --exit-code -I '^\.TH' man/webvtt.1
+
+    - name: Check the packages build
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+      run: make build
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v7

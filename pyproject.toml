@@ -1,0 +1,117 @@
+[build-system]
+# 77.0.3 for the license expression of PEP 639
+requires = ["setuptools>=77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "webvtt-py"
+dynamic = ["version"]
+description = "WebVTT reader, writer and segmenter"
+readme = "README.rst"
+authors = [
+    {name = "Alejandro Mendez", email = "amendez23@gmail.com"},
+]
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+keywords = ["webvtt", "captions"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "https://github.com/glut23/webvtt-py"
+
+[project.scripts]
+webvtt = "webvtt.cli:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "webvtt.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["webvtt*"]
+namespaces = false
+
+[tool.setuptools.data-files]
+"share/man/man1" = ["man/webvtt.1"]
+
+[tool.coverage.run]
+source = ["webvtt"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 100
+
+# read through flake8-pyproject, as flake8 alone ignores this section
+[tool.flake8]
+doctests = true
+radon-max-cc = 10
+
+[tool.tox]
+requires = ["tox>=4.21.2"]
+env_list = ["codestyle", "py", "coverage"]
+
+[tool.tox.env_run_base]
+# create the environments with a current pip instead of the one bundled with
+# virtualenv, as pip before 26.2.2 trusts the certificates of the
+# eMudhra/emSign CA incident
+download = true
+# the toml extra is needed to read this file on Python 3.10, which has no
+# tomllib, or coverage stops with an error
+deps = ["coverage[toml]"]
+description = "run the tests and provide coverage metrics"
+commands = [["coverage", "run", "-m", "unittest", "discover"]]
+
+[tool.tox.env.codestyle]
+description = "check the code style and types"
+deps = ["flake8", "flake8-pyproject", "flake8-docstrings", "radon", "mypy"]
+commands = [["flake8", "webvtt"], ["mypy", "webvtt"]]
+
+[tool.tox.env.coverage]
+description = "report the coverage of the tests"
+skip_install = true
+depends = ["py"]
+commands = [["coverage", "xml"], ["coverage", "report"]]
+
+# man, build and release are not in env_list, so they only run when asked for
+
+[tool.tox.env.man]
+description = "regenerate the man page"
+skip_install = true
+deps = ["-r docs/requirements.txt"]
+commands = [
+    ["sphinx-build", "-q", "-E", "-b", "man", "-d", "docs/build/doctrees", "docs/source", "man"],
+]
+
+[tool.tox.env.build]
+description = "build the packages from a clean state and check them"
+skip_install = true
+# 6.1 for the metadata version of the license expression
+deps = ["build", "twine>=6.1"]
+allowlist_externals = ["rm"]
+commands = [
+    ["rm", "-rf", "build", "dist", "webvtt_py.egg-info"],
+    ["python", "-m", "build"],
+    ["twine", "check", "dist/*"],
+]
+
+[tool.tox.env.release]
+description = "upload packages, given as arguments for twine"
+skip_install = true
+deps = ["twine>=6.1"]
+pass_env = ["TWINE_*"]
+# the packages are arguments, so that tox -e ALL does not upload anything
+commands = [
+    ["twine", "upload", {replace = "posargs", default = [], extend = true}],
+]

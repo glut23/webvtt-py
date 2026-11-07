@@ -1,20 +1,24 @@
 # Configuration file for the Sphinx documentation builder.
 
 import sys
+import tomllib
 from pathlib import Path
 from datetime import date
 
-# Add parent dir to path
+# Add parent dir to the start of the path, so the repo is documented instead
+# of any installed webvtt
 parent_directory = Path(__file__).parent.parent.parent.resolve()
-sys.path.append(str(parent_directory))
+sys.path.insert(0, str(parent_directory))
 
 import webvtt  # noqa
 
 # -- Project information
 
+with open(parent_directory / 'pyproject.toml', 'rb') as pyproject:
+    author = tomllib.load(pyproject)['project']['authors'][0]['name']
+
 project = 'webvtt-py'
-copyright = f'2016-{date.today().year}, {webvtt.__author__}'
-author = webvtt.__author__
+copyright = f'2016-{date.today().year}, {author}'
 
 release = webvtt.__version__
 version = webvtt.__version__
