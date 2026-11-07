@@ -303,8 +303,6 @@ def _to_timestamp(value: _Position) -> Timestamp:
 
     try:
         milliseconds = _position_in_milliseconds(value)
-    except MalformedCaptionError:
-        raise
     except (TypeError, ValueError) as error:
         raise MalformedCaptionError(str(error)) from None
 
