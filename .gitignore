@@ -11,6 +11,7 @@ dist/
 # Testing
 .tox/
 .coverage
+coverage.xml
 
 # PyCharm
 .idea

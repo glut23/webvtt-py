@@ -126,9 +126,44 @@ Iterating over a slice of captions
         print(caption.end)
         print(caption.text)
 
-Only the captions within the range are returned: a caption that starts
-before ``start`` or ends after ``end`` is left out, even if part of it is in
-the range.
+By default only the captions within the range are returned: a caption that
+starts before ``start`` or ends after ``end`` is left out, even if part of it
+is in the range. To cut the captions of a clip, ``overlapping`` also returns
+those captions, and ``clip`` trims them to the range:
+
+.. code-block:: python
+
+    # captions from 1 s to 5 s and from 3 s to 4 s
+    start, end = '00:00:02.000', '00:00:06.000'
+
+    [c.text for c in vtt.iter_slice(start, end)]
+    # ['second']
+
+    [c.text for c in vtt.iter_slice(start, end, overlapping=True)]
+    # ['first', 'second']
+
+    [c.start for c in vtt.iter_slice(start, end, overlapping=True, clip=True)]
+    # ['00:00:02.000', '00:00:03.000']
+
+A caption that only touches the range, ending at ``start`` or starting at
+``end``, does not overlap it. With ``clip`` the captions returned are copies,
+so neither trimming them nor later changes to them affect the captions of
+``vtt``. The text of a copy is kept as it is, including any timestamp tags.
+``clip`` needs ``overlapping``, and ``ValueError`` is raised without it, when
+the iteration starts.
+
+To save the captions of a clip, keep the styles and regions the captions may
+use, and move the captions to the start of the clip:
+
+.. code-block:: python
+
+    clip = webvtt.WebVTT(
+        captions=list(vtt.iter_slice(start, end, overlapping=True, clip=True)),
+        styles=vtt.styles,
+        regions=vtt.regions
+        )
+    clip.shift(-2)
+    clip.save('clip.vtt')
 
 
 Creating captions
@@ -570,6 +605,39 @@ read with ``from_srt`` or ``from_buffer`` in SRT format and an
 Saving text that the encoding cannot write raises ``UnicodeEncodeError``,
 leaving an existing file unchanged.
 
+A file with bytes that are not valid in its encoding raises
+``UnicodeDecodeError`` when it is read. This is common with SRT files saved
+in Windows-1252: read them with ``encoding='cp1252'``, or, when the encoding
+is not known, give ``errors`` to ``read``, ``from_srt``, ``from_sbv`` or
+``from_buffer``, as in ``bytes.decode``, to replace or drop those bytes:
+
+.. code-block:: python
+
+    import webvtt
+
+    # invalid bytes are read as U+FFFD
+    vtt = webvtt.from_srt('captions.srt', errors='replace')
+
+    # invalid bytes are dropped
+    vtt = webvtt.from_srt('captions.srt', errors='ignore')
+
+    # keep the original file, as the bytes cannot be recovered
+    vtt.save_as_srt('edited.srt')
+
+Replaced or dropped bytes are lost for good, and ``save_as_srt()`` without an
+output overwrites an SRT file that was read, so save to another path to keep
+the original. With an ``encoding`` that cannot write U+FFFD, such as
+``cp1252``, saving replaced bytes with ``save_as_srt()`` raises
+``UnicodeEncodeError``: give ``encoding='utf-8'`` to save them.
+
+An invalid byte in a timing line also affects the cue. With ``'replace'`` the
+timing is not valid, so the cue is handled like any other with invalid timing:
+ignored, or raising an error with strict parsing or in SBV format. With
+``'ignore'`` the timing is read without the byte.
+
+``from_buffer`` only uses ``errors`` for binary data. A file opened in text
+mode decodes its own data, so give ``errors`` to ``open`` for it instead.
+
 
 Segmenting captions for HLS
 ---------------------------
@@ -927,7 +995,30 @@ Strict parsing
 
 By default the parser ignores blocks it cannot parse, so a cue with
 malformed timings such as ``00:00:00.-004 --> 00:00:04.300`` or out of
-range ones such as ``00:00:61.000 --> 00:00:62.000`` is skipped.
+range ones such as ``00:00:61.000 --> 00:00:62.000`` is skipped. The blocks
+that are skipped are kept in the ``parse_issues`` attribute as
+``webvtt.ParseIssue`` objects, each with its line number, a message and its
+lines, for WebVTT, SRT and SBV:
+
+.. code-block:: python
+
+    import webvtt
+
+    vtt = webvtt.read('captions.vtt')
+
+    for issue in vtt.parse_issues:
+        # line 42: Invalid cue block ['00:00.000 --> 00:0x.000', 'bad']
+        print(issue)
+
+        issue.line     # 42
+        issue.message  # "Invalid cue block ['00:00.000 --> 00:0x.000', 'bad']"
+        issue.lines    # ['00:00.000 --> 00:0x.000', 'bad']
+
+Only whole blocks are recorded, including SRT and SBV cues without text.
+Content dropped from a block that is still read, such as a cue setting that
+is not valid, is not recorded. ``parse_issues`` is empty for captions that
+were not read from a file, a buffer or a string.
+
 To validate the content, pass ``strict=True`` to ``read``,
 ``from_buffer`` or ``from_string`` and a ``MalformedCaptionError`` is
 raised instead. Strict parsing also raises the error for:
@@ -942,11 +1033,15 @@ raised instead. Strict parsing also raises the error for:
 * a cue that is not separated from the previous cue, comment or style by
   an empty line
 
+The message of these errors starts with the line number of the block, or of
+the cue timings line for a cue that is not separated by an empty line, as in
+``line 42: Invalid cue block ['00:00.000 --> 00:0x.000', 'bad']``.
+
 For region settings and regions after the first cue, the error is
 ``MalformedRegionError``, a subclass of ``MalformedCaptionError``.
 
-Strict parsing also raises ``MalformedFileError`` when ``WEBVTT`` is
-followed by text other than a space or a tab in the first line, such as
+Strict parsing also raises ``MalformedFileError``, also starting with the
+line number, when ``WEBVTT`` is followed by text other than a space or a tab in the first line, such as
 ``WEBVTTX``, which the default parsing reads.
 
 Strict parsing is only for WebVTT. SRT and SBV have no specification to

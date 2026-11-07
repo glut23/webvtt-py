@@ -1,6 +1,7 @@
 """WebVTT module."""
 
 import codecs
+import copy
 import datetime
 import os
 import io
@@ -12,6 +13,7 @@ from . import srt
 from . import sbv
 from .models import (
     Caption,
+    ParseIssue,
     Region,
     Style,
     Timestamp,
@@ -66,7 +68,9 @@ class WebVTT:
         `from_srt`, `from_sbv`, `from_buffer` or `from_string` to read
         captions. The ``file`` attribute is the path the captions were read
         from or last saved to, which `save` uses when no output is given,
-        and can be set to choose where they are saved.
+        and can be set to choose where they are saved. The ``parse_issues``
+        attribute is the list of `ParseIssue` of the blocks that were skipped
+        when reading the captions, empty when they were not read.
 
         The lists are kept as the attributes, not copied, so changes to a
         list after creating the instance show in it.
@@ -111,6 +115,7 @@ class WebVTT:
         self.header_text = header_text or ''
         self.metadata = _list_or_new(metadata)
         self.regions = _list_or_new(regions)
+        self.parse_issues: typing.List[ParseIssue] = []
         self._has_bom = False
         self.encoding = DEFAULT_ENCODING
         # the encoding given to read SRT, which save_as_srt keeps
@@ -139,7 +144,8 @@ class WebVTT:
             cls,
             file: str,
             encoding: typing.Optional[str] = None,
-            strict: bool = False
+            strict: bool = False,
+            errors: typing.Optional[str] = 'strict'
             ) -> 'WebVTT':
         """
         Read a WebVTT captions file.
@@ -149,14 +155,23 @@ class WebVTT:
             by default. It is only used for reading, as WebVTT files are
             saved in UTF-8 unless another encoding is given
         :param strict: raise an error on blocks that are not valid WebVTT
-            instead of ignoring them
+            instead of skipping them, which keeps them in ``parse_issues``
+        :param errors: how bytes that are not valid in the encoding are
+            handled, as in ``bytes.decode``: ``'strict'`` (the default)
+            raises ``UnicodeDecodeError``, ``'replace'`` reads them as
+            U+FFFD and ``'ignore'`` drops them
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the file is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp,
             or if strict and a block is not valid WebVTT
+        :raises UnicodeDecodeError: if the file cannot be decoded and errors
+            is ``'strict'``
+        :raises LookupError: if the errors handler is not known
         """
-        with utils.FileWrapper.open(file, encoding=encoding) as fw:
+        with utils.FileWrapper.open(
+                file, encoding=encoding, errors=errors
+                ) as fw:
             instance = cls.from_buffer(fw.file, strict=strict)
             if fw.bom_encoding:
                 instance.encoding = fw.bom_encoding
@@ -192,7 +207,8 @@ class WebVTT:
             buffer: typing.Union[typing.Iterable[str], typing.BinaryIO],
             format: str = 'vtt',
             strict: bool = False,
-            encoding: typing.Optional[str] = None
+            encoding: typing.Optional[str] = None,
+            errors: typing.Optional[str] = 'strict'
             ) -> 'WebVTT':
         """
         Read WebVTT captions from a file-like object.
@@ -212,11 +228,16 @@ class WebVTT:
             iterable of lines
         :param format: the format of the data (vtt, srt or sbv)
         :param strict: raise an error on blocks that are not valid WebVTT
-            instead of ignoring them, only for the vtt format, as SRT and
-            SBV have no strict parsing
+            instead of skipping them, which keeps them in ``parse_issues``,
+            only for the vtt format, as SRT and SBV have no strict parsing
         :param encoding: encoding of binary data without a Byte Order Mark,
             UTF-8 by default. For the srt format, `save_as_srt` saves in the
             same encoding
+        :param errors: how bytes of binary data that are not valid in the
+            encoding are handled, as in ``bytes.decode``: ``'strict'`` (the
+            default) raises ``UnicodeDecodeError``, ``'replace'`` reads them
+            as U+FFFD and ``'ignore'`` drops them. It has no effect on text,
+            as a file opened in text mode decodes its own data
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the data is not in the right format
@@ -224,7 +245,9 @@ class WebVTT:
             or if strict and a block is not valid WebVTT
         :raises ValueError: if the format is not supported, or strict is
             given for the srt or sbv format
-        :raises UnicodeDecodeError: if binary data cannot be decoded
+        :raises UnicodeDecodeError: if binary data cannot be decoded and
+            errors is ``'strict'``
+        :raises LookupError: if the errors handler is not known
         :raises TypeError: if the buffer is a string or bytes, use
             from_string to read a string or io.BytesIO to read bytes
         """
@@ -234,12 +257,17 @@ class WebVTT:
             raise ValueError(
                 f'Strict parsing is not supported for the {format} format'
                 )
+        utils._check_errors(errors)
 
         file = _buffer_file(buffer)
-        lines, bom_encoding, binary = cls._read_buffer(buffer, encoding)
+        lines, bom_encoding, binary = cls._read_buffer(
+            buffer, encoding, errors
+            )
 
+        issues: typing.List[ParseIssue] = []
         if format == 'vtt':
             output = vtt.parse(cls._get_lines(lines), strict)
+            issues = output.issues
             instance = cls(
                 captions=output.captions,
                 styles=output.styles,
@@ -250,10 +278,11 @@ class WebVTT:
                 regions=output.regions
                 )
         elif format == 'srt':
-            instance = cls(captions=srt.parse(cls._get_lines(lines)))
+            instance = cls(captions=srt.parse(cls._get_lines(lines), issues))
         else:
-            instance = cls(captions=sbv.parse(cls._get_lines(lines)))
+            instance = cls(captions=sbv.parse(cls._get_lines(lines), issues))
 
+        instance.parse_issues = issues
         instance.file = file
         if bom_encoding:
             instance.encoding = bom_encoding
@@ -265,7 +294,8 @@ class WebVTT:
     @staticmethod
     def _read_buffer(
             buffer: typing.Union[typing.Iterable[str], typing.BinaryIO],
-            encoding: typing.Optional[str]
+            encoding: typing.Optional[str],
+            errors: typing.Optional[str]
             ) -> typing.Tuple[
                 typing.Iterable[str], typing.Optional[str], bool
                 ]:
@@ -277,6 +307,7 @@ class WebVTT:
 
         :param buffer: the file-like object, or an iterable of lines
         :param encoding: encoding of binary data without a BOM
+        :param errors: how decoding errors are handled
         :returns: the lines, the encoding of the BOM of binary data or
             None, and whether the data was binary
 
@@ -306,7 +337,10 @@ class WebVTT:
         if bom_encoding:
             data = data[len(utils.CODEC_BOMS[bom_encoding]):]
         return (
-            [data.decode(bom_encoding or encoding or 'utf-8')],
+            [data.decode(
+                bom_encoding or encoding or 'utf-8',
+                errors or 'strict'
+                )],
             bom_encoding,
             True
             )
@@ -315,7 +349,8 @@ class WebVTT:
     def from_srt(
             cls,
             file: str,
-            encoding: typing.Optional[str] = None
+            encoding: typing.Optional[str] = None,
+            errors: typing.Optional[str] = 'strict'
             ) -> 'WebVTT':
         """
         Read captions from a file in SubRip format.
@@ -324,12 +359,21 @@ class WebVTT:
         :param encoding: encoding of a file without a Byte Order Mark, UTF-8
             by default. `save_as_srt` saves in the same encoding, while
             `save` saves WebVTT in UTF-8 unless another encoding is given
+        :param errors: how bytes that are not valid in the encoding are
+            handled, as in ``bytes.decode``: ``'strict'`` (the default)
+            raises ``UnicodeDecodeError``, ``'replace'`` reads them as
+            U+FFFD and ``'ignore'`` drops them
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the file is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp
+        :raises UnicodeDecodeError: if the file cannot be decoded and errors
+            is ``'strict'``
+        :raises LookupError: if the errors handler is not known
         """
-        with utils.FileWrapper.open(file, encoding=encoding) as fw:
+        with utils.FileWrapper.open(
+                file, encoding=encoding, errors=errors
+                ) as fw:
             instance = cls.from_buffer(fw.file, format='srt')
             if not fw.bom_encoding:
                 instance._srt_encoding = encoding
@@ -339,7 +383,8 @@ class WebVTT:
     def from_sbv(
             cls,
             file: str,
-            encoding: typing.Optional[str] = None
+            encoding: typing.Optional[str] = None,
+            errors: typing.Optional[str] = 'strict'
             ) -> 'WebVTT':
         """
         Read captions from a file in YouTube SBV format.
@@ -348,12 +393,21 @@ class WebVTT:
         :param encoding: encoding of a file without a Byte Order Mark, UTF-8
             by default. It is only used for reading, as WebVTT files are
             saved in UTF-8 unless another encoding is given
+        :param errors: how bytes that are not valid in the encoding are
+            handled, as in ``bytes.decode``: ``'strict'`` (the default)
+            raises ``UnicodeDecodeError``, ``'replace'`` reads them as
+            U+FFFD and ``'ignore'`` drops them
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the file is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp
+        :raises UnicodeDecodeError: if the file cannot be decoded and errors
+            is ``'strict'``
+        :raises LookupError: if the errors handler is not known
         """
-        with utils.FileWrapper.open(file, encoding=encoding) as fw:
+        with utils.FileWrapper.open(
+                file, encoding=encoding, errors=errors
+                ) as fw:
             return cls.from_buffer(fw.file, format='sbv')
 
     @classmethod
@@ -363,7 +417,7 @@ class WebVTT:
 
         :param string: the captions in a string
         :param strict: raise an error on blocks that are not valid WebVTT
-            instead of ignoring them
+            instead of skipping them, which keeps them in ``parse_issues``
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the string is not in the right format
@@ -371,7 +425,7 @@ class WebVTT:
             or if strict and a block is not valid WebVTT
         """
         output = vtt.parse(cls._get_lines([string]), strict)
-        return cls(
+        instance = cls(
             captions=output.captions,
             styles=output.styles,
             header_comments=output.header_comments,
@@ -380,6 +434,8 @@ class WebVTT:
             metadata=output.metadata,
             regions=output.regions
         )
+        instance.parse_issues = output.issues
+        return instance
 
     @staticmethod
     def _get_lines(lines: typing.Iterable[str]) -> typing.List[str]:
@@ -562,27 +618,46 @@ class WebVTT:
     def iter_slice(
             self,
             start: typing.Optional[str] = None,
-            end: typing.Optional[str] = None
+            end: typing.Optional[str] = None,
+            *,
+            overlapping: bool = False,
+            clip: bool = False
             ) -> typing.Generator[Caption, None, None]:
         """
         Iterate a slice of the captions based on a time range.
 
-        Only the captions within the range are returned: a caption that
-        starts before ``start`` or ends after ``end`` is left out.
+        By default only the captions within the range are returned: a
+        caption that starts before ``start`` or ends after ``end`` is left
+        out.
 
         :param start: start timestamp of the range
         :param end: end timestamp of the range
+        :param overlapping: also return the captions with part of them in
+            the range. A caption that only touches the range, ending at
+            ``start`` or starting at ``end``, is not in it, and a range with
+            ``end`` not after ``start`` overlaps no caption
+        :param clip: return copies of the captions trimmed to the range,
+            leaving the captions unchanged. It needs ``overlapping``, as
+            only those captions have a part out of the range. The text is
+            kept as it is, including any timestamp tags
         :returns: generator of Captions
+
+        :raises ValueError: when the iteration starts, if clip is given
+            without overlapping
+        :raises MalformedCaptionError: when the iteration starts, if start or
+            end are not valid
         """
+        if clip and not overlapping:
+            raise ValueError('clip needs overlapping')
+
         start_time = Timestamp.from_string(start) if start else None
         end_time = Timestamp.from_string(end) if end else None
+        in_range = _overlaps_range if overlapping else _within_range
 
         for caption in self.captions:
-            if (
-                    (not start_time or caption.start_time >= start_time) and
-                    (not end_time or caption.end_time <= end_time)
-                    ):
-                yield caption
+            if in_range(caption, start_time, end_time):
+                yield (_clipped(caption, start_time, end_time) if clip
+                       else caption)
 
     def shift(
             self,
@@ -791,3 +866,73 @@ def _list_or_new(items: typing.Optional[typing.List[_T]]) -> typing.List[_T]:
     :returns: the list, or a new empty list
     """
     return [] if items is None else items
+
+
+def _within_range(
+        caption: Caption,
+        start: typing.Optional[Timestamp],
+        end: typing.Optional[Timestamp]
+        ) -> bool:
+    """
+    Return whether a caption is within a time range.
+
+    :param caption: the caption
+    :param start: the start of the range, or None if it has no start
+    :param end: the end of the range, or None if it has no end
+    :returns: true if the caption does not start before the range or end
+        after it
+    """
+    return (
+        (not start or caption.start_time >= start) and
+        (not end or caption.end_time <= end)
+        )
+
+
+def _overlaps_range(
+        caption: Caption,
+        start: typing.Optional[Timestamp],
+        end: typing.Optional[Timestamp]
+        ) -> bool:
+    """
+    Return whether a caption has any part in a time range.
+
+    A caption within the range is always in it, also one without duration
+    on its limits. Others must share some time with the range, so a caption
+    only touching the range is not in it, and a range without duration
+    overlaps nothing.
+
+    :param caption: the caption
+    :param start: the start of the range, or None if it has no start
+    :param end: the end of the range, or None if it has no end
+    :returns: true if the caption is within or overlaps the range
+    """
+    if _within_range(caption, start, end):
+        return True
+    if start and end and start >= end:
+        return False
+    return (
+        (not start or caption.end_time > start) and
+        (not end or caption.start_time < end)
+        )
+
+
+def _clipped(
+        caption: Caption,
+        start: typing.Optional[Timestamp],
+        end: typing.Optional[Timestamp]
+        ) -> Caption:
+    """
+    Return a copy of a caption trimmed to a time range.
+
+    :param caption: the caption, which is left unchanged
+    :param start: the start of the range, or None if it has no start
+    :param end: the end of the range, or None if it has no end
+    :returns: a copy sharing nothing with the caption, nor its times with
+        other copies
+    """
+    clipped = copy.deepcopy(caption)
+    if start and clipped.start_time < start:
+        clipped.start = str(start)
+    if end and clipped.end_time > end:
+        clipped.end = str(end)
+    return clipped

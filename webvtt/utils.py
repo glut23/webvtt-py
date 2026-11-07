@@ -20,6 +20,9 @@ _BOM_WRITING_CODECS = ('utf-8-sig', 'utf-16', 'utf-32')
 # the line terminators of WebVTT, characters like U+2028 do not break lines
 _LINE_TERMINATOR = re.compile(r'\r\n|\r|\n')
 
+# the line number where a block of text starts, from 1, and its lines
+_NumberedBlock = typing.Tuple[int, typing.List[str]]
+
 
 def _split_lines(text: str) -> typing.List[str]:
     """
@@ -38,6 +41,20 @@ def _split_lines(text: str) -> typing.List[str]:
     return lines
 
 
+def _check_errors(errors: typing.Optional[str]):
+    """
+    Check the name of an error handler for decoding.
+
+    Decoding only looks up the handler on invalid bytes, so a wrong name
+    would otherwise go unnoticed until a file has them.
+
+    :param errors: the name of the error handler, or None for the default
+    :raises LookupError: if the error handler is not known
+    """
+    if errors is not None:
+        codecs.lookup_error(errors)
+
+
 class FileWrapper:
     """File handling functionality with built-in support for Byte OrderMark."""
 
@@ -45,7 +62,8 @@ class FileWrapper:
             self,
             file_path: str,
             mode: typing.Optional[str] = None,
-            encoding: typing.Optional[str] = None
+            encoding: typing.Optional[str] = None,
+            errors: typing.Optional[str] = None
             ):
         """
         Initialize.
@@ -53,9 +71,14 @@ class FileWrapper:
         :param file_path: path to the file
         :param mode: mode in which the file is opened
         :param encoding: name of the encoding used to decode the file
+        :param errors: how decoding errors are handled, as in open()
+
+        :raises LookupError: if the error handler is not known
         """
+        _check_errors(errors)
         self.file_path = file_path
         self.mode = mode or 'r'
+        self.errors = errors
         self.bom_encoding = self.detect_bom_encoding(file_path)
         self.encoding = (self.bom_encoding or
                          encoding or
@@ -67,7 +90,8 @@ class FileWrapper:
             cls,
             file_path: str,
             mode: typing.Optional[str] = None,
-            encoding: typing.Optional[str] = None
+            encoding: typing.Optional[str] = None,
+            errors: typing.Optional[str] = None
             ) -> 'FileWrapper':
         """
         Open a file.
@@ -75,15 +99,17 @@ class FileWrapper:
         :param file_path: path to the file
         :param mode: mode in which the file is opened
         :param encoding: name of the encoding used to decode the file
+        :param errors: how decoding errors are handled, as in open()
         """
-        return cls(file_path, mode, encoding)
+        return cls(file_path, mode, encoding, errors)
 
     def __enter__(self):
         """Enter context."""
         self.file = open(
             file=self.file_path,
             mode=self.mode,
-            encoding=self.encoding
+            encoding=self.encoding,
+            errors=self.errors
             )
         if self.bom_encoding:
             self.file.seek(len(CODEC_BOMS[self.bom_encoding]))
@@ -153,14 +179,28 @@ def iter_blocks_of_lines(
 
     :param lines: lines of text.
     """
-    current_text_block = []
+    for _, block in _iter_numbered_blocks(lines):
+        yield block
 
-    for line in lines:
+
+def _iter_numbered_blocks(
+        lines: typing.Iterable[str]
+        ) -> typing.Generator[_NumberedBlock, None, None]:
+    """
+    Iterate blocks of text with the line number where each one starts.
+
+    :param lines: lines of text.
+    :returns: the line number where each block starts, from 1, and its lines
+    """
+    current_text_block: typing.List[str] = []
+    number = 0
+
+    for number, line in enumerate(lines, 1):
         if line.strip():
             current_text_block.append(line)
         elif current_text_block:
-            yield current_text_block
+            yield number - len(current_text_block), current_text_block
             current_text_block = []
 
     if current_text_block:
-        yield current_text_block
+        yield number + 1 - len(current_text_block), current_text_block

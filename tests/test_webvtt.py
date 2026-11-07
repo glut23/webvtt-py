@@ -842,6 +842,154 @@ class TestWebVTT(unittest.TestCase):
         self.assertEqual(vtt[0].text, 'Caption ñ')
         self.assertEqual(vtt.encoding, 'utf-8')
 
+    def test_read_errors(self):
+        vtt = 'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCaf\xe9\n'
+        srt = '1\n00:00:00,500 --> 00:00:07,000\nCaf\xe9\n'
+        sbv = '0:00:00.500,0:00:07.000\nCaf\xe9\n'
+        with tempfile.TemporaryDirectory() as td:
+            for name, content, read in (
+                    ('in.vtt', vtt, webvtt.read),
+                    ('in.srt', srt, webvtt.from_srt),
+                    ('in.sbv', sbv, webvtt.from_sbv)):
+                with self.subTest(name=name):
+                    path = pathlib.Path(td, name)
+                    path.write_bytes(content.encode('cp1252'))
+
+                    with self.assertRaises(UnicodeDecodeError):
+                        read(path)
+                    with self.assertRaises(UnicodeDecodeError):
+                        read(path, errors='strict')
+
+                    self.assertEqual(
+                        read(path, errors='replace')[0].text,
+                        'Caf\ufffd'
+                        )
+                    self.assertEqual(
+                        read(path, errors='ignore')[0].text,
+                        'Caf'
+                        )
+
+    def test_from_buffer_binary_errors(self):
+        content = 'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCaf\xe9\n'
+        buffer = io.BytesIO(content.encode('cp1252'))
+
+        with self.assertRaises(UnicodeDecodeError):
+            webvtt.from_buffer(buffer)
+
+        buffer.seek(0)
+        vtt = webvtt.from_buffer(buffer, errors='replace')
+        self.assertEqual(vtt[0].text, 'Caf\ufffd')
+
+        buffer.seek(0)
+        vtt = webvtt.from_buffer(buffer, format='vtt', errors='ignore')
+        self.assertEqual(vtt[0].text, 'Caf')
+
+    def test_from_buffer_binary_errors_srt_and_sbv(self):
+        srt = b'1\n00:00:00,500 --> 00:00:07,000\nCaf\xe9\n'
+        sbv = b'0:00:00.500,0:00:07.000\nCaf\xe9\n'
+        for format, content in (('srt', srt), ('sbv', sbv)):
+            with self.subTest(format=format):
+                vtt = webvtt.from_buffer(
+                    io.BytesIO(content), format=format, errors='replace'
+                    )
+                self.assertEqual(vtt[0].text, 'Caf�')
+
+                vtt = webvtt.from_buffer(
+                    io.BytesIO(content), format=format, errors='ignore'
+                    )
+                self.assertEqual(vtt[0].text, 'Caf')
+
+    def test_read_errors_with_bom(self):
+        content = (b'\xef\xbb\xbfWEBVTT\n\n'
+                   b'00:00:00.500 --> 00:00:07.000\nCaf\xe9\n')
+        with tempfile.TemporaryDirectory() as td:
+            path = pathlib.Path(td, 'in.vtt')
+            path.write_bytes(content)
+            vtt = webvtt.read(path, errors='replace')
+        self.assertEqual(vtt[0].text, 'Caf�')
+        self.assertEqual(vtt.encoding, 'utf-8')
+
+        vtt = webvtt.from_buffer(io.BytesIO(content), errors='ignore')
+        self.assertEqual(vtt[0].text, 'Caf')
+        self.assertEqual(vtt.encoding, 'utf-8')
+
+    def test_errors_none_is_strict(self):
+        content = b'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCaf\xe9\n'
+        with tempfile.TemporaryDirectory() as td:
+            path = pathlib.Path(td, 'in.vtt')
+            path.write_bytes(content)
+            with self.assertRaises(UnicodeDecodeError):
+                webvtt.read(path, errors=None)
+        with self.assertRaises(UnicodeDecodeError):
+            webvtt.from_buffer(io.BytesIO(content), errors=None)
+
+        valid = 'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCafé\n'
+        vtt = webvtt.from_buffer(
+            io.BytesIO(valid.encode('utf-8')), errors=None
+            )
+        self.assertEqual(vtt[0].text, 'Café')
+
+    def test_unknown_errors_handler(self):
+        vtt = b'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCaption\n'
+        srt = b'1\n00:00:00,500 --> 00:00:07,000\nCaption\n'
+        sbv = b'0:00:00.500,0:00:07.000\nCaption\n'
+        with tempfile.TemporaryDirectory() as td:
+            for name, content, read in (
+                    ('in.vtt', vtt, webvtt.read),
+                    ('in.srt', srt, webvtt.from_srt),
+                    ('in.sbv', sbv, webvtt.from_sbv)):
+                with self.subTest(name=name):
+                    path = pathlib.Path(td, name)
+                    path.write_bytes(content)
+                    with self.assertRaises(LookupError):
+                        read(path, errors='unknown')
+
+        for buffer in (io.BytesIO(vtt), io.StringIO(vtt.decode('utf-8'))):
+            with self.subTest(buffer=type(buffer).__name__):
+                with self.assertRaises(LookupError):
+                    webvtt.from_buffer(buffer, errors='unknown')
+
+    def test_from_buffer_errors_has_no_effect_on_text(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = pathlib.Path(td, 'in.vtt')
+            path.write_bytes(
+                b'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCaf\xe9\n'
+                )
+            with open(path, encoding='utf-8') as f:
+                with self.assertRaises(UnicodeDecodeError):
+                    webvtt.from_buffer(f, errors='replace')
+
+    def test_save_as_srt_replaced_bytes_in_encoding_of_file(self):
+        content = b'1\n00:00:00,500 --> 00:00:07,000\nCaf\x81\n'
+        with tempfile.TemporaryDirectory() as td:
+            path = pathlib.Path(td, 'in.srt')
+            path.write_bytes(content)
+            vtt = webvtt.from_srt(path, encoding='cp1252', errors='replace')
+            self.assertEqual(vtt[0].text, 'Caf�')
+
+            with self.assertRaises(UnicodeEncodeError):
+                vtt.save_as_srt()
+            self.assertEqual(path.read_bytes(), content)
+
+            output = pathlib.Path(td, 'out.srt')
+            vtt.save_as_srt(output, encoding='utf-8')
+            self.assertIn('Caf�', output.read_text(encoding='utf-8'))
+
+    def test_errors_in_timing_line(self):
+        content = (b'WEBVTT\n\n00:00:0\xe91.000 --> 00:00:07.000\nOne\n\n'
+                   b'00:00:08.000 --> 00:00:09.000\nTwo\n')
+
+        vtt = webvtt.from_buffer(io.BytesIO(content), errors='replace')
+        self.assertEqual([c.text for c in vtt], ['Two'])
+
+        with self.assertRaises(MalformedCaptionError):
+            webvtt.from_buffer(
+                io.BytesIO(content), strict=True, errors='replace'
+                )
+
+        vtt = webvtt.from_buffer(io.BytesIO(content), errors='ignore')
+        self.assertEqual(vtt[0].start, '00:00:01.000')
+
     def test_from_buffer_string(self):
         content = 'WEBVTT\n\n00:00:00.500 --> 00:00:07.000\nCaption\n'
         for buffer, hint in (
@@ -2821,3 +2969,215 @@ class TestParseSBV(unittest.TestCase):
 
         with self.assertRaises(StopIteration):
             next(slice_of_captions)
+
+    def _iter_slice_captions(self):
+        return webvtt.WebVTT(captions=[
+            Caption('00:00:01.000', '00:00:05.000', 'a'),
+            Caption('00:00:03.000', '00:00:04.000', 'b'),
+            Caption('00:00:05.000', '00:00:09.000', 'c'),
+            Caption('00:00:09.000', '00:00:10.000', 'd')
+            ])
+
+    def test_iter_slice_default_leaves_out_overlapping_captions(self):
+        vtt = self._iter_slice_captions()
+        self.assertEqual(
+            [c.text for c in vtt.iter_slice('00:00:02.000', '00:00:06.000')],
+            ['b']
+            )
+
+    def test_iter_slice_overlapping(self):
+        vtt = self._iter_slice_captions()
+        for start, end, expected in (
+                ('00:00:02.000', '00:00:06.000', ['a', 'b', 'c']),
+                ('00:00:03.500', '00:00:03.600', ['a', 'b']),
+                (None, '00:00:02.000', ['a']),
+                ('00:00:08.000', None, ['c', 'd']),
+                (None, None, ['a', 'b', 'c', 'd']),
+                ('00:00:20.000', None, [])):
+            with self.subTest(start=start, end=end):
+                self.assertEqual(
+                    [c.text for c in
+                     vtt.iter_slice(start, end, overlapping=True)],
+                    expected
+                    )
+
+    def test_iter_slice_overlapping_returns_the_captions(self):
+        vtt = self._iter_slice_captions()
+        captions = list(vtt.iter_slice('00:00:02.000', '00:00:06.000',
+                                       overlapping=True
+                                       ))
+        self.assertEqual(len(captions), 3)
+        for caption, expected in zip(captions, vtt.captions):
+            self.assertIs(caption, expected)
+
+    def test_iter_slice_overlapping_caption_only_touching_the_range(self):
+        vtt = self._iter_slice_captions()
+        for start, end, expected in (
+                ('00:00:05.000', '00:00:09.000', ['c']),
+                ('00:00:04.000', '00:00:05.000', ['a']),
+                ('00:00:10.000', None, []),
+                (None, '00:00:01.000', [])):
+            with self.subTest(start=start, end=end):
+                self.assertEqual(
+                    [c.text for c in
+                     vtt.iter_slice(start, end, overlapping=True)],
+                    expected
+                    )
+
+    def test_iter_slice_overlapping_includes_what_the_default_returns(self):
+        vtt = webvtt.WebVTT(captions=[
+            Caption('00:00:02.000', '00:00:02.000', 'at start'),
+            Caption('00:00:04.000', '00:00:04.000', 'inside'),
+            Caption('00:00:06.000', '00:00:06.000', 'at end'),
+            Caption('00:00:07.000', '00:00:07.000', 'after')
+            ])
+        range_ = ('00:00:02.000', '00:00:06.000')
+        self.assertEqual(
+            list(vtt.iter_slice(*range_, overlapping=True)),
+            list(vtt.iter_slice(*range_))
+            )
+        self.assertEqual(
+            [c.text for c in vtt.iter_slice(*range_, overlapping=True)],
+            ['at start', 'inside', 'at end']
+            )
+
+    def test_iter_slice_overlapping_range_without_duration(self):
+        vtt = self._iter_slice_captions()
+        for start, end in (('00:00:03.500', '00:00:03.500'),
+                           ('00:00:06.000', '00:00:02.000')):
+            with self.subTest(start=start, end=end):
+                self.assertEqual(
+                    list(vtt.iter_slice(start, end, overlapping=True)),
+                    []
+                    )
+
+    def test_iter_slice_clip(self):
+        vtt = self._iter_slice_captions()
+        self.assertEqual(
+            [(c.start, c.end, c.text) for c in vtt.iter_slice(
+                '00:00:02.000', '00:00:06.000', overlapping=True, clip=True
+                )],
+            [('00:00:02.000', '00:00:05.000', 'a'),
+             ('00:00:03.000', '00:00:04.000', 'b'),
+             ('00:00:05.000', '00:00:06.000', 'c')]
+            )
+
+    def test_iter_slice_clip_open_range(self):
+        vtt = self._iter_slice_captions()
+        for start, end, expected in (
+                (None, '00:00:02.000', [('00:00:01.000', '00:00:02.000')]),
+                ('00:00:09.500', None, [('00:00:09.500', '00:00:10.000')])):
+            with self.subTest(start=start, end=end):
+                self.assertEqual(
+                    [(c.start, c.end) for c in vtt.iter_slice(
+                        start, end, overlapping=True, clip=True
+                        )],
+                    expected
+                    )
+
+    def test_iter_slice_clip_inside_a_caption(self):
+        vtt = self._iter_slice_captions()
+        caption = next(vtt.iter_slice('00:00:01.500', '00:00:02.500',
+                                      overlapping=True, clip=True
+                                      ))
+        self.assertEqual(
+            (caption.start, caption.end),
+            ('00:00:01.500', '00:00:02.500')
+            )
+
+    def test_iter_slice_clip_keeps_the_rest_of_the_caption(self):
+        original = Caption('00:00:01.000', '00:00:05.000',
+                           ['<v Bob>one', 'two'], 'cue-1', 'line:0'
+                           )
+        original.comments = ['comment']
+        vtt = webvtt.WebVTT(captions=[original])
+        caption = next(vtt.iter_slice('00:00:02.000', overlapping=True,
+                                      clip=True
+                                      ))
+        self.assertEqual(caption.raw_text, original.raw_text)
+        self.assertEqual(caption.identifier, 'cue-1')
+        self.assertEqual(str(caption.settings), 'line:0')
+        self.assertEqual(caption.comments, ['comment'])
+
+    def test_iter_slice_clip_leaves_the_captions_unchanged(self):
+        vtt = self._iter_slice_captions()
+        expected = [(c.start, c.end) for c in vtt.captions]
+        copies = list(vtt.iter_slice('00:00:02.000', '00:00:06.000',
+                                     overlapping=True, clip=True
+                                     ))
+        self.assertEqual([(c.start, c.end) for c in vtt.captions], expected)
+
+        self.assertEqual(len(copies), 3)
+        for caption, source in zip(copies, vtt.captions):
+            self.assertIsNot(caption, source)
+
+        # also a copy with nothing to trim
+        copies[1].lines.append('changed')
+        copies[1].comments.append('changed')
+        copies[1].settings.line = '0'
+        copies[1].start_time.seconds = 1
+        self.assertEqual(vtt.captions[1].text, 'b')
+        self.assertEqual(vtt.captions[1].comments, [])
+        self.assertFalse(vtt.captions[1].settings)
+        self.assertEqual(vtt.captions[1].start, '00:00:03.000')
+
+    def test_iter_slice_clip_copies_do_not_share_their_times(self):
+        vtt = webvtt.WebVTT(captions=[
+            Caption('00:00:01.000', '00:00:03.000', 'x'),
+            Caption('00:00:01.000', '00:00:03.000', 'y')
+            ])
+        x, y = vtt.iter_slice('00:00:02.000', '00:00:02.500',
+                              overlapping=True, clip=True
+                              )
+        x.start_time.seconds = 0
+        x.end_time.seconds = 0
+        self.assertEqual((y.start, y.end), ('00:00:02.000', '00:00:02.500'))
+
+    def test_iter_slice_clip_needs_overlapping(self):
+        vtt = self._iter_slice_captions()
+        with self.assertRaises(ValueError):
+            list(vtt.iter_slice('00:00:02.000', clip=True))
+
+    def test_iter_slice_new_arguments_are_keyword_only(self):
+        vtt = self._iter_slice_captions()
+        with self.assertRaises(TypeError):
+            vtt.iter_slice('00:00:02.000', '00:00:06.000', True)
+
+    def test_iter_slice_invalid_timestamp(self):
+        vtt = self._iter_slice_captions()
+        for kwargs in ({'overlapping': True},
+                       {'overlapping': True, 'clip': True}):
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaises(MalformedCaptionError):
+                    list(vtt.iter_slice('invalid', **kwargs))
+
+    def test_iter_slice_clip_can_be_saved(self):
+        vtt = webvtt.from_string(
+            'WEBVTT\n\nREGION\nid:r\n\nSTYLE\n::cue(.a) {color:red}\n\n'
+            '00:00:01.000 --> 00:00:05.000 region:r\n<c.a>one</c>\n\n'
+            '00:00:05.000 --> 00:00:09.000\ntwo\n'
+            )
+        clip = webvtt.WebVTT(
+            captions=list(vtt.iter_slice('00:00:02.000', '00:00:06.000',
+                                         overlapping=True, clip=True
+                                         )),
+            styles=vtt.styles,
+            regions=vtt.regions
+            )
+        clip.shift(-2)
+
+        self.assertEqual(
+            [(c.start, c.end) for c in clip],
+            [('00:00:00.000', '00:00:03.000'),
+             ('00:00:03.000', '00:00:04.000')]
+            )
+        self.assertEqual(
+            [(c.start, c.end) for c in vtt],
+            [('00:00:01.000', '00:00:05.000'),
+             ('00:00:05.000', '00:00:09.000')]
+            )
+
+        saved = webvtt.from_string(clip.content, strict=True)
+        self.assertEqual(saved.captions, clip.captions)
+        self.assertEqual(len(saved.regions), 1)
+        self.assertEqual(len(saved.styles), 1)

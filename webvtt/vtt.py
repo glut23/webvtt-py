@@ -7,8 +7,8 @@ from dataclasses import dataclass, field
 from .errors import (
     MalformedFileError, MalformedCaptionError, MalformedRegionError
     )
-from .models import Caption, CueSettings, Region, Style
-from .utils import _split_lines
+from .models import Caption, CueSettings, ParseIssue, Region, Style
+from .utils import _NumberedBlock, _split_lines
 
 _TIMESTAMP = r'(?:[0-9]+:)?[0-9]{1,2}:[0-9]{1,2}\.[0-9]{1,3}'
 _STRICT_TIMESTAMP = r'(?:[0-9]{2,}:)?[0-9]{2}:[0-9]{2}\.[0-9]{3}'
@@ -25,6 +25,7 @@ class ParserOutput:
     header_text: str = ''
     metadata: typing.List[str] = field(default_factory=list)
     regions: typing.List[Region] = field(default_factory=list)
+    issues: typing.List[ParseIssue] = field(default_factory=list)
 
     @classmethod
     def from_data(
@@ -43,7 +44,8 @@ class ParserOutput:
             styles=[it for it in items if isinstance(it, Style)],
             regions=[it for it in items if isinstance(it, Region)],
             header_comments=data.get('header_comments', []),
-            footer_comments=data.get('footer_comments', [])
+            footer_comments=data.get('footer_comments', []),
+            issues=data.get('issues', [])
             )
 
 
@@ -359,12 +361,11 @@ def parse(
     if not is_valid_content(lines):
         raise MalformedFileError('Invalid format')
     if strict and not _starts_with_keyword(lines[0], 'WEBVTT'):
-        raise MalformedFileError(f'Invalid header {lines[0]!r}')
+        raise MalformedFileError(f'line 1: Invalid header {lines[0]!r}')
 
     output = parse_items(lines, strict)
-    output.header_text, output.metadata = _parse_header(
-        next(_iter_blocks_of_lines(lines))
-        )
+    _, header = next(_iter_blocks_of_lines(lines))
+    output.header_text, output.metadata = _parse_header(header)
     return output
 
 
@@ -381,7 +382,7 @@ def is_valid_content(lines: typing.Sequence[str]) -> bool:
 def _iter_blocks_of_lines(
         lines: typing.Iterable[str],
         strict: bool = False
-        ) -> typing.Generator[typing.List[str], None, None]:
+        ) -> typing.Generator[_NumberedBlock, None, None]:
     """
     Iterate blocks of text following the WebVTT parsing rules.
 
@@ -392,21 +393,23 @@ def _iter_blocks_of_lines(
     :param lines: lines of text
     :param strict: raise an error when a block is not ended by an empty line
         before a cue timings line
+    :returns: the line number where each block starts, from 1, and its lines
 
     :raises MalformedCaptionError: if strict and a cue timings line follows
         a block without an empty line in between
     """
     block: typing.List[str] = []
     in_header = True
+    number = 0
 
-    for line in lines:
+    for number, line in enumerate(lines, 1):
         if not line or _starts_new_block(block, line, in_header):
             if strict and line and not in_header:
                 raise MalformedCaptionError(
-                    f'Invalid cue block {[*block, line]!r}'
+                    f'line {number}: Invalid cue block {[*block, line]!r}'
                     )
             if block:
-                yield block
+                yield number - len(block), block
                 block = []
                 in_header = False
 
@@ -414,7 +417,7 @@ def _iter_blocks_of_lines(
             block.append(line)
 
     if block:
-        yield block
+        yield number + 1 - len(block), block
 
 
 def _starts_new_block(
@@ -483,40 +486,89 @@ def parse_items(
     :param lines: lines of text
     :param strict: raise an error on blocks that are not valid WebVTT
         instead of ignoring them
-    :returns: an object `ParserOutput` with all parsed items
+    :returns: an object `ParserOutput` with all parsed items, and the blocks
+        that are skipped when not strict
 
     :raises MalformedCaptionError: if strict and the header contains "-->",
         or another block is not a valid cue, comment, style or region
     """
-    header_comments: typing.List[str] = []
     items: typing.List[typing.Union[Caption, Style, Region]] = []
     comments: typing.List[WebVTTCommentBlock] = []
+    issues: typing.List[ParseIssue] = []
     seen_cue = False
 
-    for index, block_lines in enumerate(_iter_blocks_of_lines(lines, strict)):
-        if _is_header(index, block_lines, strict):
-            continue
-        item = parse_item(block_lines, strict, seen_cue)
-        if not seen_cue:
-            seen_cue = _has_arrow(block_lines)
-        if item:
-            item.comments = [comment.text for comment in comments]
-            comments = []
-            items.append(item)
-        elif WebVTTCommentBlock.is_valid(block_lines):
-            comments.append(WebVTTCommentBlock.from_lines(block_lines))
-        elif strict:
-            raise _invalid_block_error(block_lines)
+    blocks = _iter_blocks_of_lines(lines, strict)
+    for index, (number, block_lines) in enumerate(blocks):
+        try:
+            if _is_header(index, block_lines, strict):
+                continue
+            item = parse_item(block_lines, strict, seen_cue)
+            if not seen_cue:
+                seen_cue = _has_arrow(block_lines)
+            if item:
+                item.comments = [comment.text for comment in comments]
+                comments = []
+                items.append(item)
+            elif WebVTTCommentBlock.is_valid(block_lines):
+                comments.append(WebVTTCommentBlock.from_lines(block_lines))
+            elif strict:
+                raise _invalid_block_error(block_lines)
+            else:
+                issues.append(ParseIssue(
+                    number,
+                    _skipped_block_message(block_lines, seen_cue),
+                    block_lines
+                    ))
+        except MalformedCaptionError as error:
+            raise type(error)(f'line {number}: {error}') from error
 
+    return _parser_output(items, comments, issues)
+
+
+def _parser_output(
+        items: typing.List[typing.Union[Caption, Style, Region]],
+        comments: typing.Sequence[WebVTTCommentBlock],
+        issues: typing.List[ParseIssue]
+        ) -> ParserOutput:
+    """
+    Return the output of the parser from the parsed blocks.
+
+    The comments of the first item are the comments of the header.
+
+    :param items: the parsed items
+    :param comments: the comments after the last item
+    :param issues: the blocks that are skipped
+    :returns: an object `ParserOutput`
+    """
+    header_comments: typing.List[str] = []
     if items:
         header_comments, items[0].comments = items[0].comments, header_comments
 
     return ParserOutput.from_data(
         {'items': items,
          'header_comments': header_comments,
-         'footer_comments': [comment.text for comment in comments]
+         'footer_comments': [comment.text for comment in comments],
+         'issues': issues
          }
         )
+
+
+def _skipped_block_message(
+        lines: typing.Sequence[str],
+        seen_cue: bool
+        ) -> str:
+    """
+    Return why a block is skipped, as the error strict parsing raises for it.
+
+    :param lines: the lines of the block
+    :param seen_cue: true if a cue came before the block
+    :returns: the message of the error
+    """
+    try:
+        parse_item(lines, True, seen_cue)
+    except MalformedCaptionError as error:
+        return str(error)
+    return str(_invalid_block_error(lines))
 
 
 def _is_header(
