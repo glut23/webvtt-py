@@ -306,7 +306,7 @@ class TestCaption(unittest.TestCase):
     def test_timestamp_wrong_type(self):
         with self.assertRaises(MalformedCaptionError):
             Caption(
-                start=1234,
+                start=['00:00:07.000'],
                 end='00:00:11.890',
                 text='Hello test!',
                 identifier='A test caption'
@@ -524,7 +524,7 @@ class TestCaption(unittest.TestCase):
         self.assertRaises(
             MalformedCaptionError,
             Caption,
-            start=1234,
+            start=['00:00:07.000'],
             end='00:00:11.890',
             text='Hello Test!'
             )
@@ -543,9 +543,77 @@ class TestCaption(unittest.TestCase):
             MalformedCaptionError,
             Caption,
             start='00:00:07.000',
-            end=1234,
+            end=['00:00:11.890'],
             text='Hello Test!'
             )
+
+    def test_times_of_other_types(self):
+        for start, end in (
+                (1.5, 2),
+                (Timestamp(0, 0, 1, 500), Timestamp(0, 0, 2, 0)),
+                (datetime.timedelta(seconds=1.5),
+                 datetime.timedelta(seconds=2)),
+                ('00:00:01.500', 2.0)):
+            with self.subTest(start=start, end=end):
+                caption = Caption(start, end, 'x')
+                self.assertEqual(caption.start, '00:00:01.500')
+                self.assertEqual(caption.end, '00:00:02.000')
+
+    def test_times_of_other_types_set(self):
+        caption = Caption('00:00:01.000', '00:00:02.000', 'x')
+
+        caption.start = Timestamp(0, 0, 3, 0)
+        caption.end = 4.25
+        self.assertEqual((caption.start, caption.end),
+                         ('00:00:03.000', '00:00:04.250'))
+
+        caption.start = datetime.timedelta(minutes=1)
+        self.assertEqual(caption.start, '00:01:00.000')
+
+    def test_times_zero(self):
+        for value in (0, 0.0, datetime.timedelta(0), Timestamp(), '', None):
+            with self.subTest(value=value):
+                caption = Caption(value, value, 'x')
+                self.assertEqual(caption.start, '00:00:00.000')
+                self.assertEqual(caption.end, '00:00:00.000')
+
+    def test_times_rounded_to_milliseconds(self):
+        caption = Caption(1.0005, datetime.timedelta(microseconds=2_499_500))
+        self.assertEqual(caption.start, '00:00:01.001')
+        self.assertEqual(caption.end, '00:00:02.500')
+
+    def test_timestamp_copied(self):
+        timestamp = Timestamp(0, 0, 3, 0)
+        caption = Caption(timestamp, timestamp, 'x')
+        timestamp.seconds = 9
+
+        self.assertEqual((caption.start, caption.end),
+                         ('00:00:03.000', '00:00:03.000'))
+        self.assertIsNot(caption.start_time, caption.end_time)
+
+    def test_timestamp_fields_normalized(self):
+        caption = Caption(Timestamp(0, 0, 75, 0), Timestamp(0, 90, 0, 0))
+        self.assertEqual(caption.start, '00:01:15.000')
+        self.assertEqual(caption.end, '01:30:00.000')
+
+    def test_invalid_times_of_other_types(self):
+        for value in (-1, -0.5, float('nan'), float('inf'), True, False,
+                      10 ** 20, datetime.timedelta(seconds=-1),
+                      Timestamp(0, 0, -1, 0), Timestamp(0, 0, 1.5, 0),
+                      Timestamp(0, 0, True, 0), b'00:00:01.000', [1]):
+            with self.subTest(value=value):
+                with self.assertRaises(MalformedCaptionError):
+                    Caption(value, '00:00:02.000', 'x')
+                with self.assertRaises(MalformedCaptionError):
+                    Caption('00:00:01.000', value, 'x')
+
+                caption = Caption('00:00:01.000', '00:00:02.000', 'x')
+                with self.assertRaises(MalformedCaptionError):
+                    caption.start = value
+                with self.assertRaises(MalformedCaptionError):
+                    caption.end = value
+                self.assertEqual((caption.start, caption.end),
+                                 ('00:00:01.000', '00:00:02.000'))
 
     def test_equality(self):
         caption1 = Caption(

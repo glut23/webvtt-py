@@ -1554,14 +1554,29 @@ class TestWebVTT(unittest.TestCase):
         self.assertEqual(after[11], ('00:00:50.000', '00:00:53.970'))
         self.assertEqual(after[-1], ('00:01:04.350', '00:01:07.300'))
 
+    def test_shift_from_start_of_other_types(self):
+        for start in (47, 47.0, Timestamp(0, 0, 47, 0),
+                      datetime.timedelta(seconds=47)):
+            with self.subTest(start=start):
+                vtt = webvtt.read(PATH_TO_SAMPLES / 'sample.vtt')
+                before = [(c.start, c.end) for c in vtt]
+
+                vtt.shift(3, start=start)
+
+                after = [(c.start, c.end) for c in vtt]
+                self.assertEqual(after[:11], before[:11])
+                self.assertEqual(after[11], ('00:00:50.000', '00:00:53.970'))
+
     def test_shift_from_start_invalid(self):
-        vtt = webvtt.read(PATH_TO_SAMPLES / 'sample.vtt')
-        before = [(c.start, c.end) for c in vtt]
+        for start in ('47 seconds', -1, float('nan'), True):
+            with self.subTest(start=start):
+                vtt = webvtt.read(PATH_TO_SAMPLES / 'sample.vtt')
+                before = [(c.start, c.end) for c in vtt]
 
-        with self.assertRaises(MalformedCaptionError):
-            vtt.shift(3, start='47 seconds')
+                with self.assertRaises(MalformedCaptionError):
+                    vtt.shift(3, start=start)
 
-        self.assertEqual([(c.start, c.end) for c in vtt], before)
+                self.assertEqual([(c.start, c.end) for c in vtt], before)
 
     def test_shift_invalid_offset(self):
         for value in ('1.5', None, True):
@@ -1690,6 +1705,8 @@ class TestWebVTT(unittest.TestCase):
                 (((1, 5), (2, 5)), ValueError),
                 (((1, 2), (3, -4)), ValueError),
                 (((1, 2), (3, float('nan'))), ValueError),
+                (((1, 2), (3, Timestamp(0, 0, -4, 0))), ValueError),
+                (((1, 2), (3, Timestamp(0, 0, 4.5, 0))), TypeError),
                 (((1, 2), (3,)), TypeError),
                 (((1, 2), '34'), TypeError),
                 (((1, 2), (3, None)), TypeError),
@@ -3142,6 +3159,63 @@ class TestParseSBV(unittest.TestCase):
         vtt = self._iter_slice_captions()
         with self.assertRaises(TypeError):
             vtt.iter_slice('00:00:02.000', '00:00:06.000', True)
+
+    def test_iter_slice_times_of_other_types(self):
+        vtt = self._iter_slice_captions()
+        for start, end in (
+                (2, 6),
+                (2.0, 6.0),
+                (Timestamp(0, 0, 2, 0), Timestamp(0, 0, 6, 0)),
+                (datetime.timedelta(seconds=2),
+                 datetime.timedelta(seconds=6)),
+                ('00:00:02.000', 6)):
+            with self.subTest(start=start, end=end):
+                self.assertEqual(
+                    [c.text for c in vtt.iter_slice(start, end)],
+                    ['b']
+                    )
+                self.assertEqual(
+                    [(c.start, c.end) for c in vtt.iter_slice(
+                        start, end, overlapping=True, clip=True)],
+                    [('00:00:02.000', '00:00:05.000'),
+                     ('00:00:03.000', '00:00:04.000'),
+                     ('00:00:05.000', '00:00:06.000')]
+                    )
+
+    def test_iter_slice_zero(self):
+        vtt = webvtt.WebVTT(captions=[
+            Caption('00:00:00.000', '00:00:00.000', 'a'),
+            Caption('00:00:00.000', '00:00:01.000', 'b')
+            ])
+        for value in (0, 0.0, datetime.timedelta(0), Timestamp(),
+                      '00:00:00.000'):
+            with self.subTest(value=value):
+                self.assertEqual(
+                    [c.text for c in vtt.iter_slice(end=value)],
+                    ['a']
+                    )
+                self.assertEqual(
+                    [c.text for c in vtt.iter_slice(start=value)],
+                    ['a', 'b']
+                    )
+
+    def test_iter_slice_no_limits(self):
+        vtt = self._iter_slice_captions()
+        for value in (None, ''):
+            with self.subTest(value=value):
+                self.assertEqual(
+                    [c.text for c in vtt.iter_slice(value, value)],
+                    ['a', 'b', 'c', 'd']
+                    )
+
+    def test_iter_slice_invalid_times_of_other_types(self):
+        vtt = self._iter_slice_captions()
+        for value in (-1, float('nan'), True, datetime.timedelta(seconds=-1),
+                      Timestamp(0, 0, -1, 0), b'00:00:02.000'):
+            for kwargs in ({'start': value}, {'end': value}):
+                with self.subTest(kwargs=kwargs):
+                    with self.assertRaises(MalformedCaptionError):
+                        list(vtt.iter_slice(**kwargs))
 
     def test_iter_slice_invalid_timestamp(self):
         vtt = self._iter_slice_captions()

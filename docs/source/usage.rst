@@ -126,6 +126,10 @@ Iterating over a slice of captions
         print(caption.end)
         print(caption.text)
 
+The times of the range can also be ``Timestamp`` objects, numbers of seconds
+or ``timedelta`` objects, as in ``vtt.iter_slice(11, 27)``, and are rounded
+to the nearest millisecond.
+
 By default only the captions within the range are returned: a caption that
 starts before ``start`` or ends after ``end`` is left out, even if part of it
 is in the range. To cut the captions of a clip, ``overlapping`` also returns
@@ -171,7 +175,10 @@ Creating captions
 
 .. code-block:: python
 
+    from datetime import timedelta
+
     from webvtt import WebVTT, Caption
+    from webvtt.models import Timestamp
 
     vtt = WebVTT()
 
@@ -194,6 +201,13 @@ Creating captions
         '00:00:11.890',
         'Caption line 1\nCaption line 2'
     )
+
+    vtt.captions.append(caption)
+
+    # the times can also be Timestamp objects, numbers of seconds or
+    # timedelta objects, rounded to the nearest millisecond
+    caption = Caption(11.89, timedelta(seconds=15), 'Caption line 1')
+    caption.end = Timestamp(0, 0, 16, 500)
 
     vtt.captions.append(caption)
 
@@ -335,7 +349,8 @@ seconds or a ``timedelta``:
     # show all the captions 1.5 seconds earlier
     vtt.shift(-1.5)
 
-    # show the captions from 00:12:30 onwards 3 seconds later
+    # show the captions from 00:12:30 onwards 3 seconds later, the start
+    # can also be a Timestamp, a number of seconds or a timedelta
     vtt.shift(3, start='00:12:30.000')
 
     # shift a single caption
