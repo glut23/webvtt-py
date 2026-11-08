@@ -49,7 +49,7 @@ class Timestamp:
         self.seconds = seconds
         self.milliseconds = milliseconds
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return the string representation of the timestamp."""
         return (
             f'{self.hours:02d}:{self.minutes:02d}:{self.seconds:02d}'
@@ -60,7 +60,7 @@ class Timestamp:
         """Return the timestamp in tuple form."""
         return self.hours, self.minutes, self.seconds, self.milliseconds
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return the string representation of the caption."""
         return (f'<{self.__class__.__name__} '
                 f'hours={self.hours} '
@@ -69,7 +69,7 @@ class Timestamp:
                 f'milliseconds={self.milliseconds}>'
                 )
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """Compare equality with other object."""
         if not isinstance(other, Timestamp):
             return NotImplemented
@@ -613,11 +613,11 @@ class _Settings:
         MalformedCaptionError
         )
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize without settings."""
         self._settings: list[str] = []
 
-    def _set_given(self, **values: str | None):
+    def _set_given(self, **values: str | None) -> None:
         """
         Set the settings that are given, in order.
 
@@ -671,15 +671,15 @@ class _Settings:
 
         return settings
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return the settings separated by a space."""
         return ' '.join(self._settings)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return the string representation of the settings."""
         return f'<{self.__class__.__name__} text={str(self)!r}>'
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         """Return whether there is any setting."""
         return bool(self._settings)
 
@@ -687,7 +687,7 @@ class _Settings:
         """Iterate the settings as written, e.g. ``line:0``."""
         return iter(self._settings)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """Compare equality with another object."""
         if not isinstance(other, type(self)):
             return False
@@ -705,7 +705,7 @@ class _Settings:
                 value = parts[1]
         return value
 
-    def _set(self, name: str, value: str | None):
+    def _set(self, name: str, value: str | None) -> None:
         """
         Set the setting with that name, or remove it when the value is None.
 
@@ -884,7 +884,7 @@ class Caption:
         self.lines = _caption_lines([] if text is None else text)
         self.comments: list[str] = []
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return the string representation of the caption."""
         cleaned_text = self.text.replace('\n', '\\n')
         return (f'<{self.__class__.__name__} '
@@ -895,12 +895,12 @@ class Caption:
                 f'settings={str(self.settings)!r}>'
                 )
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return a readable representation of the caption."""
         cleaned_text = self.text.replace('\n', '\\n')
         return f'{self.start} {self.end} {cleaned_text}'
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """Compare equality with another object."""
         if not isinstance(other, type(self)):
             return False
@@ -918,7 +918,7 @@ class Caption:
         return str(self.start_time)
 
     @start.setter
-    def start(self, value: _Position):
+    def start(self, value: _Position) -> None:
         """
         Set the start time of the caption.
 
@@ -935,7 +935,7 @@ class Caption:
         return str(self.end_time)
 
     @end.setter
-    def end(self, value: _Position):
+    def end(self, value: _Position) -> None:
         """
         Set the end time of the caption.
 
@@ -952,7 +952,7 @@ class Caption:
         return self._settings
 
     @settings.setter
-    def settings(self, value: str | CueSettings | None):
+    def settings(self, value: str | CueSettings | None) -> None:
         """
         Set the cue settings of the caption, or clear them when None.
 
@@ -970,7 +970,7 @@ class Caption:
         return self.start_time.in_seconds()
 
     @property
-    def end_in_seconds(self):
+    def end_in_seconds(self) -> int:
         """Return the end time of the caption in seconds."""
         return self.end_time.in_seconds()
 
@@ -1004,7 +1004,7 @@ class Caption:
         """
         return copy.deepcopy(self)
 
-    def shift(self, offset: float | datetime.timedelta):
+    def shift(self, offset: float | datetime.timedelta) -> None:
         """
         Shift the start and end time of the caption.
 
@@ -1060,7 +1060,7 @@ class Caption:
         )
 
     @text.setter
-    def text(self, value: str | Sequence[str]):
+    def text(self, value: str | Sequence[str]) -> None:
         """
         Set the text of the caption.
 
@@ -1132,7 +1132,7 @@ def _caption_lines(
 def _retime_captions(
         captions: Iterable[Caption],
         mapping: Callable[[int], int]
-        ):
+        ) -> None:
     """
     Change the start and end time of the captions with a mapping.
 
@@ -1223,7 +1223,7 @@ class ParseIssue:
     message: str
     lines: list[str]
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return the line number and the message."""
         return f'line {self.line}: {self.message}'
 
@@ -1256,7 +1256,7 @@ class ValidationIssue:
     severity: _Severity
     message: str
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return the caption number, from 1, the severity and the message."""
         return f'caption {self.index + 1}: {self.severity}: {self.message}'
 
@@ -1292,11 +1292,11 @@ class Style:
                       )
         self.comments: list[str] = []
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return the string representation of the style."""
         return f'<{self.__class__.__name__} text={self.text!r}>'
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """
         Compare equality with another object.
 
@@ -1309,7 +1309,7 @@ class Style:
         return self.lines == other.lines
 
     @property
-    def text(self):
+    def text(self) -> str:
         """Return the text of the style."""
         return '\n'.join(self.lines)
 

@@ -164,7 +164,7 @@ def _skipped_block_kind(lines: Sequence[str]) -> str:
     return 'Invalid cue block' if len(lines) > 1 else 'Cue without text'
 
 
-def write(f: typing.IO[str], captions: Iterable[Caption]):
+def write(f: typing.IO[str], captions: Iterable[Caption]) -> None:
     """
     Write captions to an output in SBV format.
 

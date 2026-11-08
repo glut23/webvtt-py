@@ -62,12 +62,12 @@ class WebVTTCueBlock:
 
     def __init__(
             self,
-            identifier,
-            start,
-            end,
-            payload,
-            settings=''
-            ):
+            identifier: str | None,
+            start: str | None,
+            end: str | None,
+            payload: Sequence[str],
+            settings: str = ''
+            ) -> None:
         """
         Initialize.
 
@@ -631,7 +631,7 @@ def _parse_header(
     return text, list(lines[1:])
 
 
-def _validate_header(header_text: str, metadata: Iterable[str]):
+def _validate_header(header_text: str, metadata: Iterable[str]) -> None:
     """
     Validate the header text and metadata lines before writing them.
 
@@ -691,7 +691,7 @@ def _ends_block_early(lines: Sequence[str]) -> bool:
     return not all(lines) or _has_arrow(lines)
 
 
-def _validate_caption(caption: Caption):
+def _validate_caption(caption: Caption) -> None:
     """
     Validate the identifier and text of a caption before writing it.
 
@@ -717,7 +717,7 @@ def _validate_caption(caption: Caption):
             )
 
 
-def _validate_style(style: Style):
+def _validate_style(style: Style) -> None:
     """
     Validate the text of a style before writing it.
 
@@ -734,7 +734,7 @@ def _validate_style(style: Style):
             )
 
 
-def _validate_comment(comment: str):
+def _validate_comment(comment: str) -> None:
     """
     Validate the text of a comment before writing it.
 
@@ -841,7 +841,7 @@ def write(
         header_text: str = '',
         metadata: Iterable[str] = (),
         regions: Iterable[Region] = ()
-        ):
+        ) -> None:
     """
     Write captions to an output.
 

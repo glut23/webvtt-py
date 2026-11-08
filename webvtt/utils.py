@@ -20,6 +20,10 @@ _BOM_WRITING_CODECS = ('utf-8-sig', 'utf-16', 'utf-32')
 # the line terminators of WebVTT, characters like U+2028 do not break lines
 _LINE_TERMINATOR = re.compile(r'\r\n|\r|\n')
 
+# a path to a file or a folder, as a string or a path object such as
+# pathlib.Path
+_Path = str | os.PathLike[str]
+
 # the line number where a block of text starts, from 1, and its lines
 _NumberedBlock = tuple[int, list[str]]
 
@@ -41,7 +45,7 @@ def _split_lines(text: str) -> list[str]:
     return lines
 
 
-def _check_errors(errors: str | None):
+def _check_errors(errors: str | None) -> None:
     """
     Check the name of an error handler for decoding.
 
@@ -60,7 +64,7 @@ class FileWrapper:
 
     def __init__(
             self,
-            file_path: str,
+            file_path: _Path,
             mode: str | None = None,
             encoding: str | None = None,
             errors: str | None = None
@@ -88,7 +92,7 @@ class FileWrapper:
     @classmethod
     def open(
             cls,
-            file_path: str,
+            file_path: _Path,
             mode: str | None = None,
             encoding: str | None = None,
             errors: str | None = None
@@ -103,7 +107,7 @@ class FileWrapper:
         """
         return cls(file_path, mode, encoding, errors)
 
-    def __enter__(self):
+    def __enter__(self) -> 'FileWrapper':
         """Enter context."""
         self.file = open(
             file=self.file_path,
@@ -115,12 +119,12 @@ class FileWrapper:
             self.file.seek(len(CODEC_BOMS[self.bom_encoding]))
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, *exc_info: object) -> None:
         """Exit context."""
         self.file.close()
 
     @staticmethod
-    def detect_bom_encoding(file_path: str) -> str | None:
+    def detect_bom_encoding(file_path: _Path) -> str | None:
         """
         Detect the encoding of a file based on the presence of the BOM.
 
@@ -145,10 +149,10 @@ def _bom_encoding(data: bytes) -> str | None:
 
 
 def _write_text_file(
-        file_path: str,
+        file_path: _Path,
         text: str,
         encoding: str | None = None
-        ):
+        ) -> None:
     """
     Write text to a file, encoding all of it before the file is opened.
 

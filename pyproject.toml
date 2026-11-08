@@ -58,6 +58,9 @@ fail_under = 100
 doctests = true
 radon-max-cc = 10
 
+[tool.mypy]
+strict = true
+
 [tool.tox]
 requires = ["tox>=4.21.2"]
 env_list = ["codestyle", "py", "coverage"]

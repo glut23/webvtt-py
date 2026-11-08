@@ -128,15 +128,21 @@ class WebVTT:
         # the encoding given to read SRT, which save_as_srt keeps
         self._srt_encoding: str | None = None
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Return the number of captions."""
         return len(self.captions)
 
-    def __getitem__(self, index):
-        """Return a caption by index."""
+    @typing.overload
+    def __getitem__(self, index: int) -> Caption: ...  # noqa: D105
+
+    @typing.overload
+    def __getitem__(self, index: slice) -> list[Caption]: ...  # noqa: D105
+
+    def __getitem__(self, index: int | slice) -> Caption | list[Caption]:
+        """Return a caption by index, or a list of captions by slice."""
         return self.captions[index]
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """
         Compare equality with another object.
 
@@ -156,20 +162,20 @@ class WebVTT:
                 self.metadata == other.metadata
                 )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return the string representation of the WebVTT file."""
         return (f'<{self.__class__.__name__} file={self.file!r} '
                 f'encoding={self.encoding!r}>'
                 )
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return a readable representation of the WebVTT content."""
         return '\n'.join(str(c) for c in self.captions)
 
     @classmethod
     def read(
             cls,
-            file: str,
+            file: utils._Path,
             encoding: str | None = None,
             strict: bool = False,
             errors: str | None = 'strict'
@@ -367,7 +373,7 @@ class WebVTT:
     @classmethod
     def from_srt(
             cls,
-            file: str,
+            file: utils._Path,
             encoding: str | None = None,
             errors: str | None = 'strict'
             ) -> 'WebVTT':
@@ -395,7 +401,7 @@ class WebVTT:
     @classmethod
     def from_sbv(
             cls,
-            file: str,
+            file: utils._Path,
             encoding: str | None = None,
             errors: str | None = 'strict'
             ) -> 'WebVTT':
@@ -423,7 +429,7 @@ class WebVTT:
     @classmethod
     def _from_file(
             cls,
-            file: str,
+            file: utils._Path,
             format: str,
             encoding: str | None,
             errors: str | None,
@@ -497,7 +503,7 @@ class WebVTT:
 
     def _get_destination_file(
             self,
-            destination_path: str | None = None,
+            destination_path: utils._Path | None = None,
             extension: str = 'vtt'
             ) -> str:
         """
@@ -537,10 +543,10 @@ class WebVTT:
 
     def save(
             self,
-            output: str | None = None,
+            output: utils._Path | None = None,
             encoding: str | None = None,
             add_bom: bool | None = None
-            ):
+            ) -> None:
         """
         Save the WebVTT captions to a file.
 
@@ -572,11 +578,11 @@ class WebVTT:
 
     def save_as_srt(
             self,
-            output: str | None = None,
+            output: utils._Path | None = None,
             encoding: str | None = None,
             keep_formatting: bool = False,
             add_bom: bool | None = None
-            ):
+            ) -> None:
         """
         Save the WebVTT captions to a file in SubRip format.
 
@@ -613,10 +619,10 @@ class WebVTT:
 
     def save_as_sbv(
             self,
-            output: str | None = None,
+            output: utils._Path | None = None,
             encoding: str | None = None,
             add_bom: bool | None = None
-            ):
+            ) -> None:
         """
         Save the WebVTT captions to a file in YouTube SBV format.
 
@@ -646,12 +652,12 @@ class WebVTT:
 
     def _save(
             self,
-            output: str | None,
+            output: utils._Path | None,
             format: str,
             encoding: str,
             add_bom: bool | None,
             keep_formatting: bool = False
-            ):
+            ) -> None:
         """
         Save the captions to a file in a format.
 
@@ -675,7 +681,7 @@ class WebVTT:
             f: typing.IO[str],
             format: str = 'vtt',
             keep_formatting: bool = False
-            ):
+            ) -> None:
         """
         Save the WebVTT captions to a file-like object.
 
@@ -786,7 +792,7 @@ class WebVTT:
             start: _Position | None = None,
             *,
             drop_before_zero: bool = False
-            ):
+            ) -> None:
         """
         Shift the start and end time of the captions.
 
@@ -832,7 +838,7 @@ class WebVTT:
                     if id(caption) not in dropped
                     ]
 
-    def sync(self, *points: Sequence[_Position]):
+    def sync(self, *points: Sequence[_Position]) -> None:
         """
         Synchronize the captions to two or more points.
 
@@ -860,7 +866,11 @@ class WebVTT:
 
         _retime_captions(self.captions, mapping)
 
-    def change_framerate(self, from_fps: _FrameRate, to_fps: _FrameRate):
+    def change_framerate(
+            self,
+            from_fps: _FrameRate,
+            to_fps: _FrameRate
+            ) -> None:
         """
         Change the timing of the captions from one frame rate to another.
 
@@ -886,7 +896,7 @@ class WebVTT:
 
         _retime_captions(self.captions, mapping)
 
-    def sort(self):
+    def sort(self) -> None:
         """
         Sort the captions by start time, as WebVTT requires.
 
@@ -1186,7 +1196,7 @@ def _clipped(
     return clipped
 
 
-def _check_format(format: str):
+def _check_format(format: str) -> None:
     """
     Check that a format is supported.
 

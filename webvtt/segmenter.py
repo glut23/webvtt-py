@@ -27,14 +27,14 @@ _EARLIER_OUTPUT_PATTERN = re.compile(
 
 
 def segment(
-        webvtt_path: str | WebVTT,
-        output: str,
+        webvtt_path: utils._Path | WebVTT,
+        output: utils._Path,
         seconds: int = DEFAULT_SECONDS,
         mpegts: int = DEFAULT_MPEGTS,
         *,
         overwrite: bool = False,
         duration: _Position | None = None
-        ):
+        ) -> None:
     """
     Segment a WebVTT captions file, or captions already read.
 
@@ -113,7 +113,7 @@ def _earlier_output(output_folder: pathlib.Path) -> str | None:
         )
 
 
-def _remove_segments_from(output_folder: pathlib.Path, index: int):
+def _remove_segments_from(output_folder: pathlib.Path, index: int) -> None:
     """Delete the segment files numbered from index onwards."""
     for path in output_folder.iterdir():
         match = _SEGMENT_NAME_PATTERN.fullmatch(path.name)
@@ -121,7 +121,7 @@ def _remove_segments_from(output_folder: pathlib.Path, index: int):
             path.unlink(missing_ok=True)
 
 
-def _check_seconds(seconds: int):
+def _check_seconds(seconds: int) -> None:
     """
     Validate the number of seconds of each segment.
 
@@ -135,7 +135,7 @@ def _check_seconds(seconds: int):
         raise ValueError(f'Invalid segment duration {seconds!r}')
 
 
-def _check_mpegts(mpegts: int):
+def _check_mpegts(mpegts: int) -> None:
     """
     Validate the MPEG-TS value of the segments.
 
@@ -243,7 +243,7 @@ def write_segments(
         mpegts: int,
         styles: Iterable[Style] = (),
         regions: Iterable[Region] = ()
-        ):
+        ) -> None:
     """
     Write the segments to the output folder.
 
@@ -286,7 +286,7 @@ def write_manifest(
         seconds: int,
         *,
         duration: _Position | None = None
-        ):
+        ) -> None:
     """
     Write the manifest in the output folder.
 
