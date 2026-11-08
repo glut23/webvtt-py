@@ -308,23 +308,9 @@ def _sync(args: argparse.Namespace):
 
 def _validate(args: argparse.Namespace):
     """Run the validate command, exiting with status 1 if there are errors."""
-    if args.file == _STDIN:
-        # read once, as standard input cannot be read again for strict
-        # parsing
-        data = _stdin().read()
-
-        def read(strict: bool) -> WebVTT:
-            return WebVTT.from_buffer(
-                io.BytesIO(data) if isinstance(data, bytes)
-                else io.StringIO(data),
-                strict=strict
-                )
-    else:
-        def read(strict: bool) -> WebVTT:
-            return WebVTT.read(args.file, strict=strict)
-
+    read = _reader(args.file)
     name = _input_name(args.file)
-    vtt = read(strict=False)
+    vtt = read(False)
     issues = vtt.validate()
 
     lines = [
@@ -340,18 +326,50 @@ def _validate(args: argparse.Namespace):
         # strict parsing also finds problems in blocks that are still read,
         # such as cue settings that are not valid, but stops at the first
         # one, so it is only needed when nothing else is an error
-        try:
-            read(strict=True)
-        except (MalformedFileError, MalformedCaptionError) as error:
-            # the messages start with the line number, as in "line 3: ..."
-            location, _, message = str(error).partition(': ')
-            lines.append(f'{name}: {location}: error: {message}')
+        strict_error = _strict_error(read)
+        if strict_error:
+            lines.append(f'{name}: {strict_error}')
             has_errors = True
 
     if lines:
         _write_stdout(''.join(f'{line}\n' for line in lines))
     if has_errors:
         sys.exit(1)
+
+
+def _reader(path: str) -> typing.Callable[[bool], WebVTT]:
+    """
+    Return a function reading the captions of the input, strict or not.
+
+    Standard input is read once, as it cannot be read again, and the
+    function reads its content each time.
+    """
+    if path != _STDIN:
+        return lambda strict: WebVTT.read(path, strict=strict)
+
+    data = _stdin().read()
+    return lambda strict: WebVTT.from_buffer(
+        io.BytesIO(data) if isinstance(data, bytes) else io.StringIO(data),
+        strict=strict
+        )
+
+
+def _strict_error(
+        read: typing.Callable[[bool], WebVTT]
+        ) -> typing.Optional[str]:
+    """
+    Return the first error of strict parsing, as ``line N: error: MESSAGE``.
+
+    :param read: the function reading the captions, strict or not
+    :returns: the error, or None if strict parsing reads the captions
+    """
+    try:
+        read(True)
+    except (MalformedFileError, MalformedCaptionError) as error:
+        # the messages start with the line number, as in "line 3: ..."
+        location, _, message = str(error).partition(': ')
+        return f'{location}: error: {message}'
+    return None
 
 
 def _input_name(path: str) -> str:
