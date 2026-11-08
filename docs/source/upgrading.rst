@@ -1,6 +1,110 @@
 Upgrading
 =========
 
+Upgrading to 0.8.0
+------------------
+
+0.8.0 has changes that may need updates to the code using the library. These
+are the ones most likely to need them, with what to change. The
+:doc:`history` lists all of them.
+
+
+Total length
+~~~~~~~~~~~~
+
+``total_length`` returns a float with the milliseconds, from the earliest
+start to the latest end of the captions, instead of whole seconds from the
+start of the first caption to the end of the last one, which was wrong for
+captions out of order. Round it or convert it to an ``int`` where whole
+seconds are needed:
+
+.. code-block:: python
+
+    import webvtt
+
+    vtt = webvtt.read('captions.vtt')
+    vtt.total_length       # 3.5
+    int(vtt.total_length)  # 3
+
+
+Comparing styles and captions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``Style`` and ``WebVTT`` are equal when they have the same content, as
+``Caption`` and ``Region`` are, instead of only to themselves. For the same
+reason they can no longer be used in sets or as dictionary keys, which raises
+``TypeError``. Compare them with ``is`` to tell whether they are the same
+object, and key a dictionary by ``id()`` or keep them in a list:
+
+.. code-block:: python
+
+    import webvtt
+
+    vtt = webvtt.read('captions.vtt')
+    other = webvtt.read('captions.vtt')
+    vtt == other  # True, before False
+    vtt is other  # False
+
+    files = {id(vtt): 'captions.vtt'}
+
+
+Byte Order Mark of SRT and SBV files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``from_srt`` and ``from_sbv`` keep the Byte Order Mark of the file, as
+``read`` does, and ``save_as_srt`` keeps it and saves in the encoding of the
+file that was read, as ``save`` does, instead of saving in UTF-8 without it.
+Pass ``add_bom=False`` to save without it, and ``encoding`` to save in another
+encoding:
+
+.. code-block:: python
+
+    import webvtt
+
+    vtt = webvtt.from_srt('captions_with_bom.srt')
+    vtt.save_as_srt('with_bom.srt')
+    vtt.save_as_srt('without_bom.srt', add_bom=False)
+
+
+SRT colours and positions
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Reading SRT converts its markup to WebVTT. A ``font`` tag with a ``color``
+becomes a ``c`` tag with a class named from the colour, with a ``STYLE`` block
+that gives the class its colour, other ``font`` tags are removed, keeping
+their text, and a ``{\anN}`` tag becomes the ``line`` and ``align`` cue
+settings. ``raw_text`` has the ``c`` tags instead of the ``font`` tags, and
+``text`` no longer has the ``{\anN}`` tags. Read the position from the cue
+settings, and save with ``keep_formatting`` to write the ``font`` tags back:
+
+.. code-block:: python
+
+    import webvtt
+
+    # 1
+    # 00:00:01,000 --> 00:00:02,500
+    # {\an8}<font color="#ff0000">Hello</font> world
+    vtt = webvtt.from_srt('captions.srt')
+
+    vtt[0].text           # 'Hello world', before '{\an8}Hello world'
+    vtt[0].raw_text       # '<c.color-ff0000>Hello</c> world'
+    vtt[0].settings.line  # '0', at the top
+
+    vtt.save_as_srt('captions.srt', keep_formatting=True)
+
+
+SRT and SBV files in the CLI
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The commands of the CLI read files with the ``.srt`` and ``.sbv`` extensions
+as SRT and SBV, instead of WebVTT. A WebVTT file with one of these extensions
+needs ``--format vtt``:
+
+::
+
+    $ webvtt validate captions.srt --format vtt
+
+
 Upgrading to 0.7.0
 ------------------
 

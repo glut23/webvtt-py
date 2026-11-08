@@ -19,6 +19,8 @@ coverage.xml
 
 # Documentation
 docs/_build/
+# written by sphinx.ext.duration when building the man page
+man/sphinx-reading-durations.json
 
 # Virtual environments
 .venv/
