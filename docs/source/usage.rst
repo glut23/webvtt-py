@@ -88,8 +88,8 @@ such as standard input, a file opened from a file descriptor or a
 ``WebVTT`` objects, so ``save()`` needs a path.
 
 
-Reading WebVTT captions from a string
--------------------------------------
+Reading captions from a string
+------------------------------
 
 .. code-block:: python
 
@@ -115,6 +115,23 @@ Reading WebVTT captions from a string
         print(caption.start)
         print(caption.end)
         print(caption.text)
+
+Use ``format`` to read a string in SRT or SBV format:
+
+.. code-block:: python
+
+    import webvtt
+
+    vtt = webvtt.from_string("""\
+    1
+    00:00:00,500 --> 00:00:07,000
+    Caption #1
+    """, format='srt')
+
+    vtt = webvtt.from_string("""\
+    0:00:00.500,0:00:07.000
+    Caption #1
+    """, format='sbv')
 
 
 Iterating over a slice of captions
@@ -536,13 +553,13 @@ Without a path, or with a folder, the name of the file that was read or
 last saved is used. A file with the ``.vtt`` or ``.webvtt`` extension
 keeps it, and any other extension is replaced by ``.vtt``, so captions
 read from ``captions.srt`` are saved to ``captions.vtt``. ``save_as_srt()``
-does the same with ``.srt``.
+and ``save_as_sbv()`` do the same with ``.srt`` and ``.sbv``.
 
 
-Retrieving WebVTT-formatted captions
-------------------------------------
+Retrieving captions as a string
+-------------------------------
 
-WebVTT content can be retrieved without an output file:
+The captions can be retrieved as a string without an output file:
 
 .. code-block:: python
 
@@ -552,6 +569,12 @@ WebVTT content can be retrieved without an output file:
 
     # print the content in WebVTT format
     print(vtt.content)
+
+    # the same, and in the other formats
+    print(vtt.to_string())
+    print(vtt.to_string('srt'))
+    print(vtt.to_string('srt', keep_formatting=True))
+    print(vtt.to_string('sbv'))
 
 
 Converting captions
@@ -599,6 +622,7 @@ file needs one for the content to be read as SRT.
 Convert WebVTT captions to other formats:
 
 * SubRip (.srt)
+* YouTube SBV (.sbv)
 
 .. code-block:: python
 
@@ -612,9 +636,16 @@ Convert WebVTT captions to other formats:
     with open('captions.srt', 'w') as f:
         vtt.write(f, format='srt')
 
+    # the same for SBV format
+    vtt.save_as_sbv()
+    with open('captions.sbv', 'w') as f:
+        vtt.write(f, format='sbv')
+
 Captions without text, such as text of blank lines, are left out of the SRT
-file, as SRT cannot have a cue without text, and the others are numbered
-consecutively.
+and SBV files, as these formats cannot have a cue without text, and the
+others are numbered consecutively in SRT. The blank lines of the text are
+also left out, as a blank line ends the cue. The cue tags are removed when
+converting to SBV, which has no formatting.
 
 The cue tags are removed when converting to SRT. To keep the formatting
 instead, use ``keep_formatting``. Bold, italic, underline and ``font`` tags are
@@ -665,6 +696,9 @@ read with ``from_srt`` or ``from_buffer`` in SRT format and an
 
     # saved in UTF-8
     vtt.save()
+
+``save_as_sbv()`` saves in UTF-8 unless another encoding is given, also for
+captions read with ``from_sbv`` and an ``encoding``.
 
 Saving text that the encoding cannot write raises ``UnicodeEncodeError``,
 leaving an existing file unchanged.
@@ -756,10 +790,12 @@ last segment.
 Segmentation is also available from the command line, see :doc:`cli`.
 
 
-WebVTT files with Byte Order Mark (BOM)
----------------------------------------
+Files with Byte Order Mark (BOM)
+--------------------------------
 
-When the WebVTT file has a BOM, saving it keeps the BOM:
+When the file has a BOM, saving it keeps the BOM and its encoding, also
+when saving to SRT or SBV with ``save_as_srt()`` and ``save_as_sbv()``, which
+take the same ``encoding`` and ``add_bom`` arguments as ``save()``:
 
 .. code-block:: python
 

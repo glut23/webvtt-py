@@ -1,3 +1,4 @@
+import io
 import unittest
 import textwrap
 
@@ -254,3 +255,65 @@ class TestSBVModule(unittest.TestCase):
             )
         self.assertEqual(len(captions), 1)
         self.assertEqual(captions[0].text, 'Caption #1')
+
+
+class TestWriteSBV(unittest.TestCase):
+
+    def write(self, captions):
+        output = io.StringIO()
+        sbv.write(output, captions)
+        return output.getvalue()
+
+    def test_write(self):
+        self.assertEqual(
+            self.write([
+                Caption('00:00:00.500', '00:00:07.000', 'Line 1\nLine 2'),
+                Caption('01:02:03.004', '123:00:00.000', 'Caption #2')
+                ]),
+            textwrap.dedent('''\
+                0:00:00.500,0:00:07.000
+                Line 1
+                Line 2
+
+                1:02:03.004,123:00:00.000
+                Caption #2
+                ''')
+            )
+
+    def test_write_no_captions(self):
+        self.assertEqual(self.write([]), '')
+
+    def test_write_removes_cue_tags(self):
+        self.assertEqual(
+            self.write([Caption('00:00:00.500', '00:00:07.000',
+                                '<v Joe><b>Hi</b> &amp; bye</v>')]),
+            # character references are written as they are, as in SRT
+            '0:00:00.500,0:00:07.000\nHi &amp; bye\n'
+            )
+
+    def test_write_leaves_out_captions_without_text(self):
+        self.assertEqual(
+            self.write([
+                Caption('00:00:00.500', '00:00:01.000', ''),
+                Caption('00:00:01.000', '00:00:02.000', '<b></b>'),
+                Caption('00:00:02.000', '00:00:03.000', '\n \n'),
+                Caption('00:00:03.000', '00:00:04.000', 'Text'),
+                ]),
+            '0:00:03.000,0:00:04.000\nText\n'
+            )
+
+    def test_write_removes_blank_lines(self):
+        self.assertEqual(
+            self.write([Caption('00:00:00.500', '00:00:07.000',
+                                'Line 1\n\n \nLine 2')]),
+            '0:00:00.500,0:00:07.000\nLine 1\nLine 2\n'
+            )
+
+    def test_write_reads_back(self):
+        captions = [
+            Caption('00:00:00.500', '00:00:07.000', 'Line 1\nLine 2'),
+            Caption('100:00:07.000', '100:00:08.250', 'Caption #2')
+            ]
+        lines = self.write(captions).split('\n')
+
+        self.assertEqual(sbv.parse(lines), captions)

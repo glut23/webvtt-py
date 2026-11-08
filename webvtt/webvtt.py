@@ -33,7 +33,11 @@ DEFAULT_ENCODING = 'utf-8'
 _T = typing.TypeVar('_T')
 
 # the extensions of each format, kept when saving a file to the same format
-_FORMAT_EXTENSIONS = {'vtt': ('.vtt', '.webvtt'), 'srt': ('.srt',)}
+_FORMAT_EXTENSIONS = {
+    'vtt': ('.vtt', '.webvtt'), 'srt': ('.srt',), 'sbv': ('.sbv',)
+    }
+
+_FORMATS = tuple(_FORMAT_EXTENSIONS)
 
 
 class WebVTT:
@@ -191,14 +195,7 @@ class WebVTT:
             is ``'strict'``
         :raises LookupError: if the errors handler is not known
         """
-        with utils.FileWrapper.open(
-                file, encoding=encoding, errors=errors
-                ) as fw:
-            instance = cls.from_buffer(fw.file, strict=strict)
-            if fw.bom_encoding:
-                instance.encoding = fw.bom_encoding
-                instance._has_bom = True
-            return instance
+        return cls._from_file(file, 'vtt', encoding, errors, strict)
 
     @classmethod
     def read_buffer(
@@ -273,8 +270,7 @@ class WebVTT:
         :raises TypeError: if the buffer is a string or bytes, use
             from_string to read a string or io.BytesIO to read bytes
         """
-        if format not in ('vtt', 'srt', 'sbv'):
-            raise ValueError(f'Format {format} is not supported.')
+        _check_format(format)
         if strict and format != 'vtt':
             raise ValueError(
                 f'Strict parsing is not supported for the {format} format'
@@ -393,13 +389,7 @@ class WebVTT:
             is ``'strict'``
         :raises LookupError: if the errors handler is not known
         """
-        with utils.FileWrapper.open(
-                file, encoding=encoding, errors=errors
-                ) as fw:
-            instance = cls.from_buffer(fw.file, format='srt')
-            if not fw.bom_encoding:
-                instance._srt_encoding = encoding
-            return instance
+        return cls._from_file(file, 'srt', encoding, errors)
 
     @classmethod
     def from_sbv(
@@ -413,8 +403,8 @@ class WebVTT:
 
         :param file: the file path
         :param encoding: encoding of a file without a Byte Order Mark, UTF-8
-            by default. It is only used for reading, as WebVTT files are
-            saved in UTF-8 unless another encoding is given
+            by default. It is only used for reading, as WebVTT and SBV
+            files are saved in UTF-8 unless another encoding is given
         :param errors: how bytes that are not valid in the encoding are
             handled, as in ``bytes.decode``: ``'strict'`` (the default)
             raises ``UnicodeDecodeError``, ``'replace'`` reads them as
@@ -427,37 +417,62 @@ class WebVTT:
             is ``'strict'``
         :raises LookupError: if the errors handler is not known
         """
+        return cls._from_file(file, 'sbv', encoding, errors)
+
+    @classmethod
+    def _from_file(
+            cls,
+            file: str,
+            format: str,
+            encoding: typing.Optional[str],
+            errors: typing.Optional[str],
+            strict: bool = False
+            ) -> 'WebVTT':
+        """
+        Read captions from a file, keeping its Byte Order Mark.
+
+        :param file: the file path
+        :param format: the format of the file (vtt, srt or sbv)
+        :param encoding: encoding of a file without a Byte Order Mark
+        :param errors: how decoding errors are handled
+        :param strict: raise an error on blocks that are not valid WebVTT
+        :returns: a `WebVTT` instance
+        """
         with utils.FileWrapper.open(
                 file, encoding=encoding, errors=errors
                 ) as fw:
-            return cls.from_buffer(fw.file, format='sbv')
+            instance = cls.from_buffer(fw.file, format=format, strict=strict)
+            if fw.bom_encoding:
+                instance.encoding = fw.bom_encoding
+                instance._has_bom = True
+            elif format == 'srt':
+                instance._srt_encoding = encoding
+            return instance
 
     @classmethod
-    def from_string(cls, string: str, strict: bool = False) -> 'WebVTT':
+    def from_string(
+            cls,
+            string: str,
+            strict: bool = False,
+            format: str = 'vtt'
+            ) -> 'WebVTT':
         """
         Read captions from a string.
 
         :param string: the captions in a string
         :param strict: raise an error on blocks that are not valid WebVTT
-            instead of skipping them, which keeps them in ``parse_issues``
+            instead of skipping them, which keeps them in ``parse_issues``,
+            only for the vtt format, as SRT and SBV have no strict parsing
+        :param format: the format of the string (vtt, srt or sbv)
         :returns: a `WebVTT` instance
 
         :raises MalformedFileError: if the string is not in the right format
         :raises MalformedCaptionError: if a caption has an invalid timestamp,
             or if strict and a block is not valid WebVTT
+        :raises ValueError: if the format is not supported, or strict is
+            given for the srt or sbv format
         """
-        output = vtt.parse(cls._get_lines([string]), strict)
-        instance = cls(
-            captions=output.captions,
-            styles=output.styles,
-            header_comments=output.header_comments,
-            footer_comments=output.footer_comments,
-            header_text=output.header_text,
-            metadata=output.metadata,
-            regions=output.regions
-        )
-        instance.parse_issues = output.issues
-        return instance
+        return cls.from_buffer([string], format=format, strict=strict)
 
     @staticmethod
     def _get_lines(lines: typing.Iterable[str]) -> typing.List[str]:
@@ -552,20 +567,14 @@ class WebVTT:
             Mark, or false and the encoding always writes one, such as
             ``utf-16``, leaving an existing file unchanged
         """
-        destination = self._get_destination_file(output)
-        # build the content first so an invalid header leaves no file behind
-        content = self.content
-        encoding = encoding or self.encoding
-        content = _byte_order_mark(encoding, add_bom, self._has_bom) + content
-
-        utils._write_text_file(destination, content, encoding)
-        self.file = destination
+        self._save(output, 'vtt', encoding or self.encoding, add_bom)
 
     def save_as_srt(
             self,
             output: typing.Optional[str] = None,
             encoding: typing.Optional[str] = None,
-            keep_formatting: bool = False
+            keep_formatting: bool = False,
+            add_bom: typing.Optional[bool] = None
             ):
         """
         Save the WebVTT captions to a file in SubRip format.
@@ -580,24 +589,84 @@ class WebVTT:
             is saved to the ``file`` attribute, with its extension replaced
             by ``.srt`` unless it is ``.srt``
         :param encoding: encoding of the file, by default the encoding
-            given to read the captions from SRT, or UTF-8
+            given to read the captions from SRT, or else the encoding of the
+            Byte Order Mark of the file that was read, or UTF-8
         :param keep_formatting: keep bold, italic, underline and the colours
             of the cue classes in the styles, instead of removing the cue tags
+        :param add_bom: save the file with Byte Order Mark, or without it
+            if false. By default, the Byte Order Mark of the file that was
+            read is kept
 
         :raises MissingFilenameError: if output cannot be determined
+        :raises LookupError: if the encoding is not known
+        :raises ValueError: if add_bom is true and the encoding has no Byte
+            Order Mark, or false and the encoding always writes one, such as
+            ``utf-16``, leaving an existing file unchanged
         """
-        destination = self._get_destination_file(output, extension='srt')
-        content = io.StringIO()
-        srt.write(content,
-                  self.captions,
-                  self.styles if keep_formatting else None
-                  )
+        self._save(output,
+                   'srt',
+                   encoding or self._srt_encoding or self.encoding,
+                   add_bom,
+                   keep_formatting
+                   )
 
-        utils._write_text_file(
-            destination,
-            content.getvalue(),
-            encoding or self._srt_encoding or DEFAULT_ENCODING
-            )
+    def save_as_sbv(
+            self,
+            output: typing.Optional[str] = None,
+            encoding: typing.Optional[str] = None,
+            add_bom: typing.Optional[bool] = None
+            ):
+        """
+        Save the WebVTT captions to a file in YouTube SBV format.
+
+        The cue tags are removed, as SBV has no formatting. The content is
+        encoded before the file is opened, so an error while encoding, such
+        as a character the encoding cannot write, leaves an existing file
+        unchanged.
+
+        :param output: destination path of the file, with ``.sbv`` added
+            when it has no extension, or a folder to save the file there
+            with the name of the file that was read. Without it, the file
+            is saved to the ``file`` attribute, with its extension replaced
+            by ``.sbv`` unless it is ``.sbv``
+        :param encoding: encoding of the file, by default the encoding of
+            the Byte Order Mark of the file that was read, or UTF-8
+        :param add_bom: save the file with Byte Order Mark, or without it
+            if false. By default, the Byte Order Mark of the file that was
+            read is kept
+
+        :raises MissingFilenameError: if output cannot be determined
+        :raises LookupError: if the encoding is not known
+        :raises ValueError: if add_bom is true and the encoding has no Byte
+            Order Mark, or false and the encoding always writes one, such as
+            ``utf-16``, leaving an existing file unchanged
+        """
+        self._save(output, 'sbv', encoding or self.encoding, add_bom)
+
+    def _save(
+            self,
+            output: typing.Optional[str],
+            format: str,
+            encoding: str,
+            add_bom: typing.Optional[bool],
+            keep_formatting: bool = False
+            ):
+        """
+        Save the captions to a file in a format.
+
+        :param output: destination path of the file, or a folder
+        :param format: the format to save in, also the extension of the file
+        :param encoding: encoding of the file
+        :param add_bom: save the file with Byte Order Mark, without it if
+            false, or keep the Byte Order Mark of the file that was read
+        :param keep_formatting: when saving SRT, keep the formatting
+        """
+        destination = self._get_destination_file(output, extension=format)
+        # build the content first so an invalid header leaves no file behind
+        content = self.to_string(format, keep_formatting)
+        content = _byte_order_mark(encoding, add_bom, self._has_bom) + content
+
+        utils._write_text_file(destination, content, encoding)
         self.file = destination
 
     def write(
@@ -610,7 +679,7 @@ class WebVTT:
         Save the WebVTT captions to a file-like object.
 
         :param f: destination file-like object
-        :param format: the format to use (`vtt` or `srt`)
+        :param format: the format to use (`vtt`, `srt` or `sbv`)
         :param keep_formatting: when writing SRT, keep bold, italic,
             underline and the colours of the cue classes in the styles,
             instead of removing the cue tags
@@ -619,23 +688,39 @@ class WebVTT:
             writing WebVTT, the header text or metadata are not valid or the
             text of a caption, style or comment could not be read back
         """
-        if format == 'vtt':
-            return vtt.write(f,
-                             self.captions,
-                             self.styles,
-                             self.header_comments,
-                             self.footer_comments,
-                             self.header_text,
-                             self.metadata,
-                             self.regions
-                             )
-        if format == 'srt':
-            return srt.write(f,
-                             self.captions,
-                             self.styles if keep_formatting else None
-                             )
+        f.write(self.to_string(format, keep_formatting))
 
-        raise ValueError(f'Format {format} is not supported.')
+    def to_string(
+            self,
+            format: str = 'vtt',
+            keep_formatting: bool = False
+            ) -> str:
+        """
+        Return the captions as a string in a format.
+
+        :param format: the format to use (`vtt`, `srt` or `sbv`)
+        :param keep_formatting: when writing SRT, keep bold, italic,
+            underline and the colours of the cue classes in the styles,
+            instead of removing the cue tags
+        :returns: the captions in the format
+
+        :raises ValueError: if the format is not supported, or when
+            writing WebVTT, the header text or metadata are not valid or the
+            text of a caption, style or comment could not be read back
+        """
+        _check_format(format)
+        if format == 'vtt':
+            return self.content
+
+        output = io.StringIO()
+        if format == 'srt':
+            srt.write(output,
+                      self.captions,
+                      self.styles if keep_formatting else None
+                      )
+        else:
+            sbv.write(output, self.captions)
+        return output.getvalue()
 
     def copy(self) -> 'WebVTT':
         """
@@ -1098,3 +1183,15 @@ def _clipped(
     if end and clipped.end_time > end:
         clipped.end = end
     return clipped
+
+
+def _check_format(format: str):
+    """
+    Check that a format is supported.
+
+    :param format: the format, such as ``vtt``
+
+    :raises ValueError: if the format is not supported
+    """
+    if format not in _FORMATS:
+        raise ValueError(f'Format {format} is not supported.')

@@ -3666,3 +3666,311 @@ class TestParseSBV(unittest.TestCase):
         self.assertEqual(saved.captions, clip.captions)
         self.assertEqual(len(saved.regions), 1)
         self.assertEqual(len(saved.styles), 1)
+
+
+class TestFormats(unittest.TestCase):
+
+    VTT = textwrap.dedent('''\
+        WEBVTT
+
+        00:00:00.500 --> 00:00:07.000
+        <b>Caption</b> #1
+
+        00:00:07.000 --> 00:00:11.890
+        Line 1
+        Line 2
+        ''')
+    SRT = textwrap.dedent('''\
+        1
+        00:00:00,500 --> 00:00:07,000
+        Caption #1
+
+        2
+        00:00:07,000 --> 00:00:11,890
+        Line 1
+        Line 2
+        ''')
+    SBV = textwrap.dedent('''\
+        0:00:00.500,0:00:07.000
+        Caption #1
+
+        0:00:07.000,0:00:11.890
+        Line 1
+        Line 2
+        ''')
+
+    def captions(self):
+        return webvtt.from_string(self.VTT)
+
+    def test_from_string_formats(self):
+        for format, string in (('vtt', self.VTT),
+                               ('srt', self.SRT),
+                               ('sbv', self.SBV)):
+            with self.subTest(format=format):
+                vtt = webvtt.from_string(string, format=format)
+
+                self.assertEqual(
+                    [(c.start, c.end, c.text) for c in vtt],
+                    [('00:00:00.500', '00:00:07.000', 'Caption #1'),
+                     ('00:00:07.000', '00:00:11.890', 'Line 1\nLine 2')]
+                    )
+                self.assertIsNone(vtt.file)
+                self.assertEqual(vtt.parse_issues, [])
+
+    def test_from_string_default_format_is_vtt(self):
+        with self.assertRaises(MalformedFileError):
+            webvtt.from_string(self.SRT)
+
+    def test_from_string_strict_positional(self):
+        with self.assertRaises(MalformedCaptionError):
+            webvtt.from_string(self.VTT + '\nnot a cue\n', True)
+
+    def test_from_string_wrong_format(self):
+        for format, string in (('srt', self.VTT), ('sbv', self.SRT)):
+            with self.subTest(format=format), \
+                    self.assertRaises(MalformedFileError):
+                webvtt.from_string(string, format=format)
+
+    def test_from_string_parse_issues(self):
+        vtt = webvtt.from_string(self.SBV + '\nnot a cue\n', format='sbv')
+
+        self.assertEqual(len(vtt), 2)
+        self.assertEqual([issue.line for issue in vtt.parse_issues], [8])
+
+    def test_from_string_unsupported_format(self):
+        with self.assertRaisesRegex(ValueError, 'Format ttt'):
+            webvtt.from_string(self.VTT, format='ttt')
+
+    def test_from_string_strict_other_formats(self):
+        for format, string in (('srt', self.SRT), ('sbv', self.SBV)):
+            with self.subTest(format=format), \
+                    self.assertRaisesRegex(ValueError, 'Strict'):
+                webvtt.from_string(string, strict=True, format=format)
+
+    def test_to_string(self):
+        vtt = self.captions()
+        for format, string in (('vtt', self.VTT),
+                               ('srt', self.SRT),
+                               ('sbv', self.SBV)):
+            with self.subTest(format=format):
+                self.assertEqual(vtt.to_string(format), string)
+
+    def test_to_string_default_format_is_content(self):
+        vtt = self.captions()
+
+        self.assertEqual(vtt.to_string(), vtt.content)
+
+    def test_to_string_keep_formatting(self):
+        vtt = self.captions()
+
+        self.assertIn('<b>Caption</b> #1',
+                      vtt.to_string('srt', keep_formatting=True))
+        # ignored for the formats that are not SRT
+        self.assertEqual(vtt.to_string('vtt', keep_formatting=True),
+                         self.VTT)
+        self.assertEqual(vtt.to_string('sbv', keep_formatting=True),
+                         self.SBV)
+
+    def test_to_string_unsupported_format(self):
+        with self.assertRaisesRegex(ValueError, 'Format ttt'):
+            self.captions().to_string('ttt')
+
+    def test_to_string_reads_back(self):
+        vtt = webvtt.from_string(self.VTT.replace('<b>', '').replace(
+            '</b>', ''))
+        for format in ('vtt', 'srt', 'sbv'):
+            with self.subTest(format=format):
+                self.assertEqual(
+                    webvtt.from_string(vtt.to_string(format),
+                                       format=format).captions,
+                    vtt.captions
+                    )
+
+    def test_write_sbv(self):
+        out = io.StringIO()
+        self.captions().write(out, format='sbv')
+
+        self.assertEqual(out.getvalue(), self.SBV)
+
+    def test_write_unsupported_format_writes_nothing(self):
+        out = io.StringIO()
+        with self.assertRaises(ValueError):
+            self.captions().write(out, format='ttt')
+
+        self.assertEqual(out.getvalue(), '')
+
+    def test_save_as_sbv(self):
+        vtt = self.captions()
+        with tempfile.TemporaryDirectory() as td:
+            output = pathlib.Path(td, 'captions.sbv')
+            vtt.save_as_sbv(output)
+
+            self.assertEqual(output.read_bytes(),
+                             self.SBV.replace('\n', os.linesep).encode())
+            self.assertEqual(vtt.file, str(output))
+
+    def test_save_as_sbv_extension(self):
+        vtt = self.captions()
+        for name, saved in (('captions', 'captions.sbv'),
+                            ('captions.txt', 'captions.txt')):
+            with self.subTest(name=name), \
+                    tempfile.TemporaryDirectory() as td:
+                vtt.save_as_sbv(pathlib.Path(td) / name)
+
+                self.assertEqual(os.listdir(td), [saved])
+
+    def test_save_as_sbv_without_output(self):
+        for name, saved in (('captions.vtt', 'captions.sbv'),
+                            ('captions.sbv', 'captions.sbv'),
+                            ('captions.SBV', 'captions.SBV')):
+            with self.subTest(name=name), \
+                    tempfile.TemporaryDirectory() as td:
+                path = pathlib.Path(td, name)
+                path.write_text(self.SBV if name != 'captions.vtt'
+                                else self.VTT)
+                vtt = (webvtt.read(path) if name == 'captions.vtt'
+                       else webvtt.from_sbv(path))
+                vtt.save_as_sbv()
+
+                self.assertEqual(sorted(os.listdir(td)),
+                                 sorted({name, saved}))
+                self.assertEqual(vtt.file, os.path.join(td, saved))
+
+    def test_save_as_sbv_to_folder(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = pathlib.Path(td, 'captions.vtt')
+            path.write_text(self.VTT)
+            folder = pathlib.Path(td, 'folder')
+            folder.mkdir()
+            webvtt.read(path).save_as_sbv(folder)
+
+            self.assertEqual(os.listdir(folder), ['captions.sbv'])
+
+    def test_save_as_sbv_without_file(self):
+        with self.assertRaises(MissingFilenameError):
+            self.captions().save_as_sbv()
+
+    def test_save_as_sbv_encoding(self):
+        vtt = webvtt.from_string('WEBVTT\n\n00:00:00.500 --> 00:00:07.000\n'
+                                 'Café\n')
+        with tempfile.TemporaryDirectory() as td:
+            output = pathlib.Path(td, 'captions.sbv')
+            vtt.save_as_sbv(output)
+            self.assertIn('Café'.encode('utf-8'), output.read_bytes())
+
+            vtt.save_as_sbv(output, encoding='latin-1')
+            self.assertIn('Café'.encode('latin-1'), output.read_bytes())
+
+    def test_save_as_sbv_encoding_of_reading_not_kept(self):
+        sbv = '0:00:00.500,0:00:07.000\nCafé\n'
+        with tempfile.TemporaryDirectory() as td:
+            path = pathlib.Path(td, 'captions.sbv')
+            path.write_bytes(sbv.encode('latin-1'))
+            vtt = webvtt.from_sbv(path, encoding='latin-1')
+            vtt.save_as_sbv()
+
+            self.assertEqual(path.read_bytes(),
+                             sbv.replace('\n', os.linesep).encode())
+
+    def test_save_as_sbv_encoding_error_leaves_file(self):
+        vtt = webvtt.from_string('WEBVTT\n\n00:00:00.500 --> 00:00:07.000\n'
+                                 'ñ\n')
+        with tempfile.TemporaryDirectory() as td:
+            output = pathlib.Path(td, 'captions.sbv')
+            output.write_bytes(b'original')
+            with self.assertRaises(UnicodeEncodeError):
+                vtt.save_as_sbv(output, encoding='ascii')
+
+            self.assertEqual(output.read_bytes(), b'original')
+
+    def save_and_read(self, vtt, save, **kwargs):
+        with tempfile.TemporaryDirectory() as td:
+            output = pathlib.Path(td, 'output')
+            save(vtt, output, **kwargs)
+            return pathlib.Path(vtt.file).read_bytes()
+
+    def test_save_as_srt_and_sbv_add_bom(self):
+        for save in (webvtt.WebVTT.save_as_srt, webvtt.WebVTT.save_as_sbv):
+            with self.subTest(save=save.__name__):
+                data = self.save_and_read(self.captions(), save,
+                                          add_bom=True)
+                self.assertTrue(data.startswith(codecs.BOM_UTF8))
+
+                data = self.save_and_read(self.captions(), save,
+                                          encoding='utf-16-le',
+                                          add_bom=True)
+                self.assertTrue(data.startswith(codecs.BOM_UTF16_LE))
+                self.assertIn('Caption #1'.encode('utf-16-le'), data)
+
+                data = self.save_and_read(self.captions(), save)
+                self.assertFalse(data.startswith(codecs.BOM_UTF8))
+
+    def test_save_as_srt_and_sbv_keep_bom_of_file_read(self):
+        for read, content, save in (
+                (webvtt.from_srt, self.SRT, webvtt.WebVTT.save_as_srt),
+                (webvtt.from_sbv, self.SBV, webvtt.WebVTT.save_as_sbv),
+                (webvtt.read, self.VTT, webvtt.WebVTT.save_as_srt),
+                (webvtt.read, self.VTT, webvtt.WebVTT.save_as_sbv)):
+            for encoding in ('utf-8', 'utf-16-le', 'utf-32-be'):
+                with self.subTest(read=read.__name__, save=save.__name__,
+                                  encoding=encoding), \
+                        tempfile.TemporaryDirectory() as td:
+                    path = pathlib.Path(td, 'input')
+                    path.write_bytes(CODEC_BOMS[encoding] +
+                                     content.encode(encoding))
+                    vtt = read(path)
+
+                    self.assertEqual(vtt.encoding, encoding)
+
+                    data = self.save_and_read(vtt, save)
+                    self.assertTrue(data.startswith(CODEC_BOMS[encoding]))
+                    self.assertIn('Line 1'.encode(encoding), data)
+
+                    # removed if requested
+                    data = self.save_and_read(vtt, save, add_bom=False)
+                    self.assertFalse(
+                        data.startswith(CODEC_BOMS[encoding])
+                        )
+                    self.assertIn('Line 1'.encode(encoding), data)
+
+                    # an encoding without one given when saving
+                    data = self.save_and_read(vtt, save, encoding='latin-1')
+                    self.assertIn(b'Line 1', data)
+                    self.assertFalse(data.startswith(CODEC_BOMS[encoding]))
+
+    def test_from_srt_with_bom_saves_bom_in_webvtt(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = pathlib.Path(td, 'captions.srt')
+            path.write_bytes(codecs.BOM_UTF16_LE +
+                             self.SRT.encode('utf-16-le'))
+            vtt = webvtt.from_srt(path)
+            vtt.save()
+
+            data = pathlib.Path(td, 'captions.vtt').read_bytes()
+            self.assertTrue(data.startswith(codecs.BOM_UTF16_LE))
+            self.assertIn('WEBVTT'.encode('utf-16-le'), data)
+
+    def test_save_as_srt_srt_encoding_without_bom(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = pathlib.Path(td, 'captions.srt')
+            path.write_bytes(self.SRT.encode('cp1252'))
+            vtt = webvtt.from_srt(path, encoding='cp1252')
+
+            data = self.save_and_read(vtt, webvtt.WebVTT.save_as_srt)
+            self.assertEqual(data,
+                             self.SRT.replace('\n', os.linesep).encode())
+            with self.assertRaises(ValueError):
+                vtt.save_as_srt(pathlib.Path(td, 'output'), add_bom=True)
+
+    def test_save_as_srt_and_sbv_bom_errors(self):
+        for save in (webvtt.WebVTT.save_as_srt, webvtt.WebVTT.save_as_sbv):
+            for encoding, add_bom in (('latin-1', True), ('utf-16', False),
+                                      ('utf-8-sig', False)):
+                with self.subTest(save=save.__name__, encoding=encoding), \
+                        tempfile.TemporaryDirectory() as td:
+                    output = pathlib.Path(td, 'output')
+                    with self.assertRaises(ValueError):
+                        save(self.captions(), output, encoding=encoding,
+                             add_bom=add_bom)
+
+                    self.assertEqual(os.listdir(td), [])
