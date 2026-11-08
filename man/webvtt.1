@@ -38,7 +38,7 @@ webvtt \- segment, shift, sync, validate and convert WebVTT, SRT and SBV caption
 .ft C
 webvtt segment PATH \-o OUTPUT [\-d NUMBER] [\-m NUMBER] [\-\-duration TIME]
                [\-\-overwrite] [INPUT OPTIONS]
-webvtt shift PATH OFFSET [\-o OUTPUT] [\-s TIMESTAMP] [\-\-drop\-before\-zero]
+webvtt shift PATH OFFSET [\-o OUTPUT] [\-s TIME] [\-\-drop\-before\-zero]
              [INPUT OPTIONS]
 webvtt sync PATH (\-p FROM TO \-p FROM TO ... | \-\-fps FROM TO) [\-o OUTPUT]
             [INPUT OPTIONS]
@@ -212,9 +212,10 @@ extension. If it is a directory, the file is written there with the
 input file name, which is an error when reading standard input.
 Default: standard output.
 .TP
-.B \fB\-s TIMESTAMP\fP, \fB\-\-start TIMESTAMP\fP
-Only shift the captions starting at or after \fBTIMESTAMP\fP, in
-\fB[hh:]mm:ss.mmm\fP format. Default: shift all the captions.
+.B \fB\-s TIME\fP, \fB\-\-start TIME\fP
+Only shift the captions starting at or after \fBTIME\fP, a timestamp in
+\fB[hh:]mm:ss.mmm\fP format or a number of seconds, such as \fB47.5\fP\&.
+Default: shift all the captions.
 .TP
 .B \fB\-\-drop\-before\-zero\fP
 Remove the shifted captions that end at or before \fB00:00:00.000\fP, as
@@ -292,7 +293,7 @@ are printed to standard output.
 .TP
 .B \fB2\fP
 Invalid command line arguments, such as an offset that is not a number,
-an invalid \fB\-\-start\fP timestamp, sync points that cannot be used, or an
+an invalid \fB\-\-start\fP time, sync points that cannot be used, or an
 unknown format or encoding.
 .UNINDENT
 .SH EXAMPLES

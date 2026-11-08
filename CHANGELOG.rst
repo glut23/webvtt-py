@@ -34,6 +34,7 @@ Changes:
 * The type hints use the Python 3.10 syntax and are complete, checked with ``mypy --strict``, the path arguments of ``read``, ``from_srt``, ``from_sbv``, ``save``, ``save_as_srt``, ``save_as_sbv`` and ``segment`` are annotated as ``str | os.PathLike``, as ``pathlib.Path`` objects already worked, and indexing ``WebVTT`` with a slice is typed as a list of captions (#183)
 * Styles keep the whitespace at the start of their first line and at the end of their last line when read, so that a style is read back as it was saved (#186)
 * Added property-based tests with Hypothesis, tests that save every sample and read it again, and tests that run the examples of the documentation (#186)
+* The ``--start`` option of the ``shift`` command of the CLI accepts a number of seconds, as in ``webvtt shift captions.vtt 3 --start 47``, besides a timestamp, and a number of seconds after the largest timestamp is reported as an invalid ``--start`` or ``--point`` argument (#217)
 
 0.7.0 (01-11-2026)
 ------------------

@@ -14,7 +14,7 @@ from collections.abc import Callable, Sequence
 
 from . import __version__, segmenter
 from .webvtt import WebVTT, _FORMAT_EXTENSIONS, _FORMATS
-from .models import Timestamp, _sync_mapping
+from .models import Timestamp, _sync_mapping, _to_timestamp
 from .errors import (
     MalformedFileError, MalformedCaptionError, MissingFilenameError
     )
@@ -133,9 +133,10 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
     shift_command.add_argument(
         '-s', '--start',
-        metavar='TIMESTAMP',
-        type=_timestamp,
-        help='only shift the captions starting at or after this timestamp'
+        metavar='TIME',
+        type=_position,
+        help=('only shift the captions starting at or after this time, as a '
+              'timestamp or a number of seconds')
         )
     shift_command.add_argument(
         '--drop-before-zero',
@@ -558,13 +559,19 @@ def _offset(value: str) -> float:
 
 
 def _position(value: str) -> str | float:
-    """Return a timestamp or a number of seconds of a command line argument."""
+    """
+    Return a timestamp or a number of seconds of a command line argument.
+
+    A number of seconds must be a time from zero to the largest timestamp.
+    """
     try:
         return _timestamp(value)
     except argparse.ArgumentTypeError:
         seconds = _number(value)
 
-    if not math.isfinite(seconds) or seconds < 0:
+    try:
+        _to_timestamp(seconds)
+    except MalformedCaptionError:
         raise argparse.ArgumentTypeError(f'invalid timestamp: {value!r}')
 
     return seconds

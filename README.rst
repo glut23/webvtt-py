@@ -151,8 +151,9 @@ Show the captions 1.5 seconds earlier, writing them to a new file:
     $ webvtt shift captions.vtt -1.5 --output shifted.vtt
 
 Without ``--output`` the shifted captions are written to standard output.
-Use ``--start`` to only shift the captions starting at or after a timestamp,
-and ``--drop-before-zero`` to remove the captions moved before the start.
+Use ``--start`` to only shift the captions starting at or after a time, as a
+timestamp or a number of seconds, and ``--drop-before-zero`` to remove the
+captions moved before the start.
 
 Fix captions that drift out of sync by moving two or more points, here the
 caption at 00:14.500 to 00:15.850 keeping the first one in place, or by
