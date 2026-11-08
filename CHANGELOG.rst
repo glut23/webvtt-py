@@ -22,6 +22,7 @@ Changes:
 * ``sync`` raises ``ValueError`` for a ``Timestamp`` before zero, as it does for the other times, and ``TypeError`` for one with fields that are not integers, instead of moving the captions to timestamps that cannot be written (#171)
 * Added ``Caption.copy()`` and ``WebVTT.copy()``, which return copies that share nothing with the original, and a ``repr`` for ``Style`` (#174)
 * Added the ``drop_before_zero`` argument of ``shift`` and the ``--drop-before-zero`` option of the ``shift`` command of the CLI, which remove the captions that end at or before zero after shifting them, instead of keeping them at ``00:00:00.000 --> 00:00:00.000`` (#173)
+* Added ``Caption.voices``, the voices of every voice span in the text, in order, as ``Caption.voice`` only reads a voice span at the start of the caption (#175)
 
 0.7.0 (01-11-2026)
 ------------------

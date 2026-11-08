@@ -998,6 +998,51 @@ class TestCaption(unittest.TestCase):
         self.assertIsNone(caption.voice)
         self.assertLess(time.perf_counter() - start, 1)
 
+    def test_voices(self):
+        for raw_text, voices in (
+                ('<v Homer Simpson>Hello there!</v>', ['Homer Simpson']),
+                ('Hi <v Bob>there</v>', ['Bob']),
+                ('<v Bob>Hi</v> <v.loud Alice>Hello</v>', ['Bob', 'Alice']),
+                ('<v Bob>Hi\n<v Alice>Hello</v>\n<v Bob>Bye',
+                 ['Bob', 'Alice', 'Bob']),
+                ('<b><v.quiet.slow Lisa Simpson>I am Lisa</v></b>',
+                 ['Lisa Simpson']),
+                ('No voice <b>here</b>', []),
+                ('', []),
+                ('<v>no name</v> <v  >spaces</v> <V Bob>upper</V>', []),
+                ('<vBob>no space</v> <voice Bob>other tag</voice>', []),
+                ('</v Bob> end tag', []),
+                ('<v Lets eat donuts', []),
+                ('<v Bob>Hi <v Alice', ['Bob'])):
+            with self.subTest(raw_text=raw_text):
+                self.assertEqual(Caption(text=raw_text).voices, voices)
+
+    def test_voices_first_is_voice(self):
+        for raw_text in ('<v Homer Simpson>Hello there!</v>',
+                         '<v.quiet.slow Lisa Simpson>I am Lisa</v>',
+                         '<v Bob  >trailing spaces</v> <v Alice>x</v>'):
+            with self.subTest(raw_text=raw_text):
+                caption = Caption(text=raw_text)
+                self.assertEqual(caption.voices[0], caption.voice)
+
+    def test_voices_follow_the_text(self):
+        caption = Caption(text='This is a test')
+        self.assertEqual(caption.voices, [])
+        caption.text = ['<v Bob>One</v>', '<v Alice>Two</v>']
+        self.assertEqual(caption.voices, ['Bob', 'Alice'])
+        caption.lines.append('<v Carol>Three</v>')
+        self.assertEqual(caption.voices, ['Bob', 'Alice', 'Carol'])
+
+    def test_voices_are_linear(self):
+        for raw_text in ('<v' + ' ' * 80000,
+                         '<v' + ' ' * 80000 + '>',
+                         '<v Bob>a' * 20000):
+            with self.subTest(length=len(raw_text)):
+                caption = Caption(text=raw_text)
+                start = time.perf_counter()
+                caption.voices
+                self.assertLess(time.perf_counter() - start, 1)
+
     def test_text_strips_tags_like_regex(self):
         for raw_text in (
             '<v Bob>Hello <b>test</b>!',
