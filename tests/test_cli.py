@@ -1022,3 +1022,184 @@ class CLISyncTestCase(CLICommandTestCase):
             stderr.getvalue(),
             f'webvtt: error: {vtt_file}: {os.strerror(errno.ENOENT)}\n'
             )
+
+
+class CLIValidateTestCase(CLICommandTestCase):
+
+    def validate(self, content, path=None):
+        """Return the output and the exit status of validating content."""
+        path = path or os.path.join(self.temp_dir.name, 'validate.vtt')
+        pathlib.Path(path).write_text(content)
+
+        with contextlib.redirect_stdout(io.StringIO()) as stdout:
+            try:
+                main(['validate', path])
+            except SystemExit as error:
+                return stdout.getvalue(), error.code
+
+        return stdout.getvalue(), 0
+
+    def test_validate_valid(self):
+        self.assertEqual(self.validate(self.CAPTIONS), ('', 0))
+
+    def test_validate_errors(self):
+        path = os.path.join(self.temp_dir.name, 'errors.vtt')
+        output, status = self.validate(
+            'WEBVTT\n\n'
+            '00:00:05.000 --> 00:00:06.000\na\n\n'
+            '00:00:01.000 --> 00:00:02.000 region:fred\nb\n',
+            path
+            )
+
+        self.assertEqual(status, 1)
+        self.assertEqual(
+            output,
+            f'{path}: caption 2: error: starts at 00:00:01.000, before '
+            'caption 1, which starts at 00:00:05.000\n'
+            f"{path}: caption 2: error: is in the region 'fred', which is "
+            'not defined\n'
+            )
+
+    def test_validate_warnings_only(self):
+        path = os.path.join(self.temp_dir.name, 'warnings.vtt')
+        output, status = self.validate(
+            'WEBVTT\n\n'
+            '00:00:01.000 --> 00:00:05.000\na\n\n'
+            '00:00:02.000 --> 00:00:03.000\n<b></b>\n',
+            path
+            )
+
+        self.assertEqual(status, 0)
+        self.assertEqual(
+            output,
+            f'{path}: caption 2: warning: has no text\n'
+            f'{path}: caption 2: warning: starts at 00:00:02.000, before '
+            'caption 1 ends at 00:00:05.000\n'
+            )
+
+    def test_validate_skipped_blocks(self):
+        path = os.path.join(self.temp_dir.name, 'skipped.vtt')
+        output, status = self.validate(
+            'WEBVTT\n\n00:00:01.000 --> 00:00:02.000\na\n\nnot a cue\n',
+            path
+            )
+
+        self.assertEqual(status, 1)
+        self.assertEqual(
+            output,
+            f"{path}: line 6: error: Invalid block ['not a cue']\n"
+            )
+
+    def test_validate_from_stdin(self):
+        stdin = io.TextIOWrapper(io.BytesIO(
+            b'WEBVTT\n\n00:00:01.000 --> 00:00:01.000\na\n'
+            ))
+        with mock.patch.object(sys, 'stdin', stdin):
+            with contextlib.redirect_stdout(io.StringIO()) as stdout:
+                with self.assertRaises(SystemExit) as cm:
+                    main(['validate', '-'])
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(
+            stdout.getvalue(),
+            'standard input: caption 1: error: ends at 00:00:01.000, not '
+            'after its start at 00:00:01.000\n'
+            )
+
+    def test_validate_invalid_file(self):
+        vtt_file = str(
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'invalid.vtt'
+            )
+
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as cm:
+                main(['validate', vtt_file])
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(
+            stderr.getvalue(),
+            f'webvtt: error: {vtt_file}: not a valid WebVTT file\n'
+            )
+
+    def test_validate_requires_file(self):
+        self.assert_usage_error(
+            ['validate'],
+            'the following arguments are required: PATH'
+            )
+
+    def test_validate_strict_parsing(self):
+        for content, expected in (
+                ('WEBVTTX\n\n00:00:01.000 --> 00:00:02.000\na\n',
+                 "line 1: error: Invalid header 'WEBVTTX'"),
+                ('WEBVTT\n\n00:00:01.000 --> 00:00:02.000 line:abc\na\n',
+                 "line 3: error: Invalid cue setting 'line:abc'"),
+                ('WEBVTT\n\n00:00:01.000 --> 00:00:02.000\na\n'
+                 '00:00:03.000 --> 00:00:04.000\nb\n',
+                 "line 5: error: Invalid cue block ['00:00:01.000 --> "
+                 "00:00:02.000', 'a', '00:00:03.000 --> 00:00:04.000']")):
+            with self.subTest(expected=expected):
+                path = os.path.join(self.temp_dir.name, 'strict.vtt')
+                self.assertEqual(
+                    self.validate(content, path),
+                    (f'{path}: {expected}\n', 1)
+                    )
+
+    def test_validate_strict_parsing_after_warnings(self):
+        path = os.path.join(self.temp_dir.name, 'strict.vtt')
+        self.assertEqual(
+            self.validate(
+                'WEBVTT\n\n00:00:01.000 --> 00:00:02.000 line:abc\n\n', path
+                ),
+            (f'{path}: caption 1: warning: has no text\n'
+             f"{path}: line 3: error: Invalid cue setting 'line:abc'\n", 1)
+            )
+
+    def test_validate_strict_parsing_only_without_other_errors(self):
+        path = os.path.join(self.temp_dir.name, 'strict.vtt')
+        output, status = self.validate(
+            'WEBVTT\n\n'
+            '00:00:05.000 --> 00:00:06.000 line:abc\na\n\n'
+            '00:00:01.000 --> 00:00:02.000\nb\n',
+            path
+            )
+
+        self.assertEqual(status, 1)
+        self.assertEqual(
+            output,
+            f'{path}: caption 2: error: starts at 00:00:01.000, before '
+            'caption 1, which starts at 00:00:05.000\n'
+            )
+
+    def test_validate_from_stdin_strict_parsing(self):
+        for stdin in (
+                io.TextIOWrapper(io.BytesIO(
+                    b'WEBVTT\n\n00:00:01.000 --> 00:00:02.000 line:abc\na\n'
+                    )),
+                io.StringIO(
+                    'WEBVTT\n\n00:00:01.000 --> 00:00:02.000 line:abc\na\n'
+                    )):
+            with self.subTest(stdin=type(stdin).__name__):
+                with mock.patch.object(sys, 'stdin', stdin):
+                    with contextlib.redirect_stdout(io.StringIO()) as stdout:
+                        with self.assertRaises(SystemExit) as cm:
+                            main(['validate', '-'])
+
+                self.assertEqual(cm.exception.code, 1)
+                self.assertEqual(
+                    stdout.getvalue(),
+                    "standard input: line 3: error: Invalid cue setting "
+                    "'line:abc'\n"
+                    )
+
+    def test_validate_closed_stdin(self):
+        with mock.patch.object(sys, 'stdin', None):
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                with self.assertRaises(SystemExit) as cm:
+                    main(['validate', '-'])
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(
+            stderr.getvalue(),
+            f'webvtt: error: standard input: {os.strerror(errno.EBADF)}\n'
+            )

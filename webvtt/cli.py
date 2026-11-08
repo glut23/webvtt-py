@@ -3,6 +3,7 @@
 import argparse
 import errno
 import fractions
+import io
 import math
 import os
 import pathlib
@@ -22,13 +23,13 @@ _STDIN = '-'
 
 def main(argv: typing.Optional[typing.Sequence] = None):
     """
-    Segment, shift or sync a WebVTT file from command line.
+    Segment, shift, sync or validate a WebVTT file from command line.
 
     :param argv: command line arguments
     """
     arguments = argparse.ArgumentParser(
         prog='webvtt',
-        description='Segment, shift and sync WebVTT caption files.'
+        description='Segment, shift, sync and validate WebVTT caption files.'
         )
     arguments.add_argument(
         '--version',
@@ -186,10 +187,32 @@ def main(argv: typing.Optional[typing.Sequence] = None):
         )
     sync_command.set_defaults(run=_sync)
 
+    validate_command = commands.add_parser(
+        'validate',
+        help='check a WebVTT file for problems',
+        description='Check the captions in a WebVTT file for problems.',
+        epilog=(
+            'Each problem is printed on its own line: the blocks skipped '
+            'when reading the file, and the captions out of order, not '
+            'ending after they start or in a region that is not defined, '
+            'which are errors, and the captions that overlap or have no '
+            'text, which are warnings. When there is no other error, the '
+            'file is also read with strict parsing, and its first error is '
+            'printed. The exit status is 1 if there is any error, and 0 '
+            'otherwise.'
+            )
+        )
+    validate_command.add_argument(
+        'file',
+        metavar='PATH',
+        help='WebVTT file, or - to read standard input'
+        )
+    validate_command.set_defaults(run=_validate)
+
     args = arguments.parse_args(argv)
     _check_arguments(arguments, sync_command, args)
 
-    name = 'standard input' if args.file == _STDIN else args.file
+    name = _input_name(args.file)
     try:
         args.run(args)
     except OSError as error:
@@ -283,18 +306,81 @@ def _sync(args: argparse.Namespace):
     _write(vtt, args.output)
 
 
+def _validate(args: argparse.Namespace):
+    """Run the validate command, exiting with status 1 if there are errors."""
+    if args.file == _STDIN:
+        # read once, as standard input cannot be read again for strict
+        # parsing
+        data = _stdin().read()
+
+        def read(strict: bool) -> WebVTT:
+            return WebVTT.from_buffer(
+                io.BytesIO(data) if isinstance(data, bytes)
+                else io.StringIO(data),
+                strict=strict
+                )
+    else:
+        def read(strict: bool) -> WebVTT:
+            return WebVTT.read(args.file, strict=strict)
+
+    name = _input_name(args.file)
+    vtt = read(strict=False)
+    issues = vtt.validate()
+
+    lines = [
+        f'{name}: line {issue.line}: error: {issue.message}'
+        for issue in vtt.parse_issues
+        ]
+    lines.extend(f'{name}: {issue}' for issue in issues)
+    has_errors = bool(vtt.parse_issues) or any(
+        issue.severity == 'error' for issue in issues
+        )
+
+    if not has_errors:
+        # strict parsing also finds problems in blocks that are still read,
+        # such as cue settings that are not valid, but stops at the first
+        # one, so it is only needed when nothing else is an error
+        try:
+            read(strict=True)
+        except (MalformedFileError, MalformedCaptionError) as error:
+            # the messages start with the line number, as in "line 3: ..."
+            location, _, message = str(error).partition(': ')
+            lines.append(f'{name}: {location}: error: {message}')
+            has_errors = True
+
+    if lines:
+        _write_stdout(''.join(f'{line}\n' for line in lines))
+    if has_errors:
+        sys.exit(1)
+
+
+def _input_name(path: str) -> str:
+    """Return how the input is named in messages."""
+    return 'standard input' if path == _STDIN else path
+
+
+def _stdin() -> typing.IO:
+    """
+    Return standard input to read the captions from.
+
+    The bytes are read when possible, decoded as UTF-8 as WebVTT requires,
+    whatever the encoding of standard input is.
+
+    :raises OSError: if standard input is closed
+    """
+    if sys.stdin is None:
+        # standard input is closed, as in ``webvtt shift - 1 <&-``
+        raise OSError(errno.EBADF, os.strerror(errno.EBADF))
+
+    return getattr(sys.stdin, 'buffer', sys.stdin)
+
+
 def _read(path: str) -> WebVTT:
     """Read the captions of a file, or of standard input for ``-``."""
     if path != _STDIN:
         return WebVTT.read(path)
 
-    if sys.stdin is None:
-        # standard input is closed, as in ``webvtt shift - 1 <&-``
-        raise OSError(errno.EBADF, os.strerror(errno.EBADF))
-
-    # read the bytes, decoded as UTF-8 as WebVTT requires, whatever the
-    # encoding of standard input is
-    return WebVTT.from_buffer(getattr(sys.stdin, 'buffer', sys.stdin))
+    return WebVTT.from_buffer(_stdin())
 
 
 def _write(vtt: WebVTT, output: typing.Optional[str]):

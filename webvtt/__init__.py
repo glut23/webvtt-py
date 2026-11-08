@@ -4,9 +4,14 @@ __version__ = '0.7.0'
 
 from .webvtt import WebVTT
 from . import segmenter
-from .models import Caption, CueSettings, ParseIssue, Region, Style  # noqa
+from .models import (  # noqa
+    Caption, CueSettings, ParseIssue, Region, Style, ValidationIssue
+    )
 
-__all__ = ['WebVTT', 'Caption', 'CueSettings', 'ParseIssue', 'Region', 'Style']
+__all__ = [
+    'WebVTT', 'Caption', 'CueSettings', 'ParseIssue', 'Region', 'Style',
+    'ValidationIssue'
+    ]
 
 read = WebVTT.read
 read_buffer = WebVTT.read_buffer

@@ -1615,6 +1615,202 @@ class TestWebVTT(unittest.TestCase):
             ])
         self.assertEqual(vtt.total_length, 0.0)
 
+    def test_sort(self):
+        vtt = webvtt.WebVTT(captions=[
+            Caption('00:00:05.000', '00:00:06.000', 'c'),
+            Caption('00:00:01.000', '00:00:02.000', 'a'),
+            Caption('00:00:03.000', '00:00:09.000', 'b1'),
+            Caption('00:00:03.000', '00:00:04.000', 'b2')
+            ])
+        captions = vtt.captions
+
+        vtt.sort()
+
+        self.assertEqual([c.text for c in vtt], ['a', 'b1', 'b2', 'c'])
+        self.assertIs(vtt.captions, captions)
+
+    def test_sort_no_captions(self):
+        vtt = webvtt.WebVTT()
+        vtt.sort()
+        self.assertEqual(vtt.captions, [])
+
+    def test_validate_valid(self):
+        vtt = webvtt.from_string(textwrap.dedent('''\
+            WEBVTT
+
+            REGION
+            id:fred
+
+            00:00:01.000 --> 00:00:02.000 region:fred
+            a
+
+            00:00:02.000 --> 00:00:03.000
+            b
+            '''))
+        self.assertEqual(vtt.validate(), [])
+        self.assertEqual(webvtt.WebVTT().validate(), [])
+
+    def test_validate_timing(self):
+        vtt = webvtt.WebVTT(captions=[
+            Caption('00:00:01.000', '00:00:02.000', 'ok'),
+            Caption('00:00:03.000', '00:00:03.000', 'zero'),
+            Caption('00:00:05.000', '00:00:04.000', 'backwards')
+            ])
+        self.assertEqual(vtt.validate(), [
+            webvtt.ValidationIssue(
+                1, 'timing', 'error',
+                'ends at 00:00:03.000, not after its start at 00:00:03.000'
+                ),
+            webvtt.ValidationIssue(
+                2, 'timing', 'error',
+                'ends at 00:00:04.000, not after its start at 00:00:05.000'
+                )
+            ])
+
+    def test_validate_order(self):
+        vtt = webvtt.WebVTT(captions=[
+            Caption('00:00:05.000', '00:00:06.000', 'a'),
+            Caption('00:00:01.000', '00:00:02.000', 'b'),
+            Caption('00:00:03.000', '00:00:04.000', 'c'),
+            Caption('00:00:07.000', '00:00:08.000', 'd'),
+            Caption('00:00:07.000', '00:00:08.500', 'same start')
+            ])
+        self.assertEqual(
+            [(i.index, i.code, i.severity, i.message)
+             for i in vtt.validate()],
+            [(1, 'order', 'error', 'starts at 00:00:01.000, before caption '
+              '1, which starts at 00:00:05.000'),
+             (4, 'overlap', 'warning', 'starts at 00:00:07.000, before '
+              'caption 4 ends at 00:00:08.000')]
+            )
+
+        vtt.sort()
+        self.assertEqual(
+            [i.code for i in vtt.validate()],
+            ['overlap']
+            )
+
+    def test_validate_order_one_caption_out_of_place(self):
+        # the last caption first is one error, not one for every caption
+        vtt = webvtt.WebVTT(captions=[
+            Caption(f'00:00:{second:02d}.000', f'00:00:{second:02d}.500', 'x')
+            for second in (50, 1, 2, 3, 4, 5)
+            ])
+        self.assertEqual(
+            [(i.index, i.code) for i in vtt.validate()],
+            [(1, 'order')]
+            )
+
+    def test_validate_order_each_drop(self):
+        vtt = webvtt.WebVTT(captions=[
+            Caption(f'00:00:{second:02d}.000', f'00:00:{second:02d}.500', 'x')
+            for second in (1, 5, 3, 9, 7)
+            ])
+        self.assertEqual(
+            [(i.index, i.message) for i in vtt.validate()],
+            [(2, 'starts at 00:00:03.000, before caption 2, which starts at '
+              '00:00:05.000'),
+             (4, 'starts at 00:00:07.000, before caption 4, which starts at '
+              '00:00:09.000')]
+            )
+
+    def test_validate_overlap(self):
+        vtt = webvtt.WebVTT(captions=[
+            Caption('00:00:01.000', '00:00:10.000', 'long'),
+            Caption('00:00:02.000', '00:00:03.000', 'inside'),
+            Caption('00:00:04.000', '00:00:05.000', 'inside too'),
+            Caption('00:00:10.000', '00:00:11.000', 'touches'),
+            Caption('00:00:10.500', '00:00:12.000', 'overlaps touches')
+            ])
+        self.assertEqual(
+            [(i.index, i.code, i.message) for i in vtt.validate()],
+            [(1, 'overlap',
+              'starts at 00:00:02.000, before caption 1 ends at 00:00:10.000'),
+             (2, 'overlap',
+              'starts at 00:00:04.000, before caption 1 ends at 00:00:10.000'),
+             (4, 'overlap',
+              'starts at 00:00:10.500, before caption 4 ends at 00:00:11.000')]
+            )
+        self.assertTrue(
+            all(issue.severity == 'warning' for issue in vtt.validate())
+            )
+
+    def test_validate_overlap_out_of_order(self):
+        vtt = webvtt.WebVTT(captions=[
+            Caption('00:00:03.000', '00:00:04.000', 'later'),
+            Caption('00:00:01.000', '00:00:05.000', 'earlier')
+            ])
+        self.assertEqual(
+            [(i.index, i.code) for i in vtt.validate()],
+            [(0, 'overlap'), (1, 'order')]
+            )
+
+    def test_validate_overlap_leaves_out_bad_timing(self):
+        vtt = webvtt.WebVTT(captions=[
+            Caption('00:00:01.000', '00:00:05.000', 'a'),
+            Caption('00:00:02.000', '00:00:02.000', 'zero'),
+            Caption('00:00:04.000', '00:00:03.000', 'backwards')
+            ])
+        self.assertEqual(
+            [(i.index, i.code) for i in vtt.validate()],
+            [(1, 'timing'), (2, 'timing')]
+            )
+
+    def test_validate_region(self):
+        vtt = webvtt.WebVTT(
+            captions=[
+                Caption('00:00:01.000', '00:00:02.000', 'a',
+                        settings='region:fred'),
+                Caption('00:00:02.000', '00:00:03.000', 'b',
+                        settings='region:bob line:0'),
+                Caption('00:00:03.000', '00:00:04.000', 'c')
+                ],
+            regions=[Region(id='fred'), Region(width='40%')]
+            )
+        self.assertEqual(vtt.validate(), [
+            webvtt.ValidationIssue(
+                1, 'region', 'error',
+                "is in the region 'bob', which is not defined"
+                )
+            ])
+
+    def test_validate_empty(self):
+        vtt = webvtt.WebVTT(captions=[
+            Caption('00:00:01.000', '00:00:02.000', ''),
+            Caption('00:00:02.000', '00:00:03.000', ['', '  ']),
+            Caption('00:00:03.000', '00:00:04.000', '<b> </b>'),
+            Caption('00:00:04.000', '00:00:05.000', 'text')
+            ])
+        self.assertEqual(
+            [(i.index, i.code, i.severity, i.message)
+             for i in vtt.validate()],
+            [(index, 'empty', 'warning', 'has no text')
+             for index in range(3)]
+            )
+
+    def test_validate_issues_in_order_of_captions(self):
+        vtt = webvtt.WebVTT(captions=[
+            Caption('00:00:05.000', '00:00:08.000', 'a'),
+            Caption('00:00:06.000', '00:00:06.000', '', settings='region:x'),
+            Caption('00:00:01.000', '00:00:07.000', 'b')
+            ])
+        self.assertEqual(
+            [(i.index, i.code) for i in vtt.validate()],
+            [(0, 'overlap'), (1, 'timing'), (1, 'region'), (1, 'empty'),
+             (2, 'order')]
+            )
+
+    def test_validate_does_not_include_parse_issues(self):
+        vtt = webvtt.from_string('WEBVTT\n\nnot a cue\n')
+        self.assertEqual(len(vtt.parse_issues), 1)
+        self.assertEqual(vtt.validate(), [])
+
+    def test_validation_issue_str(self):
+        self.assertEqual(
+            str(webvtt.ValidationIssue(2, 'empty', 'warning', 'has no text')),
+            'caption 3: warning: has no text'
+            )
+
     def test_shift(self):
         vtt = webvtt.read(PATH_TO_SAMPLES / 'sample.vtt')
         durations = [

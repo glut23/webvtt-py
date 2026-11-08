@@ -1208,6 +1208,39 @@ class ParseIssue:
         return f'line {self.line}: {self.message}'
 
 
+_ValidationCode = typing.Literal[
+    'timing', 'order', 'region', 'overlap', 'empty'
+    ]
+_Severity = typing.Literal['error', 'warning']
+
+
+@dataclass
+class ValidationIssue:
+    """
+    Record of a problem found in the captions by ``WebVTT.validate``.
+
+    :param index: the index of the caption in ``captions``, from 0
+    :param code: the kind of problem: ``timing`` for an end that is not
+        after the start, ``order`` for a caption that starts before the
+        previous one, ``region`` for a region that is not defined,
+        ``overlap`` for a caption that overlaps an earlier one, or
+        ``empty`` for a caption without text
+    :param severity: ``error`` when the captions are not valid WebVTT, or
+        ``warning`` when they are valid but likely have a mistake
+    :param message: a description of the problem, where captions are
+        numbered from 1 as in a file
+    """
+
+    index: int
+    code: _ValidationCode
+    severity: _Severity
+    message: str
+
+    def __str__(self):
+        """Return the caption number, from 1, the severity and the message."""
+        return f'caption {self.index + 1}: {self.severity}: {self.message}'
+
+
 def _skipped_block(
         number: int,
         kind: str,

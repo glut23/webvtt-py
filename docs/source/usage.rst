@@ -1121,3 +1121,60 @@ with the ``srt`` or ``sbv`` format.
         vtt = webvtt.read('captions.vtt', strict=True)
     except MalformedCaptionError as e:
         print(f'captions.vtt is not valid WebVTT: {e}')
+
+
+Validating and sorting captions
+-------------------------------
+
+Some problems are not found when reading, as each block is checked on its
+own, and captions can also be changed or created in code. ``validate``
+checks all the captions and returns the problems as
+``webvtt.ValidationIssue`` objects, in the order of the captions:
+
+.. code-block:: python
+
+    import webvtt
+
+    vtt = webvtt.read('captions.vtt')
+
+    for issue in vtt.validate():
+        # caption 3: error: starts at 00:00:01.000, before caption 2, ...
+        print(issue)
+
+        issue.index     # 2, the index in vtt.captions
+        issue.code      # 'order'
+        issue.severity  # 'error'
+        issue.message   # 'starts at 00:00:01.000, before caption 2, ...'
+
+The errors are for captions that are not valid WebVTT:
+
+* ``timing``: the end time is not after the start time
+* ``order``: the caption starts before the previous one, as WebVTT requires
+  the captions in order of start time
+* ``region``: the ``region`` cue setting is a region that is not defined
+
+The warnings are for captions that are valid WebVTT but likely have a
+mistake:
+
+* ``overlap``: the caption starts before an earlier one ends, so both are
+  shown at the same time
+* ``empty``: the caption has no text
+
+In the messages, captions are numbered from 1, as in a file, while
+``index`` is the index in ``captions``, from 0. The blocks skipped when
+reading are in ``parse_issues`` instead, see `Strict parsing`_.
+
+``validate`` does not repeat the checks of strict parsing, which are about
+how the file is written, such as the header or cue settings that are not
+valid. To check both, read the file with ``strict=True`` and then validate
+the captions. The ``validate`` command of the CLI does both.
+
+``sort`` puts the captions in order of start time, fixing the ``order``
+errors. Captions that start at the same time keep their order:
+
+.. code-block:: python
+
+    vtt.sort()
+    vtt.save()
+
+Validating is also available from the command line, see :doc:`cli`.

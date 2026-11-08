@@ -29,7 +29,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 .TH "WEBVTT" "1" "Nov 08, 2026" "0.7.0" "webvtt-py"
 .SH NAME
-webvtt \- segment, shift and sync WebVTT captions
+webvtt \- segment, shift, sync and validate WebVTT captions
 .SH SYNOPSIS
 .INDENT 0.0
 .INDENT 3.5
@@ -40,6 +40,7 @@ webvtt segment PATH \-o OUTPUT [\-d NUMBER] [\-m NUMBER] [\-\-duration TIME]
                [\-\-overwrite]
 webvtt shift PATH OFFSET [\-o OUTPUT] [\-s TIMESTAMP] [\-\-drop\-before\-zero]
 webvtt sync PATH (\-p FROM TO \-p FROM TO ... | \-\-fps FROM TO) [\-o OUTPUT]
+webvtt validate PATH
 webvtt \-h
 webvtt \-\-version
 .ft P
@@ -49,7 +50,8 @@ webvtt \-\-version
 .SH DESCRIPTION
 .sp
 \fBwebvtt\fP segments a WebVTT caption file for \X'tty: link https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis'\fI\%HTTP Live Streaming\fP\X'tty: link' (HLS)
-and shifts or synchronizes the timestamps of its captions.
+and shifts or synchronizes the timestamps of its captions, or checks it for
+problems.
 .sp
 \fBsegment\fP splits the captions in \fBPATH\fP into segments of a target
 duration. Each segment is written to \fBOUTPUT\fP as \fBfileSequenceN.webvtt\fP,
@@ -84,10 +86,22 @@ With \fB\-\-fps\fP, the timing is changed from one frame rate to another. Times
 are rounded and set to zero like with \fBshift\fP, and the output is written
 the same way.
 .sp
+\fBvalidate\fP checks the captions in \fBPATH\fP and prints each problem on its
+own line, as \fBPATH: line N: error: MESSAGE\fP for a block skipped when
+reading the file, or \fBPATH: caption N: SEVERITY: MESSAGE\fP for a caption,
+numbered from 1. Captions out of order, not ending after they start or in a
+region that is not defined are errors, as they are not valid WebVTT.
+Captions that overlap an earlier one or have no text are warnings. When
+there is no other error, the file is also read with strict parsing, which
+finds other problems such as cue settings that are not valid, and its first
+error is printed as \fBPATH: line N: error: MESSAGE\fP\&. Nothing is printed when
+there is no problem.
+.sp
 The commands can also be run as \fBpython \-m webvtt\fP, as in
 \fBpython \-m webvtt shift captions.vtt 2\fP\&.
 .sp
-\fBsegment\fP, \fBshift\fP and \fBsync\fP read the captions from standard input
+\fBsegment\fP, \fBshift\fP, \fBsync\fP and \fBvalidate\fP read the captions from
+standard input
 when \fBPATH\fP is \fB\-\fP, decoded as UTF\-8 as WebVTT requires, so they can be
 used in pipes. A file named \fB\-\fP can be read as \fB\&./\-\fP\&.
 .SH COMMANDS
@@ -101,6 +115,9 @@ Shift the timestamps of the WebVTT file at \fBPATH\fP\&.
 .TP
 .B \fBsync\fP
 Synchronize the timestamps of the WebVTT file at \fBPATH\fP\&.
+.TP
+.B \fBvalidate\fP
+Check the WebVTT file at \fBPATH\fP for problems.
 .UNINDENT
 .SH OPTIONS
 .INDENT 0.0
@@ -194,7 +211,8 @@ Default: standard output.
 .INDENT 0.0
 .TP
 .B \fB0\fP
-The command completed successfully.
+The command completed successfully. For \fBvalidate\fP, the file has no
+errors, though it can have warnings.
 .TP
 .B \fB1\fP
 The input could not be read or is not a valid WebVTT file, the captions
@@ -213,6 +231,11 @@ webvtt: error: captions.vtt: not a valid WebVTT file
 .fi
 .UNINDENT
 .UNINDENT
+.UNINDENT
+.sp
+For \fBvalidate\fP, \fB1\fP is also the status when the file has errors, which
+are printed to standard output.
+.INDENT 0.0
 .TP
 .B \fB2\fP
 Invalid command line arguments, such as an offset that is not a number,
@@ -442,11 +465,43 @@ $ webvtt sync captions.vtt \-\-fps 25 23.976 | webvtt segment \- \-o out
 .fi
 .UNINDENT
 .UNINDENT
+.sp
+Check \fBcaptions.vtt\fP, which has no problems, so nothing is printed:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ webvtt validate captions.vtt
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Check \fBedited.vtt\fP, where the captions are out of order, the last one is
+in a region that is not defined and overlaps the first one, and a block is
+not a cue:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ webvtt validate edited.vtt
+edited.vtt: line 12: error: Invalid block [\(aqNOTEBOOK\(aq]
+edited.vtt: caption 2: error: starts at 00:00:01.000, before caption 1, which starts at 00:00:06.000
+edited.vtt: caption 3: error: is in the region \(aqbottom\(aq, which is not defined
+edited.vtt: caption 3: warning: starts at 00:00:11.000, before caption 1 ends at 00:00:12.000
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SH SEE ALSO
 .sp
-The same segmentation, shifting and synchronizing are available from Python
-with \fBwebvtt.segment()\fP, \fBWebVTT.shift()\fP, \fBWebVTT.sync()\fP and
-\fBWebVTT.change_framerate()\fP\&.
+The same segmentation, shifting, synchronizing and validation are available
+from Python
+with \fBwebvtt.segment()\fP, \fBWebVTT.shift()\fP, \fBWebVTT.sync()\fP,
+\fBWebVTT.change_framerate()\fP and \fBWebVTT.validate()\fP, and
+\fBWebVTT.sort()\fP puts the captions in order of start time.
 .SH AUTHOR
 Alejandro Mendez
 .SH COPYRIGHT
