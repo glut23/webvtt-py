@@ -7,6 +7,7 @@ import os
 import io
 import typing
 import warnings
+from collections.abc import Generator, Iterable, Iterator, Sequence
 
 from . import vtt, utils
 from . import srt
@@ -58,14 +59,14 @@ class WebVTT:
             self,
             # NoReturn, so type checkers report positional arguments too
             *args: typing.NoReturn,
-            file: typing.Optional[str] = None,
-            captions: typing.Optional[typing.List[Caption]] = None,
-            styles: typing.Optional[typing.List[Style]] = None,
-            header_comments: typing.Optional[typing.List[str]] = None,
-            footer_comments: typing.Optional[typing.List[str]] = None,
-            header_text: typing.Optional[str] = None,
-            metadata: typing.Optional[typing.List[str]] = None,
-            regions: typing.Optional[typing.List[Region]] = None
+            file: str | None = None,
+            captions: list[Caption] | None = None,
+            styles: list[Style] | None = None,
+            header_comments: list[str] | None = None,
+            footer_comments: list[str] | None = None,
+            header_text: str | None = None,
+            metadata: list[str] | None = None,
+            regions: list[Region] | None = None
             ):
         """
         Initialize.
@@ -121,11 +122,11 @@ class WebVTT:
         self.header_text = header_text or ''
         self.metadata = _list_or_new(metadata)
         self.regions = _list_or_new(regions)
-        self.parse_issues: typing.List[ParseIssue] = []
+        self.parse_issues: list[ParseIssue] = []
         self._has_bom = False
         self.encoding = DEFAULT_ENCODING
         # the encoding given to read SRT, which save_as_srt keeps
-        self._srt_encoding: typing.Optional[str] = None
+        self._srt_encoding: str | None = None
 
     def __len__(self):
         """Return the number of captions."""
@@ -169,9 +170,9 @@ class WebVTT:
     def read(
             cls,
             file: str,
-            encoding: typing.Optional[str] = None,
+            encoding: str | None = None,
             strict: bool = False,
-            errors: typing.Optional[str] = 'strict'
+            errors: str | None = 'strict'
             ) -> 'WebVTT':
         """
         Read a WebVTT captions file.
@@ -200,7 +201,7 @@ class WebVTT:
     @classmethod
     def read_buffer(
             cls,
-            buffer: typing.Iterator[str]
+            buffer: Iterator[str]
             ) -> 'WebVTT':
         """
         Read WebVTT captions from a file-like object.
@@ -223,11 +224,11 @@ class WebVTT:
     @classmethod
     def from_buffer(
             cls,
-            buffer: typing.Union[typing.Iterable[str], typing.BinaryIO],
+            buffer: Iterable[str] | typing.BinaryIO,
             format: str = 'vtt',
             strict: bool = False,
-            encoding: typing.Optional[str] = None,
-            errors: typing.Optional[str] = 'strict'
+            encoding: str | None = None,
+            errors: str | None = 'strict'
             ) -> 'WebVTT':
         """
         Read WebVTT captions from a file-like object.
@@ -282,7 +283,7 @@ class WebVTT:
             buffer, encoding, errors
             )
 
-        issues: typing.List[ParseIssue] = []
+        issues: list[ParseIssue] = []
         if format == 'vtt':
             output = vtt.parse(cls._get_lines(lines), strict)
             issues = output.issues
@@ -296,7 +297,7 @@ class WebVTT:
                 regions=output.regions
                 )
         elif format == 'srt':
-            styles: typing.List[Style] = []
+            styles: list[Style] = []
             captions = srt.parse(cls._get_lines(lines), issues, styles)
             instance = cls(captions=captions, styles=styles)
         else:
@@ -313,12 +314,10 @@ class WebVTT:
 
     @staticmethod
     def _read_buffer(
-            buffer: typing.Union[typing.Iterable[str], typing.BinaryIO],
-            encoding: typing.Optional[str],
-            errors: typing.Optional[str]
-            ) -> typing.Tuple[
-                typing.Iterable[str], typing.Optional[str], bool
-                ]:
+            buffer: Iterable[str] | typing.BinaryIO,
+            encoding: str | None,
+            errors: str | None
+            ) -> tuple[Iterable[str], str | None, bool]:
         """
         Return the lines of a buffer and the encoding of its BOM.
 
@@ -347,7 +346,7 @@ class WebVTT:
 
         read = getattr(buffer, 'read', None)
         if read is None:
-            return typing.cast(typing.Iterable[str], buffer), None, False
+            return typing.cast(Iterable[str], buffer), None, False
 
         data = read()
         if isinstance(data, str):
@@ -369,8 +368,8 @@ class WebVTT:
     def from_srt(
             cls,
             file: str,
-            encoding: typing.Optional[str] = None,
-            errors: typing.Optional[str] = 'strict'
+            encoding: str | None = None,
+            errors: str | None = 'strict'
             ) -> 'WebVTT':
         """
         Read captions from a file in SubRip format.
@@ -397,8 +396,8 @@ class WebVTT:
     def from_sbv(
             cls,
             file: str,
-            encoding: typing.Optional[str] = None,
-            errors: typing.Optional[str] = 'strict'
+            encoding: str | None = None,
+            errors: str | None = 'strict'
             ) -> 'WebVTT':
         """
         Read captions from a file in YouTube SBV format.
@@ -426,8 +425,8 @@ class WebVTT:
             cls,
             file: str,
             format: str,
-            encoding: typing.Optional[str],
-            errors: typing.Optional[str],
+            encoding: str | None,
+            errors: str | None,
             strict: bool = False
             ) -> 'WebVTT':
         """
@@ -477,7 +476,7 @@ class WebVTT:
         return cls.from_buffer([string], format=format, strict=strict)
 
     @staticmethod
-    def _get_lines(lines: typing.Iterable[str]) -> typing.List[str]:
+    def _get_lines(lines: Iterable[str]) -> list[str]:
         """
         Return cleaned lines from an iterable of lines.
 
@@ -488,7 +487,7 @@ class WebVTT:
         :param lines: iterable of lines
         :returns: a list of cleaned lines
         """
-        cleaned_lines: typing.List[str] = []
+        cleaned_lines: list[str] = []
         for item in lines:
             # an empty item is an empty line
             cleaned_lines.extend(utils._split_lines(item) or [''])
@@ -498,7 +497,7 @@ class WebVTT:
 
     def _get_destination_file(
             self,
-            destination_path: typing.Optional[str] = None,
+            destination_path: str | None = None,
             extension: str = 'vtt'
             ) -> str:
         """
@@ -538,9 +537,9 @@ class WebVTT:
 
     def save(
             self,
-            output: typing.Optional[str] = None,
-            encoding: typing.Optional[str] = None,
-            add_bom: typing.Optional[bool] = None
+            output: str | None = None,
+            encoding: str | None = None,
+            add_bom: bool | None = None
             ):
         """
         Save the WebVTT captions to a file.
@@ -573,10 +572,10 @@ class WebVTT:
 
     def save_as_srt(
             self,
-            output: typing.Optional[str] = None,
-            encoding: typing.Optional[str] = None,
+            output: str | None = None,
+            encoding: str | None = None,
             keep_formatting: bool = False,
-            add_bom: typing.Optional[bool] = None
+            add_bom: bool | None = None
             ):
         """
         Save the WebVTT captions to a file in SubRip format.
@@ -614,9 +613,9 @@ class WebVTT:
 
     def save_as_sbv(
             self,
-            output: typing.Optional[str] = None,
-            encoding: typing.Optional[str] = None,
-            add_bom: typing.Optional[bool] = None
+            output: str | None = None,
+            encoding: str | None = None,
+            add_bom: bool | None = None
             ):
         """
         Save the WebVTT captions to a file in YouTube SBV format.
@@ -647,10 +646,10 @@ class WebVTT:
 
     def _save(
             self,
-            output: typing.Optional[str],
+            output: str | None,
             format: str,
             encoding: str,
-            add_bom: typing.Optional[bool],
+            add_bom: bool | None,
             keep_formatting: bool = False
             ):
         """
@@ -737,12 +736,12 @@ class WebVTT:
 
     def iter_slice(
             self,
-            start: typing.Optional[_Position] = None,
-            end: typing.Optional[_Position] = None,
+            start: _Position | None = None,
+            end: _Position | None = None,
             *,
             overlapping: bool = False,
             clip: bool = False
-            ) -> typing.Generator[Caption, None, None]:
+            ) -> Generator[Caption, None, None]:
         """
         Iterate a slice of the captions based on a time range.
 
@@ -783,8 +782,8 @@ class WebVTT:
 
     def shift(
             self,
-            offset: typing.Union[float, datetime.timedelta],
-            start: typing.Optional[_Position] = None,
+            offset: float | datetime.timedelta,
+            start: _Position | None = None,
             *,
             drop_before_zero: bool = False
             ):
@@ -833,7 +832,7 @@ class WebVTT:
                     if id(caption) not in dropped
                     ]
 
-    def sync(self, *points: typing.Sequence[_Position]):
+    def sync(self, *points: Sequence[_Position]):
         """
         Synchronize the captions to two or more points.
 
@@ -896,7 +895,7 @@ class WebVTT:
         """
         self.captions.sort(key=lambda caption: caption.start_in_milliseconds)
 
-    def validate(self) -> typing.List[ValidationIssue]:
+    def validate(self) -> list[ValidationIssue]:
         """
         Return the problems found in the captions, in the order of captions.
 
@@ -915,7 +914,7 @@ class WebVTT:
         """
         issues = []
         region_ids = {region.id for region in self.regions if region.id}
-        previous: typing.Optional[Caption] = None
+        previous: Caption | None = None
 
         for index, caption in enumerate(self.captions):
             if caption.end_in_milliseconds <= caption.start_in_milliseconds:
@@ -995,7 +994,7 @@ class WebVTT:
             )
 
 
-def _buffer_file(buffer: typing.Any) -> typing.Optional[str]:
+def _buffer_file(buffer: typing.Any) -> str | None:
     """
     Return the path of the file of a file-like object, if it has one.
 
@@ -1033,7 +1032,7 @@ def _with_extension(file: str, extension: str) -> str:
 
 def _byte_order_mark(
         encoding: str,
-        add_bom: typing.Optional[bool],
+        add_bom: bool | None,
         has_bom: bool
         ) -> str:
     """
@@ -1070,7 +1069,7 @@ def _byte_order_mark(
     return ''
 
 
-def _list_or_new(items: typing.Optional[typing.List[_T]]) -> typing.List[_T]:
+def _list_or_new(items: list[_T] | None) -> list[_T]:
     """
     Return the list given, even if empty, or a new list for None.
 
@@ -1080,7 +1079,7 @@ def _list_or_new(items: typing.Optional[typing.List[_T]]) -> typing.List[_T]:
     return [] if items is None else items
 
 
-def _overlaps(captions: typing.List[Caption]) -> typing.List[ValidationIssue]:
+def _overlaps(captions: list[Caption]) -> list[ValidationIssue]:
     """
     Return a warning for each caption that overlaps an earlier one in time.
 
@@ -1098,7 +1097,7 @@ def _overlaps(captions: typing.List[Caption]) -> typing.List[ValidationIssue]:
          if caption.end_in_milliseconds > caption.start_in_milliseconds),
         key=lambda index: captions[index].start_in_milliseconds
         )
-    last_ending: typing.Optional[int] = None
+    last_ending: int | None = None
 
     for index in timed:
         caption = captions[index]
@@ -1119,8 +1118,8 @@ def _overlaps(captions: typing.List[Caption]) -> typing.List[ValidationIssue]:
 
 def _within_range(
         caption: Caption,
-        start: typing.Optional[Timestamp],
-        end: typing.Optional[Timestamp]
+        start: Timestamp | None,
+        end: Timestamp | None
         ) -> bool:
     """
     Return whether a caption is within a time range.
@@ -1139,8 +1138,8 @@ def _within_range(
 
 def _overlaps_range(
         caption: Caption,
-        start: typing.Optional[Timestamp],
-        end: typing.Optional[Timestamp]
+        start: Timestamp | None,
+        end: Timestamp | None
         ) -> bool:
     """
     Return whether a caption has any part in a time range.
@@ -1167,8 +1166,8 @@ def _overlaps_range(
 
 def _clipped(
         caption: Caption,
-        start: typing.Optional[Timestamp],
-        end: typing.Optional[Timestamp]
+        start: Timestamp | None,
+        end: Timestamp | None
         ) -> Caption:
     """
     Return a copy of a caption trimmed to a time range.

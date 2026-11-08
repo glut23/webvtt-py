@@ -1,7 +1,6 @@
 """Models module."""
 
 import bisect
-import collections.abc
 import copy
 import datetime
 import decimal
@@ -10,6 +9,7 @@ import functools
 import math
 import re
 import typing
+from collections.abc import Callable, Generator, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 
 from .errors import MalformedCaptionError, MalformedRegionError
@@ -56,7 +56,7 @@ class Timestamp:
             f'.{self.milliseconds:03d}'
             )
 
-    def to_tuple(self) -> typing.Tuple[int, int, int, int]:
+    def to_tuple(self) -> tuple[int, int, int, int]:
         """Return the timestamp in tuple form."""
         return self.hours, self.minutes, self.seconds, self.milliseconds
 
@@ -179,7 +179,7 @@ class Timestamp:
         return self.in_seconds() * 1000 + self.milliseconds
 
 
-def _is_finite(value: typing.Union[float, fractions.Fraction]) -> bool:
+def _is_finite(value: float | fractions.Fraction) -> bool:
     """
     Return whether a number is finite.
 
@@ -190,7 +190,7 @@ def _is_finite(value: typing.Union[float, fractions.Fraction]) -> bool:
     return not isinstance(value, float) or math.isfinite(value)
 
 
-def _in_milliseconds(value: typing.Union[float, datetime.timedelta]) -> int:
+def _in_milliseconds(value: float | datetime.timedelta) -> int:
     """
     Return a number of seconds or a ``timedelta`` in milliseconds.
 
@@ -224,7 +224,7 @@ def _in_milliseconds(value: typing.Union[float, datetime.timedelta]) -> int:
 
 
 def _offset_in_milliseconds(
-        offset: typing.Union[float, datetime.timedelta],
+        offset: float | datetime.timedelta,
         name: str = 'offset'
         ) -> int:
     """
@@ -250,7 +250,7 @@ def _offset_in_milliseconds(
     return _in_milliseconds(offset)
 
 
-_Position = typing.Union[str, Timestamp, float, datetime.timedelta]
+_Position = str | Timestamp | float | datetime.timedelta
 
 
 def _position_in_milliseconds(value: _Position) -> int:
@@ -312,8 +312,8 @@ def _to_timestamp(value: _Position) -> Timestamp:
 
 
 def _optional_timestamp(
-        value: typing.Optional[_Position]
-        ) -> typing.Optional[Timestamp]:
+        value: _Position | None
+        ) -> Timestamp | None:
     """
     Return a time that may be missing as a new `Timestamp`.
 
@@ -328,7 +328,7 @@ def _optional_timestamp(
     return _to_timestamp(value)
 
 
-def _time_or_zero(value: typing.Optional[_Position]) -> Timestamp:
+def _time_or_zero(value: _Position | None) -> Timestamp:
     """
     Return a time that may be missing as a new `Timestamp`, or zero.
 
@@ -356,8 +356,8 @@ def _divide_rounded(numerator: int, denominator: int) -> int:
 
 
 def _sync_mapping(
-        points: typing.Sequence[typing.Sequence[_Position]]
-        ) -> typing.Callable[[int], int]:
+        points: Sequence[Sequence[_Position]]
+        ) -> Callable[[int], int]:
     """
     Return the function mapping times in milliseconds for sync points.
 
@@ -407,7 +407,7 @@ def _sync_mapping(
     return mapping
 
 
-def _sync_point(point: typing.Sequence[_Position]) -> typing.Tuple[int, int]:
+def _sync_point(point: Sequence[_Position]) -> tuple[int, int]:
     """
     Return a ``(from, to)`` sync point in milliseconds.
 
@@ -423,13 +423,13 @@ def _sync_point(point: typing.Sequence[_Position]) -> typing.Tuple[int, int]:
             _position_in_milliseconds(point[1]))
 
 
-_FrameRate = typing.Union[float, fractions.Fraction]
+_FrameRate = float | fractions.Fraction
 
 
 def _framerate_mapping(
         from_fps: _FrameRate,
         to_fps: _FrameRate
-        ) -> typing.Callable[[int], int]:
+        ) -> Callable[[int], int]:
     """
     Return the function mapping times in milliseconds between frame rates.
 
@@ -475,7 +475,7 @@ def _frame_rate(value: _FrameRate) -> fractions.Fraction:
 
 def _iter_cue_text_tokens(
         line: str
-        ) -> typing.Generator[typing.Tuple[str, bool], None, None]:
+        ) -> Generator[tuple[str, bool], None, None]:
     """
     Iterate the text and the cue tags of a single line of text.
 
@@ -562,7 +562,7 @@ def _is_valid_identifier(value: str) -> bool:
         )
 
 
-def _split_setting(setting: str) -> typing.Optional[typing.Tuple[str, str]]:
+def _split_setting(setting: str) -> tuple[str, str] | None:
     """
     Split a setting in name and value at its first colon.
 
@@ -576,7 +576,7 @@ def _split_setting(setting: str) -> typing.Optional[typing.Tuple[str, str]]:
     return name, value
 
 
-def _setting_name(setting: str) -> typing.Optional[str]:
+def _setting_name(setting: str) -> str | None:
     """Return the name of a setting, or None when it has no name."""
     parts = _split_setting(setting)
     return parts[0] if parts else None
@@ -604,22 +604,20 @@ class _Settings:
     the last valid one when it is repeated, and validates a new value.
     """
 
-    VALIDATORS: typing.ClassVar[
-        typing.Dict[str, typing.Callable[[str], bool]]
-        ] = {}
+    VALIDATORS: typing.ClassVar[dict[str, Callable[[str], bool]]] = {}
 
     # what a setting is called in error messages
     _KIND = 'setting'
     # the error raised for settings that are not valid
-    _ERROR: typing.ClassVar[
-        typing.Type[MalformedCaptionError]
-        ] = MalformedCaptionError
+    _ERROR: typing.ClassVar[type[MalformedCaptionError]] = (
+        MalformedCaptionError
+        )
 
     def __init__(self):
         """Initialize without settings."""
-        self._settings: typing.List[str] = []
+        self._settings: list[str] = []
 
-    def _set_given(self, **values: typing.Optional[str]):
+    def _set_given(self, **values: str | None):
         """
         Set the settings that are given, in order.
 
@@ -634,7 +632,7 @@ class _Settings:
 
     @classmethod
     def from_string(
-            cls: typing.Type[_SettingsT],
+            cls: type[_SettingsT],
             value: str,
             strict: bool = False
             ) -> _SettingsT:
@@ -660,7 +658,7 @@ class _Settings:
             ]
 
         if strict:
-            names: typing.Set[str] = set()
+            names: set[str] = set()
             for setting in settings._settings:
                 parts = _split_setting(setting)
                 if (not parts or
@@ -685,7 +683,7 @@ class _Settings:
         """Return whether there is any setting."""
         return bool(self._settings)
 
-    def __iter__(self) -> typing.Iterator[str]:
+    def __iter__(self) -> Iterator[str]:
         """Iterate the settings as written, e.g. ``line:0``."""
         return iter(self._settings)
 
@@ -696,7 +694,7 @@ class _Settings:
 
         return self._settings == other._settings
 
-    def _get(self, name: str) -> typing.Optional[str]:
+    def _get(self, name: str) -> str | None:
         """Return the value of the last valid setting with that name."""
         value = None
         for setting in self._settings:
@@ -707,7 +705,7 @@ class _Settings:
                 value = parts[1]
         return value
 
-    def _set(self, name: str, value: typing.Optional[str]):
+    def _set(self, name: str, value: str | None):
         """
         Set the setting with that name, or remove it when the value is None.
 
@@ -761,12 +759,12 @@ class CueSettings(_Settings):
 
     def __init__(self,
                  *,
-                 vertical: typing.Optional[str] = None,
-                 line: typing.Optional[str] = None,
-                 position: typing.Optional[str] = None,
-                 size: typing.Optional[str] = None,
-                 align: typing.Optional[str] = None,
-                 region: typing.Optional[str] = None
+                 vertical: str | None = None,
+                 line: str | None = None,
+                 position: str | None = None,
+                 size: str | None = None,
+                 align: str | None = None,
+                 region: str | None = None
                  ):
         """
         Initialize.
@@ -830,7 +828,7 @@ class CueSettings(_Settings):
 
 
 def _to_cue_settings(
-        value: typing.Optional[typing.Union[str, CueSettings]]
+        value: str | CueSettings | None
         ) -> CueSettings:
     """
     Return a new `CueSettings` instance from the value.
@@ -857,15 +855,11 @@ class Caption:
     VOICE_SPAN_PATTERN = re.compile(r'<v(?:\.\w+)*\s+([^>\s][^>]*)>')
 
     def __init__(self,
-                 start: typing.Optional[_Position] = None,
-                 end: typing.Optional[_Position] = None,
-                 text: typing.Optional[typing.Union[str,
-                                                    typing.Sequence[str]
-                                                    ]] = None,
-                 identifier: typing.Optional[str] = None,
-                 settings: typing.Optional[typing.Union[str,
-                                                        CueSettings
-                                                        ]] = None
+                 start: _Position | None = None,
+                 end: _Position | None = None,
+                 text: str | Sequence[str] | None = None,
+                 identifier: str | None = None,
+                 settings: str | CueSettings | None = None
                  ):
         """
         Initialize.
@@ -888,7 +882,7 @@ class Caption:
         self.identifier = identifier
         self._settings = _to_cue_settings(settings)
         self.lines = _caption_lines([] if text is None else text)
-        self.comments: typing.List[str] = []
+        self.comments: list[str] = []
 
     def __repr__(self):
         """Return the string representation of the caption."""
@@ -958,7 +952,7 @@ class Caption:
         return self._settings
 
     @settings.setter
-    def settings(self, value: typing.Optional[typing.Union[str, CueSettings]]):
+    def settings(self, value: str | CueSettings | None):
         """
         Set the cue settings of the caption, or clear them when None.
 
@@ -1010,7 +1004,7 @@ class Caption:
         """
         return copy.deepcopy(self)
 
-    def shift(self, offset: typing.Union[float, datetime.timedelta]):
+    def shift(self, offset: float | datetime.timedelta):
         """
         Shift the start and end time of the caption.
 
@@ -1030,8 +1024,8 @@ class Caption:
 
     def _retimed(
             self,
-            mapping: typing.Callable[[int], int]
-            ) -> typing.Tuple[Timestamp, Timestamp]:
+            mapping: Callable[[int], int]
+            ) -> tuple[Timestamp, Timestamp]:
         """
         Return the start and end time of the caption mapped to new times.
 
@@ -1066,7 +1060,7 @@ class Caption:
         )
 
     @text.setter
-    def text(self, value: typing.Union[str, typing.Sequence[str]]):
+    def text(self, value: str | Sequence[str]):
         """
         Set the text of the caption.
 
@@ -1078,7 +1072,7 @@ class Caption:
         self.lines = _caption_lines(value)
 
     @property
-    def voice(self) -> typing.Optional[str]:
+    def voice(self) -> str | None:
         """Return the voice span if present."""
         if self.lines and self.lines[0].startswith('<v'):
             match = self.VOICE_SPAN_PATTERN.match(self.lines[0])
@@ -1088,7 +1082,7 @@ class Caption:
         return None
 
     @property
-    def voices(self) -> typing.List[str]:
+    def voices(self) -> list[str]:
         """
         Return the voices of every voice span in the text, in order.
 
@@ -1108,8 +1102,8 @@ class Caption:
 
 
 def _caption_lines(
-        text: typing.Union[str, typing.Iterable[str]]
-        ) -> typing.List[str]:
+        text: str | Iterable[str]
+        ) -> list[str]:
     """
     Return the lines of the text of a caption.
 
@@ -1123,7 +1117,7 @@ def _caption_lines(
 
     # bytes are iterable, as integers
     lines = (list(text)
-             if isinstance(text, collections.abc.Iterable) and
+             if isinstance(text, Iterable) and
              not isinstance(text, (bytes, bytearray))
              else None
              )
@@ -1136,8 +1130,8 @@ def _caption_lines(
 
 
 def _retime_captions(
-        captions: typing.Iterable[Caption],
-        mapping: typing.Callable[[int], int]
+        captions: Iterable[Caption],
+        mapping: Callable[[int], int]
         ):
     """
     Change the start and end time of the captions with a mapping.
@@ -1189,8 +1183,8 @@ def _timing_in_milliseconds(value: str) -> int:
 def _caption_from_timings(
         start: str,
         end: str,
-        lines: typing.Sequence[str]
-        ) -> typing.Optional[Caption]:
+        lines: Sequence[str]
+        ) -> Caption | None:
     """
     Return a caption from the cue timings of SRT or SBV.
 
@@ -1227,7 +1221,7 @@ class ParseIssue:
 
     line: int
     message: str
-    lines: typing.List[str]
+    lines: list[str]
 
     def __str__(self):
         """Return the line number and the message."""
@@ -1270,7 +1264,7 @@ class ValidationIssue:
 def _skipped_block(
         number: int,
         kind: str,
-        lines: typing.List[str]
+        lines: list[str]
         ) -> ParseIssue:
     """
     Return the record of a block of SRT or SBV that is skipped.
@@ -1286,7 +1280,7 @@ def _skipped_block(
 class Style:
     """Representation of a style."""
 
-    def __init__(self, text: typing.Union[str, typing.List[str]]):
+    def __init__(self, text: str | list[str]):
         """Initialize.
 
         :param text: the style text, or a list of its lines, which is
@@ -1296,7 +1290,7 @@ class Style:
                       if isinstance(text, str)
                       else list(text)
                       )
-        self.comments: typing.List[str] = []
+        self.comments: list[str] = []
 
     def __repr__(self):
         """Return the string representation of the style."""
@@ -1348,12 +1342,12 @@ class Region(_Settings):
 
     def __init__(self,
                  *,
-                 id: typing.Optional[str] = None,
-                 width: typing.Optional[str] = None,
-                 lines: typing.Optional[str] = None,
-                 regionanchor: typing.Optional[str] = None,
-                 viewportanchor: typing.Optional[str] = None,
-                 scroll: typing.Optional[str] = None
+                 id: str | None = None,
+                 width: str | None = None,
+                 lines: str | None = None,
+                 regionanchor: str | None = None,
+                 viewportanchor: str | None = None,
+                 scroll: str | None = None
                  ):
         """
         Initialize.
@@ -1377,7 +1371,7 @@ class Region(_Settings):
                         viewportanchor=viewportanchor,
                         scroll=scroll
                         )
-        self.comments: typing.List[str] = []
+        self.comments: list[str] = []
 
     @classmethod
     def from_string(cls, value: str, strict: bool = False) -> 'Region':

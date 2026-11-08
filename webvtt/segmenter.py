@@ -1,9 +1,9 @@
 """Segmenter module."""
 
-import typing
 import os
 import pathlib
 import re
+from collections.abc import Iterable, Sequence
 
 from . import utils, vtt
 from .models import (
@@ -27,13 +27,13 @@ _EARLIER_OUTPUT_PATTERN = re.compile(
 
 
 def segment(
-        webvtt_path: typing.Union[str, WebVTT],
+        webvtt_path: str | WebVTT,
         output: str,
         seconds: int = DEFAULT_SECONDS,
         mpegts: int = DEFAULT_MPEGTS,
         *,
         overwrite: bool = False,
-        duration: typing.Optional[_Position] = None
+        duration: _Position | None = None
         ):
     """
     Segment a WebVTT captions file, or captions already read.
@@ -96,7 +96,7 @@ def segment(
         _remove_segments_from(output_folder, len(segments))
 
 
-def _earlier_output(output_folder: pathlib.Path) -> typing.Optional[str]:
+def _earlier_output(output_folder: pathlib.Path) -> str | None:
     """
     Find the playlist or a segment of an earlier run in the folder.
 
@@ -175,11 +175,11 @@ def _duration_in_milliseconds(duration: _Position) -> int:
 
 
 def slice_segments(
-        captions: typing.Sequence[Caption],
+        captions: Sequence[Caption],
         seconds: int,
         *,
-        duration: typing.Optional[_Position] = None
-        ) -> typing.List[typing.List[Caption]]:
+        duration: _Position | None = None
+        ) -> list[list[Caption]]:
     """
     Slice segments of captions based on seconds per segment.
 
@@ -225,7 +225,7 @@ def slice_segments(
         indexes = [(first, min(last, total_segments - 1))
                    for first, last in indexes]
 
-    segments: typing.List[typing.List[Caption]] = [
+    segments: list[list[Caption]] = [
         [] for _ in range(total_segments)
         ]
 
@@ -239,10 +239,10 @@ def slice_segments(
 
 def write_segments(
         output_folder: pathlib.Path,
-        segments: typing.Iterable[typing.Iterable[Caption]],
+        segments: Iterable[Iterable[Caption]],
         mpegts: int,
-        styles: typing.Iterable[Style] = (),
-        regions: typing.Iterable[Region] = ()
+        styles: Iterable[Style] = (),
+        regions: Iterable[Region] = ()
         ):
     """
     Write the segments to the output folder.
@@ -282,10 +282,10 @@ def write_segments(
 
 def write_manifest(
         output_folder: pathlib.Path,
-        segments: typing.Iterable[typing.Iterable[Caption]],
+        segments: Iterable[Iterable[Caption]],
         seconds: int,
         *,
-        duration: typing.Optional[_Position] = None
+        duration: _Position | None = None
         ):
     """
     Write the manifest in the output folder.

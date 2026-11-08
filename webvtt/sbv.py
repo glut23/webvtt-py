@@ -2,6 +2,7 @@
 
 import typing
 import re
+from collections.abc import Iterable, Sequence
 
 from . import utils
 from .models import (
@@ -22,7 +23,7 @@ class SBVCueBlock:
             self,
             start: str,
             end: str,
-            payload: typing.Sequence[str]
+            payload: Sequence[str]
             ):
         """
         Initialize.
@@ -38,7 +39,7 @@ class SBVCueBlock:
     @classmethod
     def is_valid(
             cls,
-            lines: typing.Sequence[str]
+            lines: Sequence[str]
             ) -> bool:
         """
         Validate the lines for a match of a cue time block.
@@ -55,7 +56,7 @@ class SBVCueBlock:
     @classmethod
     def from_lines(
             cls,
-            lines: typing.Sequence[str]
+            lines: Sequence[str]
             ) -> 'SBVCueBlock':
         """
         Create a `SBVCueBlock` from lines of text.
@@ -72,9 +73,9 @@ class SBVCueBlock:
 
 
 def parse(
-        lines: typing.Sequence[str],
-        issues: typing.Optional[typing.List[ParseIssue]] = None
-        ) -> typing.List[Caption]:
+        lines: Sequence[str],
+        issues: list[ParseIssue] | None = None
+        ) -> list[Caption]:
     """
     Parse SBV captions from lines of text.
 
@@ -90,7 +91,7 @@ def parse(
     return _parse_captions(lines, [] if issues is None else issues)
 
 
-def _is_valid_content(lines: typing.Sequence[str]) -> bool:
+def _is_valid_content(lines: Sequence[str]) -> bool:
     """
     Validate lines of text for valid SBV content.
 
@@ -108,9 +109,9 @@ def _is_valid_content(lines: typing.Sequence[str]) -> bool:
 
 
 def _parse_captions(
-        lines: typing.Sequence[str],
-        issues: typing.List[ParseIssue]
-        ) -> typing.List[Caption]:
+        lines: Sequence[str],
+        issues: list[ParseIssue]
+        ) -> list[Caption]:
     """
     Parse captions from the text.
 
@@ -134,7 +135,7 @@ def _parse_captions(
     return captions
 
 
-def _parse_cue(lines: typing.Sequence[str]) -> typing.Optional[Caption]:
+def _parse_cue(lines: Sequence[str]) -> Caption | None:
     """
     Parse a cue from the lines of a block.
 
@@ -151,7 +152,7 @@ def _parse_cue(lines: typing.Sequence[str]) -> typing.Optional[Caption]:
                                  )
 
 
-def _skipped_block_kind(lines: typing.Sequence[str]) -> str:
+def _skipped_block_kind(lines: Sequence[str]) -> str:
     """
     Return the description of a block that is not a valid cue.
 
@@ -163,7 +164,7 @@ def _skipped_block_kind(lines: typing.Sequence[str]) -> str:
     return 'Invalid cue block' if len(lines) > 1 else 'Cue without text'
 
 
-def write(f: typing.IO[str], captions: typing.Iterable[Caption]):
+def write(f: typing.IO[str], captions: Iterable[Caption]):
     """
     Write captions to an output in SBV format.
 

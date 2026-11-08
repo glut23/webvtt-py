@@ -2,6 +2,7 @@
 
 import re
 import typing
+from collections.abc import Generator, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 
 from .errors import (
@@ -18,19 +19,19 @@ _STRICT_TIMESTAMP = r'(?:[0-9]{2,}:)?[0-9]{2}:[0-9]{2}\.[0-9]{3}'
 class ParserOutput:
     """Output of parser."""
 
-    styles: typing.List[Style]
-    captions: typing.List[Caption]
-    header_comments: typing.List[str]
-    footer_comments: typing.List[str]
+    styles: list[Style]
+    captions: list[Caption]
+    header_comments: list[str]
+    footer_comments: list[str]
     header_text: str = ''
-    metadata: typing.List[str] = field(default_factory=list)
-    regions: typing.List[Region] = field(default_factory=list)
-    issues: typing.List[ParseIssue] = field(default_factory=list)
+    metadata: list[str] = field(default_factory=list)
+    regions: list[Region] = field(default_factory=list)
+    issues: list[ParseIssue] = field(default_factory=list)
 
     @classmethod
     def from_data(
             cls,
-            data: typing.Mapping[str, typing.Any]
+            data: Mapping[str, typing.Any]
             ) -> 'ParserOutput':
         """
         Return a `ParserOutput` instance from the provided data.
@@ -84,7 +85,7 @@ class WebVTTCueBlock:
     @classmethod
     def is_valid(
             cls,
-            lines: typing.Sequence[str],
+            lines: Sequence[str],
             strict: bool = False
             ) -> bool:
         """
@@ -118,7 +119,7 @@ class WebVTTCueBlock:
     @classmethod
     def from_lines(
             cls,
-            lines: typing.Iterable[str]
+            lines: Iterable[str]
             ) -> 'WebVTTCueBlock':
         """
         Create a `WebVTTCueBlock` from lines of text.
@@ -166,7 +167,7 @@ class WebVTTCueBlock:
         return '' if rest[:1].isdecimal() else rest
 
     @staticmethod
-    def format_lines(caption: Caption) -> typing.List[str]:
+    def format_lines(caption: Caption) -> list[str]:
         """
         Return the lines for a cue block.
 
@@ -208,7 +209,7 @@ class WebVTTCommentBlock:
     @classmethod
     def is_valid(
             cls,
-            lines: typing.Sequence[str]
+            lines: Sequence[str]
             ) -> bool:
         """
         Validate the lines for a match of a comment block.
@@ -229,7 +230,7 @@ class WebVTTCommentBlock:
     @classmethod
     def from_lines(
             cls,
-            lines: typing.Iterable[str]
+            lines: Iterable[str]
             ) -> 'WebVTTCommentBlock':
         """
         Create a `WebVTTCommentBlock` from lines of text.
@@ -241,7 +242,7 @@ class WebVTTCommentBlock:
         return cls(text=match.group(1).strip() if match else '')
 
     @staticmethod
-    def format_lines(lines: str) -> typing.List[str]:
+    def format_lines(lines: str) -> list[str]:
         """
         Return the lines for a comment block.
 
@@ -272,7 +273,7 @@ class WebVTTStyleBlock:
     @classmethod
     def is_valid(
             cls,
-            lines: typing.Sequence[str]
+            lines: Sequence[str]
             ) -> bool:
         """
         Validate the lines for a match of a style block.
@@ -291,7 +292,7 @@ class WebVTTStyleBlock:
     @classmethod
     def from_lines(
             cls,
-            lines: typing.Iterable[str]
+            lines: Iterable[str]
             ) -> 'WebVTTStyleBlock':
         """
         Create a `WebVTTStyleBlock` from lines of text.
@@ -303,7 +304,7 @@ class WebVTTStyleBlock:
         return cls(text=match.group(1).strip() if match else '')
 
     @staticmethod
-    def format_lines(lines: typing.List[str]) -> typing.List[str]:
+    def format_lines(lines: list[str]) -> list[str]:
         """
         Return the lines for a style block.
 
@@ -317,7 +318,7 @@ class WebVTTRegionBlock:
     """Representation of a region block."""
 
     @staticmethod
-    def is_valid(lines: typing.Sequence[str]) -> bool:
+    def is_valid(lines: Sequence[str]) -> bool:
         """
         Validate the lines for a match of a region block.
 
@@ -334,7 +335,7 @@ class WebVTTRegionBlock:
             )
 
     @staticmethod
-    def format_lines(region: Region) -> typing.List[str]:
+    def format_lines(region: Region) -> list[str]:
         """
         Return the lines for a region block.
 
@@ -345,7 +346,7 @@ class WebVTTRegionBlock:
 
 
 def parse(
-        lines: typing.Sequence[str],
+        lines: Sequence[str],
         strict: bool = False
         ) -> ParserOutput:
     """
@@ -373,7 +374,7 @@ def parse(
     return output
 
 
-def is_valid_content(lines: typing.Sequence[str]) -> bool:
+def is_valid_content(lines: Sequence[str]) -> bool:
     """
     Validate lines of text for valid VTT content.
 
@@ -384,9 +385,9 @@ def is_valid_content(lines: typing.Sequence[str]) -> bool:
 
 
 def _iter_blocks_of_lines(
-        lines: typing.Iterable[str],
+        lines: Iterable[str],
         strict: bool = False
-        ) -> typing.Generator[_NumberedBlock, None, None]:
+        ) -> Generator[_NumberedBlock, None, None]:
     """
     Iterate blocks of text following the WebVTT parsing rules.
 
@@ -402,7 +403,7 @@ def _iter_blocks_of_lines(
     :raises MalformedCaptionError: if strict and a cue timings line follows
         a block without an empty line in between
     """
-    block: typing.List[str] = []
+    block: list[str] = []
     in_header = True
     number = 0
 
@@ -425,7 +426,7 @@ def _iter_blocks_of_lines(
 
 
 def _starts_new_block(
-        block: typing.Sequence[str],
+        block: Sequence[str],
         line: str,
         in_header: bool
         ) -> bool:
@@ -447,7 +448,7 @@ def _starts_new_block(
         )
 
 
-def _has_arrow(lines: typing.Iterable[str]) -> bool:
+def _has_arrow(lines: Iterable[str]) -> bool:
     """Return whether a line contains the cue timings arrow ``-->``."""
     return any('-->' in line for line in lines)
 
@@ -479,7 +480,7 @@ def _is_keyword_line(line: str, keyword: str) -> bool:
 
 
 def parse_items(
-        lines: typing.Sequence[str],
+        lines: Sequence[str],
         strict: bool = False
         ) -> ParserOutput:
     """
@@ -496,9 +497,9 @@ def parse_items(
     :raises MalformedCaptionError: if strict and the header contains "-->",
         or another block is not a valid cue, comment, style or region
     """
-    items: typing.List[typing.Union[Caption, Style, Region]] = []
-    comments: typing.List[WebVTTCommentBlock] = []
-    issues: typing.List[ParseIssue] = []
+    items: list[Caption | Style | Region] = []
+    comments: list[WebVTTCommentBlock] = []
+    issues: list[ParseIssue] = []
     seen_cue = False
 
     blocks = _iter_blocks_of_lines(lines, strict)
@@ -530,9 +531,9 @@ def parse_items(
 
 
 def _parser_output(
-        items: typing.List[typing.Union[Caption, Style, Region]],
-        comments: typing.Sequence[WebVTTCommentBlock],
-        issues: typing.List[ParseIssue]
+        items: list[Caption | Style | Region],
+        comments: Sequence[WebVTTCommentBlock],
+        issues: list[ParseIssue]
         ) -> ParserOutput:
     """
     Return the output of the parser from the parsed blocks.
@@ -544,7 +545,7 @@ def _parser_output(
     :param issues: the blocks that are skipped
     :returns: an object `ParserOutput`
     """
-    header_comments: typing.List[str] = []
+    header_comments: list[str] = []
     if items:
         header_comments, items[0].comments = items[0].comments, header_comments
 
@@ -558,7 +559,7 @@ def _parser_output(
 
 
 def _skipped_block_message(
-        lines: typing.Sequence[str],
+        lines: Sequence[str],
         seen_cue: bool
         ) -> str:
     """
@@ -577,7 +578,7 @@ def _skipped_block_message(
 
 def _is_header(
         index: int,
-        lines: typing.Sequence[str],
+        lines: Sequence[str],
         strict: bool = False
         ) -> bool:
     """
@@ -598,7 +599,7 @@ def _is_header(
 
 
 def _invalid_block_error(
-        lines: typing.Sequence[str]
+        lines: Sequence[str]
         ) -> MalformedCaptionError:
     """
     Return the error for a block that is not valid WebVTT.
@@ -611,8 +612,8 @@ def _invalid_block_error(
 
 
 def _parse_header(
-        lines: typing.Sequence[str]
-        ) -> typing.Tuple[str, typing.List[str]]:
+        lines: Sequence[str]
+        ) -> tuple[str, list[str]]:
     """
     Parse the header block of the file.
 
@@ -630,7 +631,7 @@ def _parse_header(
     return text, list(lines[1:])
 
 
-def _validate_header(header_text: str, metadata: typing.Iterable[str]):
+def _validate_header(header_text: str, metadata: Iterable[str]):
     """
     Validate the header text and metadata lines before writing them.
 
@@ -664,7 +665,7 @@ def _has_line_break(text: str) -> bool:
     return '\n' in text or '\r' in text
 
 
-def _lines_with_content(text: str) -> typing.List[str]:
+def _lines_with_content(text: str) -> list[str]:
     """
     Return the lines of a text up to its last line that is not empty.
 
@@ -680,7 +681,7 @@ def _lines_with_content(text: str) -> typing.List[str]:
     return lines
 
 
-def _ends_block_early(lines: typing.Sequence[str]) -> bool:
+def _ends_block_early(lines: Sequence[str]) -> bool:
     """
     Return whether lines written in a block would end it or start a cue.
 
@@ -752,10 +753,10 @@ def _validate_comment(comment: str):
 
 
 def parse_item(
-        lines: typing.Sequence[str],
+        lines: Sequence[str],
         strict: bool = False,
         seen_cue: bool = False
-        ) -> typing.Union[Caption, Style, Region, None]:
+        ) -> Caption | Style | Region | None:
     """
     Parse an item from lines of text.
 
@@ -797,9 +798,9 @@ def parse_item(
 
 
 def _parse_cue(
-        lines: typing.Sequence[str],
+        lines: Sequence[str],
         strict: bool = False
-        ) -> typing.Optional[Caption]:
+        ) -> Caption | None:
     """
     Parse a cue from the lines of a cue block.
 
@@ -833,13 +834,13 @@ def _parse_cue(
 
 def write(
         f: typing.IO[str],
-        captions: typing.Iterable[Caption],
-        styles: typing.Iterable[Style],
-        header_comments: typing.Iterable[str],
-        footer_comments: typing.Iterable[str],
+        captions: Iterable[Caption],
+        styles: Iterable[Style],
+        header_comments: Iterable[str],
+        footer_comments: Iterable[str],
         header_text: str = '',
-        metadata: typing.Iterable[str] = (),
-        regions: typing.Iterable[Region] = ()
+        metadata: Iterable[str] = (),
+        regions: Iterable[Region] = ()
         ):
     """
     Write captions to an output.
@@ -869,13 +870,13 @@ def write(
 
 
 def to_str(
-        captions: typing.Iterable[Caption],
-        styles: typing.Iterable[Style],
-        header_comments: typing.Iterable[str],
-        footer_comments: typing.Iterable[str],
+        captions: Iterable[Caption],
+        styles: Iterable[Style],
+        header_comments: Iterable[str],
+        footer_comments: Iterable[str],
         header_text: str = '',
-        metadata: typing.Iterable[str] = (),
-        regions: typing.Iterable[Region] = ()
+        metadata: Iterable[str] = (),
+        regions: Iterable[Region] = ()
         ) -> str:
     """
     Convert captions to a string with webvtt format.
@@ -898,13 +899,13 @@ def to_str(
 
 
 def _to_str(
-        captions: typing.Iterable[Caption],
-        styles: typing.Iterable[Style],
-        header_comments: typing.Iterable[str],
-        footer_comments: typing.Iterable[str],
+        captions: Iterable[Caption],
+        styles: Iterable[Style],
+        header_comments: Iterable[str],
+        footer_comments: Iterable[str],
         header_text: str = '',
-        metadata: typing.Iterable[str] = (),
-        regions: typing.Iterable[Region] = (),
+        metadata: Iterable[str] = (),
+        regions: Iterable[Region] = (),
         item_comments: bool = True
         ) -> str:
     """
@@ -950,7 +951,7 @@ def _to_str(
     return '\n'.join(output)
 
 
-def _format_comments(comments: typing.Iterable[str]) -> typing.List[str]:
+def _format_comments(comments: Iterable[str]) -> list[str]:
     """
     Return the lines for comment blocks, each preceded by an empty line.
 

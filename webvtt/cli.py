@@ -10,6 +10,7 @@ import os
 import pathlib
 import sys
 import typing
+from collections.abc import Callable, Sequence
 
 from . import __version__, segmenter
 from .webvtt import WebVTT, _FORMAT_EXTENSIONS, _FORMATS
@@ -31,7 +32,7 @@ _EXTENSION_FORMATS = {
     }
 
 
-def main(argv: typing.Optional[typing.Sequence] = None):
+def main(argv: Sequence | None = None):
     """
     Segment, shift, sync, validate or convert captions from command line.
 
@@ -311,7 +312,7 @@ def _check_arguments(
 
 def _check_sync_points(
         parser: argparse.ArgumentParser,
-        points: typing.Optional[typing.List[typing.List[typing.Any]]]
+        points: list[list[typing.Any]] | None
         ):
     """Exit with a usage error if the sync points cannot be used."""
     try:
@@ -386,7 +387,7 @@ def _edited_format(args: argparse.Namespace) -> str:
             args.input_format)
 
 
-def _path_format(path: str) -> typing.Optional[str]:
+def _path_format(path: str) -> str | None:
     """Return the format of the extension of a path, if it has one."""
     return _EXTENSION_FORMATS.get(os.path.splitext(path)[1].lower())
 
@@ -422,7 +423,7 @@ def _validate(args: argparse.Namespace):
         sys.exit(1)
 
 
-def _reader(args: argparse.Namespace) -> typing.Callable[[bool], WebVTT]:
+def _reader(args: argparse.Namespace) -> Callable[[bool], WebVTT]:
     """
     Return a function reading the captions of the input, strict or not.
 
@@ -448,9 +449,9 @@ def _reader(args: argparse.Namespace) -> typing.Callable[[bool], WebVTT]:
 
 
 def _strict_error(
-        read: typing.Callable[[bool], WebVTT],
+        read: Callable[[bool], WebVTT],
         format: str
-        ) -> typing.Optional[str]:
+        ) -> str | None:
     """
     Return the first error of strict parsing, as ``line N: error: MESSAGE``.
 
@@ -498,7 +499,7 @@ def _read(args: argparse.Namespace) -> WebVTT:
 
 def _write(
         vtt: WebVTT,
-        output: typing.Optional[str],
+        output: str | None,
         format: str,
         keep_formatting: bool
         ):
@@ -556,7 +557,7 @@ def _offset(value: str) -> float:
     return offset
 
 
-def _position(value: str) -> typing.Union[str, float]:
+def _position(value: str) -> str | float:
     """Return a timestamp or a number of seconds of a command line argument."""
     try:
         return _timestamp(value)
@@ -598,7 +599,7 @@ def _duration(value: str) -> int:
     return seconds
 
 
-def _media_duration(value: str) -> typing.Union[str, float]:
+def _media_duration(value: str) -> str | float:
     """Return the length of the media of a command line argument."""
     try:
         duration = _position(value)
