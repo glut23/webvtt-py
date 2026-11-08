@@ -9,6 +9,7 @@ Changes that may need updates to the code using the library:
 * ``total_length`` returns a float with the milliseconds, from the earliest start to the latest end of the captions, instead of whole seconds from the first caption to the last one, which was wrong for captions out of order, thanks to `@emirmrkaljevic <https://github.com/emirmrkaljevic>`_ (#188, #193)
 * ``Style`` and ``WebVTT`` are equal when they have the same content, instead of only to themselves, and cannot be used in sets or as dictionary keys, as ``Caption`` and ``Region`` (#174)
 * ``save_as_srt`` keeps the Byte Order Mark of the file that was read and saves in its encoding, as ``save`` does, instead of saving in UTF-8 without it, and ``from_srt`` and ``from_sbv`` keep the Byte Order Mark as ``read`` does, so ``save`` also keeps it for SRT and SBV files read with one (#177)
+* SRT ``font`` tags with a colour are read as ``c`` tags with a class named from the colour, as in ``<c.color-ff0000>``, and a ``STYLE`` block with the colours, the inverse of ``save_as_srt(keep_formatting=True)``, and other ``font`` tags are removed, keeping their text. ``{\anN}`` tags are read as the ``line`` and ``align`` cue settings and removed from the text, and ``save_as_srt`` and ``write(format='srt')`` write them back from those settings (#178)
 
 Changes:
 
