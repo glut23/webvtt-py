@@ -128,7 +128,7 @@ class SRTCueBlock:
         timings = _timings_line(lines)
         return bool(
           len(lines) > timings and
-          re.match(cls.CUE_TIMINGS_PATTERN, lines[timings])
+          cls.CUE_TIMINGS_PATTERN.match(lines[timings])
           )
 
     @classmethod
@@ -145,7 +145,7 @@ class SRTCueBlock:
         timings = _timings_line(lines)
         index = lines[0] if timings else None
 
-        match = re.match(cls.CUE_TIMINGS_PATTERN, lines[timings])
+        match = cls.CUE_TIMINGS_PATTERN.match(lines[timings])
         assert match is not None
 
         payload = lines[timings + 1:]

@@ -104,13 +104,13 @@ class WebVTTCueBlock:
         return bool(
             (
               len(lines) >= 1 and
-              re.match(pattern, lines[0]) and
+              pattern.match(lines[0]) and
               (len(lines) < 2 or "-->" not in lines[1])
               ) or
             (
               len(lines) >= 2 and
               "-->" not in lines[0] and
-              re.match(pattern, lines[1]) and
+              pattern.match(lines[1]) and
               (len(lines) < 3 or "-->" not in lines[2])
               )
         )
@@ -123,6 +123,10 @@ class WebVTTCueBlock:
         """
         Create a `WebVTTCueBlock` from lines of text.
 
+        The lines after the cue timings are the payload, and are not
+        matched as timings, as a line with ``-->`` in a cue block can only
+        be its timings.
+
         :param lines: the lines of text
         :returns: `WebVTTCueBlock` instance
         """
@@ -133,17 +137,17 @@ class WebVTTCueBlock:
         payload = []
 
         for line in lines:
-            timing_match = re.match(cls.CUE_TIMINGS_PATTERN, line)
+            if start is not None:
+                payload.append(line)
+                continue
+            timing_match = cls.CUE_TIMINGS_PATTERN.match(line)
             if timing_match:
-                start = timing_match.group(1)
-                end = timing_match.group(2)
+                start, end = timing_match.group(1, 2)
                 settings = cls._settings_after_timings(
                     line[timing_match.end():]
                     )
-            elif not start:
-                identifier = line
             else:
-                payload.append(line)
+                identifier = line
 
         return cls(identifier, start, end, payload, settings)
 
@@ -808,11 +812,11 @@ def _parse_cue(
     """
     cue_block = WebVTTCueBlock.from_lines(lines)
     try:
+        settings = CueSettings.from_string(cue_block.settings, strict)
         caption = Caption(cue_block.start,
                           cue_block.end,
                           cue_block.payload,
-                          cue_block.identifier,
-                          CueSettings.from_string(cue_block.settings, strict)
+                          cue_block.identifier
                           )
     except MalformedCaptionError:
         if strict:
@@ -822,6 +826,8 @@ def _parse_cue(
         raise MalformedCaptionError(
             f'Cue end time is not after the start time {lines!r}'
             )
+    # the settings are new, so the caption keeps them instead of a copy
+    caption._settings = settings
     return caption
 
 

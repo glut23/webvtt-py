@@ -2,6 +2,7 @@ import unittest
 import textwrap
 import io
 
+import webvtt
 from webvtt import vtt
 from webvtt.errors import (
     MalformedFileError, MalformedCaptionError, MalformedRegionError
@@ -1871,3 +1872,52 @@ class TestVTTModule(unittest.TestCase):
                 with self.assertRaises(ValueError) as cm:
                     vtt.to_str([], [], [], [], '', ['Kind: captions', line])
                 self.assertIn(repr(line), str(cm.exception))
+
+
+class TestParsingKeepsNewObjects(unittest.TestCase):
+
+    def test_from_lines_payload_after_timings_not_matched(self):
+        cue_block = vtt.WebVTTCueBlock.from_lines([
+            'id',
+            '00:00:01.000 --> 00:00:02.000 line:0',
+            '00:00:03.000 --> 00:00:04.000',
+            'text'
+            ])
+
+        self.assertEqual(cue_block.identifier, 'id')
+        self.assertEqual((cue_block.start, cue_block.end),
+                         ('00:00:01.000', '00:00:02.000'))
+        self.assertEqual(cue_block.settings.strip(), 'line:0')
+        self.assertEqual(cue_block.payload,
+                         ['00:00:03.000 --> 00:00:04.000', 'text'])
+
+    def test_from_lines_without_timings(self):
+        cue_block = vtt.WebVTTCueBlock.from_lines(['a', 'b'])
+
+        self.assertEqual(cue_block.identifier, 'b')
+        self.assertIsNone(cue_block.start)
+        self.assertEqual(cue_block.payload, [])
+
+    def test_parsed_captions_do_not_share_settings_or_times(self):
+        for format, content in (
+                ('vtt', 'WEBVTT\n\n00:00:01.000 --> 00:00:02.000 line:0\na\n'
+                        '\n00:00:01.000 --> 00:00:02.000 line:0\nb\n'),
+                ('srt', '1\n00:00:01,000 --> 00:00:02,000\na\n\n'
+                        '2\n00:00:01,000 --> 00:00:02,000\nb\n'),
+                ('sbv', '0:00:01.000,0:00:02.000\na\n\n'
+                        '0:00:01.000,0:00:02.000\nb\n')):
+            with self.subTest(format=format):
+                first, second = webvtt.from_string(content, format=format)
+                first.settings.line = '5'
+                first.start_time.seconds = 9
+
+                self.assertEqual(second.start, '00:00:01.000')
+                self.assertNotEqual(second.settings.line, '5')
+
+    def test_strict_settings_error_before_timestamp_error(self):
+        with self.assertRaisesRegex(MalformedCaptionError,
+                                    'Invalid cue setting'):
+            webvtt.from_string(
+                'WEBVTT\n\n00:00:01.000 --> 00:00:99.000 nope:1\na\n',
+                strict=True
+                )
