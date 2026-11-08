@@ -1,0 +1,25 @@
+version: 2
+
+updates:
+  # the actions of the workflows, pinned to the commit of a release
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    # only versions released a week before, so a bad release can be pulled
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns: ['*']
+
+  # the pinned requirements of the documentation, also used by Read the Docs
+  - package-ecosystem: pip
+    directory: /docs
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      docs:
+        patterns: ['*']

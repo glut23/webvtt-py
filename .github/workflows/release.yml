@@ -1,0 +1,100 @@
+name: Release
+
+# publishing a GitHub release uploads the packages to PyPI, and running the
+# workflow by hand uploads them to TestPyPI, both with trusted publishing:
+# https://docs.pypi.org/trusted-publishers/
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - name: Set up Python
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      with:
+        python-version: '3.12'
+
+    # pip 26.2.2 no longer trusts the certificates of the eMudhra/emSign
+    # CA incident
+    - name: Upgrade pip
+      run: python -m pip install --upgrade 'pip>=26.2.2'
+
+    - name: Install tox
+      run: python -m pip install tox
+
+    - name: Check the release is for this version
+      if: github.event_name == 'release'
+      env:
+        TAG: ${{ github.event.release.tag_name }}
+      run: |
+        version=$(python -c 'import webvtt; print(webvtt.__version__)')
+        if [ "$version" != "$TAG" ]; then
+          echo "the release $TAG is not for version $version" >&2
+          exit 1
+        fi
+
+    - name: Build and check the packages
+      run: make build
+
+    - name: Upload the packages
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: dist
+        path: dist/
+        if-no-files-found: error
+
+  pypi:
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/webvtt-py/
+    permissions:
+      # the token of trusted publishing
+      id-token: write
+
+    steps:
+    - name: Download the packages
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        name: dist
+        path: dist/
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+
+  testpypi:
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/webvtt-py/
+    permissions:
+      # the token of trusted publishing
+      id-token: write
+
+    steps:
+    - name: Download the packages
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        name: dist
+        path: dist/
+
+    - name: Publish to TestPyPI
+      uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+      with:
+        repository-url: https://test.pypi.org/legacy/

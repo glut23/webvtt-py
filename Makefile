@@ -22,13 +22,10 @@ coverage-xml: test ## Run the tests and write coverage.xml
 man: ## Regenerate the man page
 	tox -e man
 
+docs: ## Build the documentation in docs/build/html
+	tox -e docs
+
 build: ## Build the packages in dist from a clean state and check them
 	tox -e build
 
-release_test: build ## Build and upload the packages to TestPyPI
-	tox -e release -- -r testpypi dist/*
-
-release: build ## Build and upload the packages to PyPI
-	tox -e release -- dist/*
-
-.PHONY: help clean codestyle test coverage coverage-report coverage-xml man build release_test release
+.PHONY: help clean codestyle test coverage coverage-report coverage-xml man docs build

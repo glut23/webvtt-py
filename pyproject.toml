@@ -60,6 +60,8 @@ radon-max-cc = 10
 
 [tool.mypy]
 strict = true
+# the oldest version supported, as CI checks the types on a newer one
+python_version = "3.10"
 
 [tool.tox]
 requires = ["tox>=4.21.2"]
@@ -87,7 +89,7 @@ skip_install = true
 depends = ["py"]
 commands = [["coverage", "xml"], ["coverage", "report"]]
 
-# man, build and release are not in env_list, so they only run when asked for
+# man, docs and build are not in env_list, so they only run when asked for
 
 [tool.tox.env.man]
 description = "regenerate the man page"
@@ -95,6 +97,14 @@ skip_install = true
 deps = ["-r docs/requirements.txt"]
 commands = [
     ["sphinx-build", "-q", "-E", "-b", "man", "-d", "docs/build/doctrees", "docs/source", "man"],
+]
+
+[tool.tox.env.docs]
+description = "build the documentation, failing on warnings and broken references"
+skip_install = true
+deps = ["-r docs/requirements.txt"]
+commands = [
+    ["sphinx-build", "-q", "-n", "-W", "--keep-going", "-E", "-b", "html", "docs/source", "docs/build/html"],
 ]
 
 [tool.tox.env.build]
@@ -107,14 +117,4 @@ commands = [
     ["rm", "-rf", "build", "dist", "webvtt_py.egg-info"],
     ["python", "-m", "build"],
     ["twine", "check", "dist/*"],
-]
-
-[tool.tox.env.release]
-description = "upload packages, given as arguments for twine"
-skip_install = true
-deps = ["twine>=6.1"]
-pass_env = ["TWINE_*"]
-# the packages are arguments, so that tox -e ALL does not upload anything
-commands = [
-    ["twine", "upload", {replace = "posargs", default = [], extend = true}],
 ]
