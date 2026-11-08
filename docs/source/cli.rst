@@ -13,6 +13,7 @@ Synopsis
                    [--overwrite]
     webvtt shift PATH OFFSET [-o OUTPUT] [-s TIMESTAMP] [--drop-before-zero]
     webvtt sync PATH (-p FROM TO -p FROM TO ... | --fps FROM TO) [-o OUTPUT]
+    webvtt validate PATH
     webvtt -h
     webvtt --version
 
@@ -20,7 +21,8 @@ Description
 -----------
 
 ``webvtt`` segments a WebVTT caption file for `HTTP Live Streaming`_ (HLS)
-and shifts or synchronizes the timestamps of its captions.
+and shifts or synchronizes the timestamps of its captions, or checks it for
+problems.
 
 ``segment`` splits the captions in ``PATH`` into segments of a target
 duration. Each segment is written to ``OUTPUT`` as ``fileSequenceN.webvtt``,
@@ -57,10 +59,22 @@ With ``--fps``, the timing is changed from one frame rate to another. Times
 are rounded and set to zero like with ``shift``, and the output is written
 the same way.
 
+``validate`` checks the captions in ``PATH`` and prints each problem on its
+own line, as ``PATH: line N: error: MESSAGE`` for a block skipped when
+reading the file, or ``PATH: caption N: SEVERITY: MESSAGE`` for a caption,
+numbered from 1. Captions out of order, not ending after they start or in a
+region that is not defined are errors, as they are not valid WebVTT.
+Captions that overlap an earlier one or have no text are warnings. When
+there is no other error, the file is also read with strict parsing, which
+finds other problems such as cue settings that are not valid, and its first
+error is printed as ``PATH: line N: error: MESSAGE``. Nothing is printed when
+there is no problem.
+
 The commands can also be run as ``python -m webvtt``, as in
 ``python -m webvtt shift captions.vtt 2``.
 
-``segment``, ``shift`` and ``sync`` read the captions from standard input
+``segment``, ``shift``, ``sync`` and ``validate`` read the captions from
+standard input
 when ``PATH`` is ``-``, decoded as UTF-8 as WebVTT requires, so they can be
 used in pipes. A file named ``-`` can be read as ``./-``.
 
@@ -75,6 +89,9 @@ Commands
 
 ``sync``
     Synchronize the timestamps of the WebVTT file at ``PATH``.
+
+``validate``
+    Check the WebVTT file at ``PATH`` for problems.
 
 Options
 -------
@@ -168,7 +185,8 @@ Exit status
 -----------
 
 ``0``
-    The command completed successfully.
+    The command completed successfully. For ``validate``, the file has no
+    errors, though it can have warnings.
 
 ``1``
     The input could not be read or is not a valid WebVTT file, the captions
@@ -179,6 +197,9 @@ Exit status
     example::
 
         webvtt: error: captions.vtt: not a valid WebVTT file
+
+For ``validate``, ``1`` is also the status when the file has errors, which
+are printed to standard output.
 
 ``2``
     Invalid command line arguments, such as an offset that is not a number,
@@ -332,9 +353,29 @@ Synchronize the captions and segment them, without a file in between:
 
     $ webvtt sync captions.vtt --fps 25 23.976 | webvtt segment - -o out
 
+Check ``captions.vtt``, which has no problems, so nothing is printed:
+
+::
+
+    $ webvtt validate captions.vtt
+
+Check ``edited.vtt``, where the captions are out of order, the last one is
+in a region that is not defined and overlaps the first one, and a block is
+not a cue:
+
+::
+
+    $ webvtt validate edited.vtt
+    edited.vtt: line 12: error: Invalid block ['NOTEBOOK']
+    edited.vtt: caption 2: error: starts at 00:00:01.000, before caption 1, which starts at 00:00:06.000
+    edited.vtt: caption 3: error: is in the region 'bottom', which is not defined
+    edited.vtt: caption 3: warning: starts at 00:00:11.000, before caption 1 ends at 00:00:12.000
+
 See also
 --------
 
-The same segmentation, shifting and synchronizing are available from Python
-with ``webvtt.segment()``, ``WebVTT.shift()``, ``WebVTT.sync()`` and
-``WebVTT.change_framerate()``.
+The same segmentation, shifting, synchronizing and validation are available
+from Python
+with ``webvtt.segment()``, ``WebVTT.shift()``, ``WebVTT.sync()``,
+``WebVTT.change_framerate()`` and ``WebVTT.validate()``, and
+``WebVTT.sort()`` puts the captions in order of start time.

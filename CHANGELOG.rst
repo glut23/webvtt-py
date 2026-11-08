@@ -23,6 +23,7 @@ Changes:
 * Added ``Caption.copy()`` and ``WebVTT.copy()``, which return copies that share nothing with the original, and a ``repr`` for ``Style`` (#174)
 * Added the ``drop_before_zero`` argument of ``shift`` and the ``--drop-before-zero`` option of the ``shift`` command of the CLI, which remove the captions that end at or before zero after shifting them, instead of keeping them at ``00:00:00.000 --> 00:00:00.000`` (#173)
 * Added ``Caption.voices``, the voices of every voice span in the text, in order, as ``Caption.voice`` only reads a voice span at the start of the caption (#175)
+* Added ``WebVTT.sort()``, which sorts the captions by start time, and ``WebVTT.validate()``, which returns a ``ValidationIssue`` for each caption out of order, not ending after it starts, in a region that is not defined, overlapping an earlier one or without text, and the ``validate`` command of the CLI, which also reports the blocks skipped when reading (#176)
 
 0.7.0 (01-11-2026)
 ------------------

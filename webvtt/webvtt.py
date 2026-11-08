@@ -17,6 +17,7 @@ from .models import (
     Region,
     Style,
     Timestamp,
+    ValidationIssue,
     _FrameRate,
     _Position,
     _offset_in_milliseconds,
@@ -799,6 +800,73 @@ class WebVTT:
 
         _retime_captions(self.captions, mapping)
 
+    def sort(self):
+        """
+        Sort the captions by start time, as WebVTT requires.
+
+        Captions that start at the same time keep their order. The list of
+        captions is sorted in place, so it stays the same list.
+        """
+        self.captions.sort(key=lambda caption: caption.start_in_milliseconds)
+
+    def validate(self) -> typing.List[ValidationIssue]:
+        """
+        Return the problems found in the captions, in the order of captions.
+
+        Errors are for captions that are not valid WebVTT: an end time that
+        is not after the start time, a start time before that of the previous
+        caption, which `sort` fixes, or a ``region`` cue setting of a region
+        that is not defined. Warnings are for captions that are valid but
+        likely have a mistake: a caption that overlaps an earlier one in
+        time, or a caption without text.
+
+        The blocks skipped when reading the captions are in
+        ``parse_issues`` instead.
+
+        :returns: a list of `ValidationIssue`, empty when there is no
+            problem
+        """
+        issues = []
+        region_ids = {region.id for region in self.regions if region.id}
+        previous: typing.Optional[Caption] = None
+
+        for index, caption in enumerate(self.captions):
+            if caption.end_in_milliseconds <= caption.start_in_milliseconds:
+                issues.append(ValidationIssue(
+                    index, 'timing', 'error',
+                    f'ends at {caption.end}, not after its start at '
+                    f'{caption.start}'
+                    ))
+
+            # compared with the previous caption only, so a caption out of
+            # place is reported once and not every caption after it
+            if (previous is not None and
+                    caption.start_in_milliseconds <
+                    previous.start_in_milliseconds):
+                issues.append(ValidationIssue(
+                    index, 'order', 'error',
+                    f'starts at {caption.start}, before caption {index}, '
+                    f'which starts at {previous.start}'
+                    ))
+            previous = caption
+
+            region = caption.settings.region
+            if region is not None and region not in region_ids:
+                issues.append(ValidationIssue(
+                    index, 'region', 'error',
+                    f'is in the region {region!r}, which is not defined'
+                    ))
+
+            if not caption.text.strip():
+                issues.append(ValidationIssue(
+                    index, 'empty', 'warning', 'has no text'
+                    ))
+
+        issues.extend(_overlaps(self.captions))
+        # stable, so the issues of a caption keep the order above
+        issues.sort(key=lambda issue: issue.index)
+        return issues
+
     @property
     def total_length(self) -> float:
         """
@@ -923,6 +991,43 @@ def _list_or_new(items: typing.Optional[typing.List[_T]]) -> typing.List[_T]:
     :returns: the list, or a new empty list
     """
     return [] if items is None else items
+
+
+def _overlaps(captions: typing.List[Caption]) -> typing.List[ValidationIssue]:
+    """
+    Return a warning for each caption that overlaps an earlier one in time.
+
+    The captions are taken in order of start time, whatever their order in
+    the list, and each is compared with the earlier one that ends last, so
+    a caption is reported once even if it overlaps several. Captions whose
+    end is not after their start have no time to overlap and are left out.
+
+    :param captions: the captions
+    :returns: a list of `ValidationIssue` with the ``overlap`` code
+    """
+    issues = []
+    timed = sorted(
+        (index for index, caption in enumerate(captions)
+         if caption.end_in_milliseconds > caption.start_in_milliseconds),
+        key=lambda index: captions[index].start_in_milliseconds
+        )
+    last_ending: typing.Optional[int] = None
+
+    for index in timed:
+        caption = captions[index]
+        if last_ending is not None:
+            other = captions[last_ending]
+            if caption.start_in_milliseconds < other.end_in_milliseconds:
+                issues.append(ValidationIssue(
+                    index, 'overlap', 'warning',
+                    f'starts at {caption.start}, before caption '
+                    f'{last_ending + 1} ends at {other.end}'
+                    ))
+            if caption.end_in_milliseconds <= other.end_in_milliseconds:
+                continue
+        last_ending = index
+
+    return issues
 
 
 def _within_range(

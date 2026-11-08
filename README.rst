@@ -83,8 +83,9 @@ Supported formats:
 
 CLI
 ---
-Caption segmentation, shifting and synchronizing are also available from the
-command line with the ``webvtt`` executable. Given ``captions.vtt``:
+Caption segmentation, shifting, synchronizing and validation are also
+available from the command line with the ``webvtt`` executable. Given
+``captions.vtt``:
 
 .. code-block:: text
 
@@ -157,8 +158,16 @@ changing the frame rate they are timed for:
     $ webvtt sync captions.vtt -p 00:01.000 00:01.000 -p 00:14.500 00:15.850
     $ webvtt sync captions.vtt --fps 25 23.976 -o captions.vtt
 
+Check the captions for problems, such as captions out of order, which are
+printed one per line, with exit status 1 when there are errors:
+
+::
+
+    $ webvtt validate captions.vtt
+
 For all the options, run ``webvtt segment --help``, ``webvtt shift --help``,
-``webvtt sync --help`` or ``man webvtt``, or see the `CLI documentation`_.
+``webvtt sync --help``, ``webvtt validate --help`` or ``man webvtt``, or see
+the `CLI documentation`_.
 
 .. _`CLI documentation`: https://webvtt-py.readthedocs.io/en/latest/cli.html
 

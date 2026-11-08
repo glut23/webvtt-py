@@ -49,5 +49,6 @@ html_theme = 'sphinx_rtd_theme'
 epub_show_urls = 'footnote'
 # -- Options for manual page output
 man_pages = [
-    ('cli', 'webvtt', 'segment, shift and sync WebVTT captions', [author], 1),
+    ('cli', 'webvtt', 'segment, shift, sync and validate WebVTT captions',
+     [author], 1),
 ]
