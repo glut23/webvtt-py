@@ -11,7 +11,7 @@ Synopsis
 
     webvtt segment PATH -o OUTPUT [-d NUMBER] [-m NUMBER] [--duration TIME]
                    [--overwrite]
-    webvtt shift PATH OFFSET [-o OUTPUT] [-s TIMESTAMP]
+    webvtt shift PATH OFFSET [-o OUTPUT] [-s TIMESTAMP] [--drop-before-zero]
     webvtt sync PATH (-p FROM TO -p FROM TO ... | --fps FROM TO) [-o OUTPUT]
     webvtt -h
     webvtt --version
@@ -46,8 +46,8 @@ seconds. The offset is rounded to the nearest millisecond as written, with
 halves rounded away from zero, so ``1.0005`` is 1001 milliseconds. A timestamp
 that would fall before zero is set to ``00:00:00.000``, so a caption moved
 entirely before the start is kept with ``00:00:00.000 --> 00:00:00.000``
-timings. The shifted captions are written to standard output in UTF-8, or to
-``OUTPUT`` when given.
+timings, unless ``--drop-before-zero`` is given to remove it. The shifted
+captions are written to standard output in UTF-8, or to ``OUTPUT`` when given.
 
 ``sync`` fixes captions that drift further out of sync along the video. With
 ``-p``, each point moves the time ``FROM`` in the captions to ``TO``; times
@@ -136,6 +136,12 @@ Shift options
 ``-s TIMESTAMP``, ``--start TIMESTAMP``
     Only shift the captions starting at or after ``TIMESTAMP``, in
     ``[hh:]mm:ss.mmm`` format. Default: shift all the captions.
+
+``--drop-before-zero``
+    Remove the shifted captions that end at or before ``00:00:00.000``, as
+    they are never shown. A caption that starts before zero but ends after
+    it is kept, starting at ``00:00:00.000``. Without it, those captions are
+    kept with ``00:00:00.000 --> 00:00:00.000`` timings.
 
 Sync options
 ~~~~~~~~~~~~
@@ -267,6 +273,20 @@ Show the captions 1.5 seconds earlier:
     This caption spans two segments.
 
     00:00:13.000 --> 00:00:16.500
+    Thanks for watching!
+
+Cut the first 5 seconds of the video, removing the first caption, which
+would end before the start:
+
+::
+
+    $ webvtt shift captions.vtt -5 --drop-before-zero
+    WEBVTT
+
+    00:00:01.000 --> 00:00:07.000
+    This caption spans two segments.
+
+    00:00:09.500 --> 00:00:13.000
     Thanks for watching!
 
 Show the last caption 2 seconds later, updating the file in place:

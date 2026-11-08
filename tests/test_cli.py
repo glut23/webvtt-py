@@ -688,6 +688,39 @@ class CLIShiftTestCase(CLICommandTestCase):
                     f'argument OFFSET: invalid offset: {value!r}'
                     )
 
+    def test_shift_drop_before_zero(self):
+        self.assertEqual(
+            self.run_cli(['shift', self.vtt_file, '-2', '--drop-before-zero']),
+            textwrap.dedent(
+                '''
+                WEBVTT
+
+                00:00:00.000 --> 00:00:02.000
+                Caption #1
+
+                00:00:02.000 --> 00:00:05.000
+                Caption #2
+                '''
+                ).lstrip()
+            )
+
+    def test_shift_drop_before_zero_from_start(self):
+        self.assertEqual(
+            self.run_cli(['shift', self.vtt_file, '-5', '--start',
+                          '00:00:01.500', '--drop-before-zero']),
+            textwrap.dedent(
+                '''
+                WEBVTT
+
+                00:00:00.500 --> 00:00:01.000
+                Credits
+
+                00:00:00.000 --> 00:00:02.000
+                Caption #2
+                '''
+                ).lstrip()
+            )
+
     def test_shift_invalid_start(self):
         self.assert_usage_error(
             ['shift', self.vtt_file, '1', '--start', '1:2'],

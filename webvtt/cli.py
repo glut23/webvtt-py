@@ -102,7 +102,8 @@ def main(argv: typing.Optional[typing.Sequence] = None):
         epilog=(
             'The offset is rounded to the nearest millisecond, halves away '
             'from zero, and a timestamp that would fall before zero is set '
-            'to 00:00:00.000. '
+            'to 00:00:00.000, so captions that end at or before zero are '
+            'kept at 00:00:00.000 unless --drop-before-zero is given. '
             'The captions are written to standard output unless an output '
             'file is given.'
             )
@@ -129,6 +130,12 @@ def main(argv: typing.Optional[typing.Sequence] = None):
         metavar='TIMESTAMP',
         type=_timestamp,
         help='only shift the captions starting at or after this timestamp'
+        )
+    shift_command.add_argument(
+        '--drop-before-zero',
+        action='store_true',
+        help=('remove the captions that end at or before 00:00:00.000 after '
+              'shifting them, as they are never shown')
         )
     shift_command.set_defaults(run=_shift)
 
@@ -261,7 +268,8 @@ def _segment(args: argparse.Namespace):
 def _shift(args: argparse.Namespace):
     """Run the shift command."""
     vtt = _read(args.file)
-    vtt.shift(args.offset, start=args.start)
+    vtt.shift(args.offset, start=args.start,
+              drop_before_zero=args.drop_before_zero)
     _write(vtt, args.output)
 
 

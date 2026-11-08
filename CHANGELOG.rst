@@ -21,6 +21,7 @@ Changes:
 * The times of ``Caption``, its ``start`` and ``end``, ``iter_slice`` and the ``start`` of ``shift`` can be ``Timestamp`` objects, numbers of seconds or ``timedelta`` objects, as with ``sync``, besides timestamp strings (#171)
 * ``sync`` raises ``ValueError`` for a ``Timestamp`` before zero, as it does for the other times, and ``TypeError`` for one with fields that are not integers, instead of moving the captions to timestamps that cannot be written (#171)
 * Added ``Caption.copy()`` and ``WebVTT.copy()``, which return copies that share nothing with the original, and a ``repr`` for ``Style`` (#174)
+* Added the ``drop_before_zero`` argument of ``shift`` and the ``--drop-before-zero`` option of the ``shift`` command of the CLI, which remove the captions that end at or before zero after shifting them, instead of keeping them at ``00:00:00.000 --> 00:00:00.000`` (#173)
 
 0.7.0 (01-11-2026)
 ------------------
