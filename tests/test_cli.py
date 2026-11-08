@@ -1203,3 +1203,260 @@ class CLIValidateTestCase(CLICommandTestCase):
             stderr.getvalue(),
             f'webvtt: error: standard input: {os.strerror(errno.EBADF)}\n'
             )
+
+
+class CLIFormatsTestCase(CLICommandTestCase):
+
+    SRT = textwrap.dedent('''\
+        1
+        00:00:00,500 --> 00:00:01,000
+        {\\an8}<i>Credits</i>
+
+        2
+        00:00:01,500 --> 00:00:04,000
+        <font color="red">Café</font>
+        ''')
+
+    SBV = textwrap.dedent('''\
+        0:00:00.500,0:00:01.000
+        Credits
+
+        0:00:01.500,0:00:04.000
+        Café
+        ''')
+
+    def path(self, name, content=None, encoding='utf-8'):
+        path = os.path.join(self.temp_dir.name, name)
+        if content is not None:
+            pathlib.Path(path).write_bytes(content.encode(encoding))
+        return path
+
+    def read(self, path, encoding='utf-8'):
+        return pathlib.Path(path).read_bytes().decode(encoding).replace(
+            os.linesep, '\n')
+
+    def run_error(self, argv):
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as cm:
+                self.run_cli(argv)
+        return cm.exception.code, stderr.getvalue()
+
+    def test_shift_srt_keeps_format_and_formatting(self):
+        srt = self.path('captions.srt', self.SRT)
+
+        self.assertEqual(
+            self.run_cli(['shift', srt, '1']),
+            self.SRT.replace('00:00:00,500 --> 00:00:01,000',
+                             '00:00:01,500 --> 00:00:02,000')
+            .replace('00:00:01,500 --> 00:00:04,000',
+                     '00:00:02,500 --> 00:00:05,000')
+            )
+
+    def test_sync_sbv_keeps_format(self):
+        sbv = self.path('captions.sbv', self.SBV)
+
+        self.assertEqual(
+            self.run_cli(['sync', sbv, '-p', '0', '0', '-p', '1', '2']),
+            self.SBV.replace('0:00:00.500,0:00:01.000',
+                             '0:00:01.000,0:00:02.000')
+            .replace('0:00:01.500,0:00:04.000', '0:00:03.000,0:00:08.000')
+            )
+
+    def test_webvtt_with_srt_extension_needs_format(self):
+        srt = self.path('captions.srt', self.CAPTIONS)
+
+        self.assertEqual(
+            self.run_error(['shift', srt, '0']),
+            (1, f'webvtt: error: {srt}: not a valid SRT file\n')
+            )
+        self.assertEqual(self.run_cli(['shift', srt, '0', '-f', 'vtt']),
+                         self.CAPTIONS)
+
+    def test_extension_is_case_insensitive(self):
+        srt = self.path('CAPTIONS.SRT', self.SRT)
+
+        self.assertTrue(self.run_cli(['shift', srt, '0']).startswith('1\n'))
+
+    def test_shift_output_in_format_of_extension(self):
+        srt = self.path('captions.srt', self.SRT)
+        for name, start in (('out.vtt', 'WEBVTT\n'),
+                            ('out.webvtt', 'WEBVTT\n'),
+                            ('out.sbv', '0:00:00.500,'),
+                            ('out.srt', '1\n'),
+                            ('out', '1\n'),
+                            ('out.txt', '1\n')):
+            with self.subTest(name=name):
+                output = self.path(name)
+                self.run_cli(['shift', srt, '0', '-o', output])
+
+                saved = output + ('.srt' if name == 'out' else '')
+                self.assertTrue(self.read(saved).startswith(start))
+
+    def test_shift_srt_in_place_keeps_encoding(self):
+        srt = self.path('captions.srt', self.SRT, 'cp1252')
+        self.run_cli(['shift', srt, '1', '--encoding', 'cp1252', '-o', srt])
+
+        self.assertIn('00:00:01,500 --> 00:00:02,000',
+                      self.read(srt, 'cp1252'))
+        self.assertIn('Café', self.read(srt, 'cp1252'))
+
+    def test_format_option_overrides_extension(self):
+        txt = self.path('captions.txt', self.SRT)
+
+        self.assertTrue(
+            self.run_cli(['shift', txt, '0', '-f', 'srt']).startswith('1\n')
+            )
+        self.assertEqual(
+            self.run_error(['shift', txt, '0']),
+            (1, f'webvtt: error: {txt}: not a valid WebVTT file\n')
+            )
+        srt = self.path('captions.srt', self.SRT)
+        for format, name in (('vtt', 'WebVTT'), ('sbv', 'SBV')):
+            with self.subTest(format=format):
+                self.assertEqual(
+                    self.run_error(['shift', srt, '0', '--format', format]),
+                    (1, f'webvtt: error: {srt}: not a valid {name} file\n')
+                    )
+
+    def test_invalid_format_and_encoding(self):
+        srt = self.path('captions.srt', self.SRT)
+        self.assert_usage_error(['shift', srt, '0', '-f', 'ass'],
+                                "invalid choice: 'ass'")
+        for encoding in ('nope', 'hex', 'rot13'):
+            with self.subTest(encoding=encoding):
+                self.assert_usage_error(
+                    ['shift', srt, '0', '--encoding', encoding],
+                    f"unknown encoding: '{encoding}'"
+                    )
+
+    def test_encoding_of_input(self):
+        srt = self.path('captions.srt', self.SRT, 'cp1252')
+        self.assertEqual(
+            self.run_error(['convert', srt]),
+            (1, f'webvtt: error: {srt}: cannot be decoded as utf-8\n')
+            )
+
+        self.assertIn('Café', self.run_cli(['convert', srt, '--encoding',
+                                            'cp1252']))
+
+    def test_stdin_in_format_and_encoding(self):
+        argv = ['shift', '-', '0', '-f', 'srt', '--encoding', 'cp1252']
+        stdin = io.TextIOWrapper(io.BytesIO(self.SRT.encode('cp1252')),
+                                 encoding='ascii')
+        with mock.patch.object(sys, 'stdin', stdin):
+            self.assertEqual(self.run_cli(argv), self.SRT)
+
+    def test_stdin_is_webvtt_by_default(self):
+        stdin = io.TextIOWrapper(io.BytesIO(self.SRT.encode()))
+        with mock.patch.object(sys, 'stdin', stdin):
+            self.assertEqual(
+                self.run_error(['shift', '-', '0']),
+                (1, 'webvtt: error: standard input: not a valid WebVTT '
+                    'file\n')
+                )
+
+    def test_segment_srt(self):
+        srt = self.path('captions.srt', self.SRT)
+        output = self.path('segments')
+        main(['segment', srt, '-o', output])
+
+        self.assertIn('<c.color-red>Café</c>',
+                      self.read(os.path.join(output, 'fileSequence0.webvtt')))
+
+    def test_validate_srt_and_sbv(self):
+        srt = self.path('captions.srt', self.SRT +
+                        '\n3\n00:00:03,000 --> 00:00:02,000\nBack\n')
+        sbv = self.path('captions.sbv', self.SBV)
+
+        with contextlib.redirect_stdout(io.StringIO()) as stdout, \
+                self.assertRaises(SystemExit) as cm:
+            main(['validate', srt])
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(
+            stdout.getvalue(),
+            f'{srt}: caption 3: error: ends at 00:00:02.000, not after its '
+            'start at 00:00:03.000\n'
+            )
+        self.assertEqual(self.run_cli(['validate', sbv]), '')
+
+    def test_validate_srt_skipped_blocks(self):
+        srt = self.path('captions.srt',
+                        self.SRT + '\n3\n00:00:03 --> 00:00:04,000\nx\n')
+        with contextlib.redirect_stdout(io.StringIO()) as stdout, \
+                self.assertRaises(SystemExit) as cm:
+            main(['validate', srt])
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(
+            stdout.getvalue(),
+            f'{srt}: line 9: error: Invalid cue block '
+            "['3', '00:00:03 --> 00:00:04,000', 'x']\n"
+            )
+
+    def test_validate_srt_from_stdin(self):
+        stdin = io.TextIOWrapper(io.BytesIO(self.SRT.encode()))
+        with mock.patch.object(sys, 'stdin', stdin):
+            self.assertEqual(self.run_cli(['validate', '-', '-f', 'srt']),
+                             '')
+
+    def test_convert_to_stdout(self):
+        srt = self.path('captions.srt', self.SRT)
+
+        self.assertEqual(self.run_cli(['convert', srt]), textwrap.dedent('''\
+            WEBVTT
+
+            STYLE
+            ::cue(.color-red) {
+              color: red;
+            }
+
+            00:00:00.500 --> 00:00:01.000 line:0
+            <i>Credits</i>
+
+            00:00:01.500 --> 00:00:04.000
+            <c.color-red>Café</c>
+            '''))
+        self.assertEqual(self.run_cli(['convert', srt, '-t', 'sbv']),
+                         self.SBV)
+        self.assertEqual(self.run_cli(['convert', srt, '--to', 'srt']),
+                         self.SRT.replace('<i>Credits</i>', 'Credits')
+                         .replace('<font color="red">Café</font>', 'Café'))
+        self.assertEqual(
+            self.run_cli(['convert', srt, '-t', 'srt', '--keep-formatting']),
+            self.SRT
+            )
+
+    def test_convert_to_file(self):
+        sbv = self.path('captions.sbv', self.SBV)
+        for name, to, saved, start in (
+                ('out.srt', None, 'out.srt', '1\n'),
+                ('out.vtt', None, 'out.vtt', 'WEBVTT\n'),
+                ('out', None, 'out.vtt', 'WEBVTT\n'),
+                ('out.txt', None, 'out.txt', 'WEBVTT\n'),
+                ('out.txt', 'srt', 'out.txt', '1\n'),
+                ('out.vtt', 'sbv', 'out.vtt', '0:00:00.500,')):
+            with self.subTest(name=name, to=to):
+                argv = ['convert', sbv, '-o', self.path(name)]
+                self.run_cli(argv + (['-t', to] if to else []))
+
+                self.assertTrue(self.read(self.path(saved)).startswith(start))
+
+    def test_convert_from_stdin(self):
+        stdin = io.TextIOWrapper(io.BytesIO(self.SBV.encode()))
+        with mock.patch.object(sys, 'stdin', stdin):
+            self.assertEqual(
+                self.run_cli(['convert', '-', '-f', 'sbv', '-t', 'sbv']),
+                self.SBV
+                )
+
+    def test_convert_from_stdin_to_folder(self):
+        stdin = io.TextIOWrapper(io.BytesIO(self.SBV.encode()))
+        folder = self.path('folder')
+        os.mkdir(folder)
+        with mock.patch.object(sys, 'stdin', stdin):
+            code, message = self.run_error(['convert', '-', '-f', 'sbv',
+                                            '-o', folder])
+
+        self.assertEqual(code, 1)
+        self.assertIn(f'{folder}: is a directory', message)

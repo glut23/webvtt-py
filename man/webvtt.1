@@ -29,7 +29,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 .TH "WEBVTT" "1" "Nov 08, 2026" "0.7.0" "webvtt-py"
 .SH NAME
-webvtt \- segment, shift, sync and validate WebVTT captions
+webvtt \- segment, shift, sync, validate and convert WebVTT, SRT and SBV captions
 .SH SYNOPSIS
 .INDENT 0.0
 .INDENT 3.5
@@ -37,10 +37,14 @@ webvtt \- segment, shift, sync and validate WebVTT captions
 .nf
 .ft C
 webvtt segment PATH \-o OUTPUT [\-d NUMBER] [\-m NUMBER] [\-\-duration TIME]
-               [\-\-overwrite]
+               [\-\-overwrite] [INPUT OPTIONS]
 webvtt shift PATH OFFSET [\-o OUTPUT] [\-s TIMESTAMP] [\-\-drop\-before\-zero]
+             [INPUT OPTIONS]
 webvtt sync PATH (\-p FROM TO \-p FROM TO ... | \-\-fps FROM TO) [\-o OUTPUT]
-webvtt validate PATH
+            [INPUT OPTIONS]
+webvtt validate PATH [INPUT OPTIONS]
+webvtt convert PATH [\-o OUTPUT] [\-t FORMAT] [\-\-keep\-formatting]
+               [INPUT OPTIONS]
 webvtt \-h
 webvtt \-\-version
 .ft P
@@ -49,9 +53,11 @@ webvtt \-\-version
 .UNINDENT
 .SH DESCRIPTION
 .sp
-\fBwebvtt\fP segments a WebVTT caption file for \X'tty: link https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis'\fI\%HTTP Live Streaming\fP\X'tty: link' (HLS)
-and shifts or synchronizes the timestamps of its captions, or checks it for
-problems.
+\fBwebvtt\fP segments a caption file for \X'tty: link https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis'\fI\%HTTP Live Streaming\fP\X'tty: link' (HLS),
+shifts or synchronizes the timestamps of its captions, checks it for
+problems, or converts it to another format. The file can be WebVTT, SRT or
+SBV, read in the format of its extension: \fB\&.srt\fP for SRT, \fB\&.sbv\fP for SBV
+and any other for WebVTT, unless \fB\-\-format\fP is given.
 .sp
 \fBsegment\fP splits the captions in \fBPATH\fP into segments of a target
 duration. Each segment is written to \fBOUTPUT\fP as \fBfileSequenceN.webvtt\fP,
@@ -76,7 +82,10 @@ halves rounded away from zero, so \fB1.0005\fP is 1001 milliseconds. A timestamp
 that would fall before zero is set to \fB00:00:00.000\fP, so a caption moved
 entirely before the start is kept with \fB00:00:00.000 \-\-> 00:00:00.000\fP
 timings, unless \fB\-\-drop\-before\-zero\fP is given to remove it. The shifted
-captions are written to standard output in UTF\-8, or to \fBOUTPUT\fP when given.
+captions are written to standard output in UTF\-8, or to \fBOUTPUT\fP when given,
+in the format of the input, or of the extension of \fBOUTPUT\fP when it is
+\fB\&.vtt\fP, \fB\&.webvtt\fP, \fB\&.srt\fP or \fB\&.sbv\fP\&. The formatting of the cue text
+is kept when writing SRT.
 .sp
 \fBsync\fP fixes captions that drift further out of sync along the video. With
 \fB\-p\fP, each point moves the time \fBFROM\fP in the captions to \fBTO\fP; times
@@ -92,32 +101,41 @@ reading the file, or \fBPATH: caption N: SEVERITY: MESSAGE\fP for a caption,
 numbered from 1. Captions out of order, not ending after they start or in a
 region that is not defined are errors, as they are not valid WebVTT.
 Captions that overlap an earlier one or have no text are warnings. When
-there is no other error, the file is also read with strict parsing, which
-finds other problems such as cue settings that are not valid, and its first
-error is printed as \fBPATH: line N: error: MESSAGE\fP\&. Nothing is printed when
-there is no problem.
+there is no other error, a WebVTT file is also read with strict parsing,
+which finds other problems such as cue settings that are not valid, and its
+first error is printed as \fBPATH: line N: error: MESSAGE\fP\&. Nothing is
+printed when there is no problem.
+.sp
+\fBconvert\fP writes the captions in \fBPATH\fP in the format given with \fB\-t\fP,
+or else in the format of the extension of \fBOUTPUT\fP, or else as WebVTT, to
+standard output in UTF\-8 or to \fBOUTPUT\fP\&. Reading SRT turns its \fBfont\fP
+colours into cue classes with a \fBSTYLE\fP block and its \fB{\eanN}\fP
+positions into cue settings, and writing SRT writes the positions back.
 .sp
 The commands can also be run as \fBpython \-m webvtt\fP, as in
 \fBpython \-m webvtt shift captions.vtt 2\fP\&.
 .sp
-\fBsegment\fP, \fBshift\fP, \fBsync\fP and \fBvalidate\fP read the captions from
-standard input
-when \fBPATH\fP is \fB\-\fP, decoded as UTF\-8 as WebVTT requires, so they can be
-used in pipes. A file named \fB\-\fP can be read as \fB\&./\-\fP\&.
+The commands read the captions from standard input when \fBPATH\fP is \fB\-\fP,
+as WebVTT unless \fB\-\-format\fP is given and decoded as UTF\-8 unless
+\fB\-\-encoding\fP is given, so they can be used in pipes. A file named \fB\-\fP can
+be read as \fB\&./\-\fP\&.
 .SH COMMANDS
 .INDENT 0.0
 .TP
 .B \fBsegment\fP
-Segment the WebVTT file at \fBPATH\fP\&.
+Segment the captions at \fBPATH\fP into WebVTT segments.
 .TP
 .B \fBshift\fP
-Shift the timestamps of the WebVTT file at \fBPATH\fP\&.
+Shift the timestamps of the captions at \fBPATH\fP\&.
 .TP
 .B \fBsync\fP
-Synchronize the timestamps of the WebVTT file at \fBPATH\fP\&.
+Synchronize the timestamps of the captions at \fBPATH\fP\&.
 .TP
 .B \fBvalidate\fP
-Check the WebVTT file at \fBPATH\fP for problems.
+Check the captions at \fBPATH\fP for problems.
+.TP
+.B \fBconvert\fP
+Convert the captions at \fBPATH\fP to another format.
 .UNINDENT
 .SH OPTIONS
 .INDENT 0.0
@@ -128,6 +146,22 @@ Show the help message and exit. Also available for each command, as in
 .TP
 .B \fB\-\-version\fP
 Show the version of webvtt\-py and exit.
+.UNINDENT
+.SS Input options
+.sp
+These options are available for every command.
+.INDENT 0.0
+.TP
+.B \fB\-f FORMAT\fP, \fB\-\-format FORMAT\fP
+Format of the captions at \fBPATH\fP: \fBvtt\fP, \fBsrt\fP or \fBsbv\fP\&.
+Default: from the extension of \fBPATH\fP, \fB\&.srt\fP for \fBsrt\fP, \fB\&.sbv\fP
+for \fBsbv\fP and any other for \fBvtt\fP, or \fBvtt\fP for standard input.
+.TP
+.B \fB\-\-encoding ENCODING\fP
+Encoding of an input without a Byte Order Mark, such as \fBcp1252\fP\&. The
+Byte Order Mark is used when there is one. Writing SRT to a file keeps
+this encoding, while WebVTT and SBV are written in UTF\-8. Default:
+\fButf\-8\fP\&.
 .UNINDENT
 .SS Segment options
 .INDENT 0.0
@@ -171,8 +205,10 @@ Negative values move the captions earlier, as in \fB\-1.5\fP\&. Required.
 .B \fB\-o OUTPUT\fP, \fB\-\-output OUTPUT\fP
 File where the shifted captions are written, keeping the encoding and
 Byte Order Mark of the input file. It can be the input file itself to
-shift it in place. A \fB\&.vtt\fP extension is added if it has no
-extension, and if it is a directory the file is written there with the
+shift it in place. The captions are written in the format of its
+extension when it is \fB\&.vtt\fP, \fB\&.webvtt\fP, \fB\&.srt\fP or \fB\&.sbv\fP, and
+else in the format of the input, whose extension is added if it has no
+extension. If it is a directory, the file is written there with the
 input file name, which is an error when reading standard input.
 Default: standard output.
 .TP
@@ -207,6 +243,23 @@ rate. Times are multiplied by \fBFROM / TO\fP\&. Cannot be used with
 File where the synchronized captions are written, as with \fBshift\fP\&.
 Default: standard output.
 .UNINDENT
+.SS Convert options
+.INDENT 0.0
+.TP
+.B \fB\-o OUTPUT\fP, \fB\-\-output OUTPUT\fP
+File where the converted captions are written, as with \fBshift\fP, with
+the extension of the output format added if it has no extension.
+Default: standard output.
+.TP
+.B \fB\-t FORMAT\fP, \fB\-\-to FORMAT\fP
+Format of the output: \fBvtt\fP, \fBsrt\fP or \fBsbv\fP\&. Default: the format
+of the extension of \fBOUTPUT\fP, or \fBvtt\fP\&.
+.TP
+.B \fB\-\-keep\-formatting\fP
+When writing SRT, keep bold, italic and underline, and write the colours
+of the cue classes in the styles as \fBfont\fP tags, instead of removing
+the cue tags. SBV has no formatting.
+.UNINDENT
 .SH EXIT STATUS
 .INDENT 0.0
 .TP
@@ -215,7 +268,7 @@ The command completed successfully. For \fBvalidate\fP, the file has no
 errors, though it can have warnings.
 .TP
 .B \fB1\fP
-The input could not be read or is not a valid WebVTT file, the captions
+The input could not be read or is not valid in its format, the captions
 could not be moved as asked, or the output could not be written. For
 \fBsegment\fP, it is also an error when the output directory has the files
 of an earlier run without \fB\-\-overwrite\fP, or when a caption starts at or
@@ -239,7 +292,8 @@ are printed to standard output.
 .TP
 .B \fB2\fP
 Invalid command line arguments, such as an offset that is not a number,
-an invalid \fB\-\-start\fP timestamp or sync points that cannot be used.
+an invalid \fB\-\-start\fP timestamp, sync points that cannot be used, or an
+unknown format or encoding.
 .UNINDENT
 .SH EXAMPLES
 .sp
@@ -495,13 +549,41 @@ edited.vtt: caption 3: warning: starts at 00:00:11.000, before caption 1 ends at
 .fi
 .UNINDENT
 .UNINDENT
+.sp
+Shift SRT captions, keeping them in SRT, and convert them to WebVTT:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ webvtt shift captions.srt 2 \-o captions.srt
+$ webvtt convert captions.srt \-o captions.vtt
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Convert WebVTT to SRT, keeping the formatting, and read an SRT file in
+Windows\-1252 from standard input:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ webvtt convert captions.vtt \-o captions.srt \-\-keep\-formatting
+$ cat old.srt | webvtt convert \- \-f srt \-\-encoding cp1252 > new.vtt
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SH SEE ALSO
 .sp
-The same segmentation, shifting, synchronizing and validation are available
-from Python
-with \fBwebvtt.segment()\fP, \fBWebVTT.shift()\fP, \fBWebVTT.sync()\fP,
-\fBWebVTT.change_framerate()\fP and \fBWebVTT.validate()\fP, and
-\fBWebVTT.sort()\fP puts the captions in order of start time.
+The same segmentation, shifting, synchronizing, validation and conversion
+are available from Python with \fBwebvtt.segment()\fP, \fBWebVTT.shift()\fP,
+\fBWebVTT.sync()\fP, \fBWebVTT.change_framerate()\fP, \fBWebVTT.validate()\fP,
+\fBwebvtt.from_srt()\fP, \fBwebvtt.from_sbv()\fP, \fBWebVTT.save_as_srt()\fP and
+\fBWebVTT.save_as_sbv()\fP, and \fBWebVTT.sort()\fP puts the captions in order
+of start time.
 .SH AUTHOR
 Alejandro Mendez
 .SH COPYRIGHT
