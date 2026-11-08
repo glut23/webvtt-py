@@ -1070,6 +1070,25 @@ class Caption:
 
         return None
 
+    @property
+    def voices(self) -> typing.List[str]:
+        """
+        Return the voices of every voice span in the text, in order.
+
+        Unlike `voice`, which only reads a voice span at the start of the
+        first line, the spans can be anywhere in the text, and a voice is
+        returned once for each of its spans. The names are read as for
+        `voice`, so a caption that starts with a voice span has it first.
+        """
+        voices = []
+        for line in self.lines:
+            for token, is_tag in _iter_cue_text_tokens(line):
+                if is_tag:
+                    match = self.VOICE_SPAN_PATTERN.fullmatch(f'<{token}>')
+                    if match:
+                        voices.append(match.group(1))
+        return voices
+
 
 def _caption_lines(
         text: typing.Union[str, typing.Iterable[str]]

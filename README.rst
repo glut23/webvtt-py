@@ -30,6 +30,7 @@ Usage
       print(caption.end)         # cue end time
       print(caption.text)        # cue payload
       print(caption.voice)       # cue voice span if any
+      print(caption.voices)      # voices of every voice span in the text
 
 Writing captions
 ----------------

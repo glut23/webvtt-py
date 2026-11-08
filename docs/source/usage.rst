@@ -21,6 +21,12 @@ Reading WebVTT caption files
     for line in vtt[0].lines:
         print(line)
 
+    # voice only reads a voice span at the start of the caption, voices
+    # has the voice of every voice span in the text, in order
+    caption = webvtt.Caption(text='<v Bob>Hi</v> <v Alice>Hello</v>')
+    caption.voice   # 'Bob'
+    caption.voices  # ['Bob', 'Alice']
+
     # the caption text is returned clean without cue tags,
     # the raw text of a caption is available in raw_text
     vtt[0].text      # 'This is a caption text'
