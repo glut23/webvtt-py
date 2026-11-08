@@ -296,7 +296,9 @@ class WebVTT:
                 regions=output.regions
                 )
         elif format == 'srt':
-            instance = cls(captions=srt.parse(cls._get_lines(lines), issues))
+            styles: typing.List[Style] = []
+            captions = srt.parse(cls._get_lines(lines), issues, styles)
+            instance = cls(captions=captions, styles=styles)
         else:
             instance = cls(captions=sbv.parse(cls._get_lines(lines), issues))
 

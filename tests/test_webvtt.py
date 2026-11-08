@@ -1291,16 +1291,17 @@ class TestWebVTT(unittest.TestCase):
             'Top left\n'
             )
 
-    def test_save_as_srt_without_cue_settings(self):
+    def test_save_as_srt_writes_position_of_cue_settings(self):
         vtt = webvtt.from_string(
             'WEBVTT\n\n00:00:01.000 --> 00:00:03.000 line:0 align:start\n'
-            'Top left\n'
+            'Top\n'
             )
         output = io.StringIO()
         vtt.write(output, format='srt')
+        # align:start is not written, as its side depends on the text
         self.assertEqual(
             output.getvalue(),
-            '1\n00:00:01,000 --> 00:00:03,000\nTop left\n'
+            '1\n00:00:01,000 --> 00:00:03,000\n{\\an8}Top\n'
             )
 
     def test_save_as_srt_keeping_formatting(self):
@@ -3974,3 +3975,61 @@ class TestFormats(unittest.TestCase):
                              add_bom=add_bom)
 
                     self.assertEqual(os.listdir(td), [])
+
+
+class TestSRTMarkup(unittest.TestCase):
+
+    SRT = textwrap.dedent('''\
+        1
+        00:00:01,000 --> 00:00:02,000
+        {\\an8}<font color="#ff0000">red</font> <i>text</i>
+
+        2
+        00:00:02,000 --> 00:00:03,000
+        {\\an1}<font face="Arial">plain</font>
+        ''')
+
+    def test_from_srt_to_webvtt(self):
+        vtt = webvtt.from_string(self.SRT, format='srt')
+
+        self.assertEqual(vtt.content, textwrap.dedent('''\
+            WEBVTT
+
+            STYLE
+            ::cue(.color-ff0000) {
+              color: #ff0000;
+            }
+
+            00:00:01.000 --> 00:00:02.000 line:0
+            <c.color-ff0000>red</c> <i>text</i>
+
+            00:00:02.000 --> 00:00:03.000 align:left
+            plain
+            '''))
+        self.assertEqual(webvtt.from_string(vtt.content), vtt)
+
+    def test_from_srt_to_srt(self):
+        vtt = webvtt.from_string(self.SRT, format='srt')
+
+        self.assertEqual(
+            vtt.to_string('srt', keep_formatting=True),
+            self.SRT.replace('<font face="Arial">plain</font>', 'plain')
+            )
+        self.assertEqual(
+            vtt.to_string('srt'),
+            self.SRT.replace('<font color="#ff0000">red</font> <i>text</i>',
+                             'red text')
+            .replace('<font face="Arial">plain</font>', 'plain')
+            )
+
+    def test_from_srt_file_and_buffer(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = pathlib.Path(td, 'captions.srt')
+            path.write_text(self.SRT, encoding='utf-8')
+            for vtt in (webvtt.from_srt(path),
+                        webvtt.from_buffer(io.BytesIO(path.read_bytes()),
+                                           format='srt')):
+                with self.subTest(vtt=vtt):
+                    self.assertEqual(len(vtt.styles), 1)
+                    self.assertEqual(vtt[0].text, 'red text')
+                    self.assertEqual(vtt[0].settings.line, '0')

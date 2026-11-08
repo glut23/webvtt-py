@@ -619,6 +619,36 @@ text are skipped, so a file whose first cue has no text is read. SRT cues
 without an index are read, as most SRT players do, but the first cue of the
 file needs one for the content to be read as SRT.
 
+The colours and positions of SRT are read into WebVTT. A ``font`` tag with a
+``color`` becomes a ``c`` tag with a class named from the colour, and a
+``STYLE`` block gives each class its colour. Other ``font`` tags and
+attributes, such as ``face`` and ``size``, are removed, keeping their text.
+A ``{\an1}`` to ``{\an9}`` tag, which places the cue as the keys of a
+numeric keypad, becomes the ``line`` and ``align`` cue settings, and is
+removed from the text:
+
+.. code-block:: python
+
+    import webvtt
+
+    vtt = webvtt.from_string("""\
+    1
+    00:00:00,500 --> 00:00:07,000
+    {\\an8}<font color="#ff0000">Hello</font> world
+    """, format='srt')
+
+    print(vtt.content)
+
+    # WEBVTT
+    #
+    # STYLE
+    # ::cue(.color-ff0000) {
+    #   color: #ff0000;
+    # }
+    #
+    # 00:00:00.500 --> 00:00:07.000 line:0
+    # <c.color-ff0000>Hello</c> world
+
 Convert WebVTT captions to other formats:
 
 * SubRip (.srt)
@@ -675,6 +705,15 @@ with that color. Other cue tags are removed, keeping their text:
 Only the ``color`` of ``::cue(.class)`` selectors is read. When a cue has more
 than one class with a color, the rule that comes last in the styles applies.
 Character references such as ``&lt;`` are written as they are.
+
+The ``line`` and ``align`` cue settings are written to SRT as a ``{\anN}``
+tag, with or without ``keep_formatting``, so captions read from SRT keep
+their position. A line number from the top, or a percentage under a third,
+places the cue at the top, a percentage up to two thirds in the middle, and
+the cue is at the bottom otherwise. Only ``align:left`` and ``align:right``
+are written, as the side of ``start`` and ``end`` depends on the direction of
+the text, and no tag is written for a cue at the bottom center, where SRT
+players place it, or with vertical text.
 
 The ``encoding`` given to read a file without a Byte Order Mark is only
 used for reading, as WebVTT files are UTF-8: ``save()`` writes UTF-8 unless
