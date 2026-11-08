@@ -719,11 +719,27 @@ class CLIShiftTestCase(CLICommandTestCase):
                 ).lstrip()
             )
 
-    def test_shift_invalid_start(self):
-        self.assert_usage_error(
-            ['shift', self.vtt_file, '1', '--start', '1:2'],
-            "argument -s/--start: invalid timestamp: '1:2'"
+    def test_shift_from_start_in_seconds(self):
+        expected = self.run_cli(
+            ['shift', self.vtt_file, '-0.5', '--start', '00:00:01.500']
             )
+        # rounded to the nearest millisecond
+        for start in ('1.5', '1.5e0', '1.5004'):
+            with self.subTest(start=start):
+                self.assertEqual(
+                    self.run_cli(
+                        ['shift', self.vtt_file, '-0.5', '-s', start]
+                        ),
+                    expected
+                    )
+
+    def test_shift_invalid_start(self):
+        for start in ('1:2', '-5', 'x', 'nan', 'inf', '1e300'):
+            with self.subTest(start=start):
+                self.assert_usage_error(
+                    ['shift', self.vtt_file, '1', '--start', start],
+                    f"argument -s/--start: invalid timestamp: '{start}'"
+                    )
 
     def test_shift_requires_offset(self):
         self.assert_usage_error(
@@ -988,7 +1004,7 @@ class CLISyncTestCase(CLICommandTestCase):
                 (['-p', '1', '2', '-p', 'nan', '3'],
                  "argument -p/--point: invalid timestamp: 'nan'"),
                 (['-p', '1', '2', '-p', '3', '1e300'],
-                 'Time after the largest timestamp 9999999999:59:59.999'),
+                 "argument -p/--point: invalid timestamp: '1e300'"),
                 (['-p', '1'],
                  'argument -p/--point: expected 2 arguments'),
                 (['--fps', '0', '25'],

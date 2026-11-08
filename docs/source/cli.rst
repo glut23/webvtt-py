@@ -11,7 +11,7 @@ Synopsis
 
     webvtt segment PATH -o OUTPUT [-d NUMBER] [-m NUMBER] [--duration TIME]
                    [--overwrite] [INPUT OPTIONS]
-    webvtt shift PATH OFFSET [-o OUTPUT] [-s TIMESTAMP] [--drop-before-zero]
+    webvtt shift PATH OFFSET [-o OUTPUT] [-s TIME] [--drop-before-zero]
                  [INPUT OPTIONS]
     webvtt sync PATH (-p FROM TO -p FROM TO ... | --fps FROM TO) [-o OUTPUT]
                 [INPUT OPTIONS]
@@ -186,9 +186,10 @@ Shift options
     input file name, which is an error when reading standard input.
     Default: standard output.
 
-``-s TIMESTAMP``, ``--start TIMESTAMP``
-    Only shift the captions starting at or after ``TIMESTAMP``, in
-    ``[hh:]mm:ss.mmm`` format. Default: shift all the captions.
+``-s TIME``, ``--start TIME``
+    Only shift the captions starting at or after ``TIME``, a timestamp in
+    ``[hh:]mm:ss.mmm`` format or a number of seconds, such as ``47.5``.
+    Default: shift all the captions.
 
 ``--drop-before-zero``
     Remove the shifted captions that end at or before ``00:00:00.000``, as
@@ -256,7 +257,7 @@ are printed to standard output.
 
 ``2``
     Invalid command line arguments, such as an offset that is not a number,
-    an invalid ``--start`` timestamp, sync points that cannot be used, or an
+    an invalid ``--start`` time, sync points that cannot be used, or an
     unknown format or encoding.
 
 Examples
