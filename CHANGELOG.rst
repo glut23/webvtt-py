@@ -8,6 +8,7 @@ Changes that may need updates to the code using the library:
 
 * ``total_length`` returns a float with the milliseconds, from the earliest start to the latest end of the captions, instead of whole seconds from the first caption to the last one, which was wrong for captions out of order, thanks to `@emirmrkaljevic <https://github.com/emirmrkaljevic>`_ (#188, #193)
 * ``Style`` and ``WebVTT`` are equal when they have the same content, instead of only to themselves, and cannot be used in sets or as dictionary keys, as ``Caption`` and ``Region`` (#174)
+* ``save_as_srt`` keeps the Byte Order Mark of the file that was read and saves in its encoding, as ``save`` does, instead of saving in UTF-8 without it, and ``from_srt`` and ``from_sbv`` keep the Byte Order Mark as ``read`` does, so ``save`` also keeps it for SRT and SBV files read with one (#177)
 
 Changes:
 
@@ -24,6 +25,7 @@ Changes:
 * Added the ``drop_before_zero`` argument of ``shift`` and the ``--drop-before-zero`` option of the ``shift`` command of the CLI, which remove the captions that end at or before zero after shifting them, instead of keeping them at ``00:00:00.000 --> 00:00:00.000`` (#173)
 * Added ``Caption.voices``, the voices of every voice span in the text, in order, as ``Caption.voice`` only reads a voice span at the start of the caption (#175)
 * Added ``WebVTT.sort()``, which sorts the captions by start time, and ``WebVTT.validate()``, which returns a ``ValidationIssue`` for each caption out of order, not ending after it starts, in a region that is not defined, overlapping an earlier one or without text, and the ``validate`` command of the CLI, which also reports the blocks skipped when reading (#176)
+* Added the ``format`` argument of ``from_string`` to read SRT and SBV from a string, ``to_string`` to get the captions as a string in any format, writing SBV with ``write(format='sbv')`` and ``save_as_sbv``, and the ``add_bom`` argument of ``save_as_srt``, as in ``save`` (#177)
 
 0.7.0 (01-11-2026)
 ------------------

@@ -5,7 +5,7 @@ import re
 
 from . import utils
 from .models import (
-    Caption, ParseIssue, _caption_from_timings, _skipped_block
+    Caption, ParseIssue, Timestamp, _caption_from_timings, _skipped_block
     )
 from .errors import MalformedFileError
 
@@ -161,3 +161,39 @@ def _skipped_block_kind(lines: typing.Sequence[str]) -> str:
     if not re.match(SBVCueBlock.CUE_TIMINGS_PATTERN, lines[0]):
         return 'Invalid block'
     return 'Invalid cue block' if len(lines) > 1 else 'Cue without text'
+
+
+def write(f: typing.IO[str], captions: typing.Iterable[Caption]):
+    """
+    Write captions to an output in SBV format.
+
+    The cue tags are removed, as SBV has no formatting, and captions
+    without text, such as text of blank lines or only of cue tags, are left
+    out, as a cue without text cannot be read back from SBV. The blank
+    lines of the text are removed, as a blank line ends the cue.
+
+    :param f: file or file-like object
+    :param captions: Iterable of `Caption` objects
+    """
+    output = []
+    for caption in captions:
+        if not caption.text.strip():
+            continue
+        output.extend([
+            f'{_timestamp(caption.start_time)},'
+            f'{_timestamp(caption.end_time)}',
+            *(line for line in caption.text.split('\n') if line.strip()),
+            ''
+            ])
+    f.write('\n'.join(output))
+
+
+def _timestamp(timestamp: Timestamp) -> str:
+    """
+    Return a timestamp as it is written in SBV, as in ``0:01:02.500``.
+
+    :param timestamp: the timestamp
+    :returns: the timestamp with the hours not padded
+    """
+    return (f'{timestamp.hours}:{timestamp.minutes:02d}:'
+            f'{timestamp.seconds:02d}.{timestamp.milliseconds:03d}')

@@ -81,6 +81,11 @@ Supported formats:
   # alternatively in a single line
   webvtt.from_sbv('captions.sbv').save()
 
+  # write captions.srt and captions.sbv next to captions.vtt
+  vtt = webvtt.read('captions.vtt')
+  vtt.save_as_srt()
+  vtt.save_as_sbv()
+
 CLI
 ---
 Caption segmentation, shifting, synchronizing and validation are also
