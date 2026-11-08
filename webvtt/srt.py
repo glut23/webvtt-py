@@ -373,7 +373,7 @@ def _parse_cue(lines: Sequence[str]) -> Caption | None:
 def _convert_captions(
         captions: Iterable[Caption],
         styles: list[Style] | None
-        ):
+        ) -> None:
     """
     Convert the font and position tags of the captions read from SRT.
 
@@ -389,7 +389,7 @@ def _convert_captions(
         styles.append(_colour_style(classes))
 
 
-def _convert_markup(caption: Caption, classes: dict[str, str]):
+def _convert_markup(caption: Caption, classes: dict[str, str]) -> None:
     """
     Convert the font and position tags of a caption read from SRT.
 
@@ -772,7 +772,7 @@ def write(
         f: typing.IO[str],
         captions: Iterable[Caption],
         styles: Iterable[Style] | None = None
-        ):
+        ) -> None:
     r"""
     Write captions to an output.
 

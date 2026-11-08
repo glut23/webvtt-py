@@ -32,7 +32,7 @@ _EXTENSION_FORMATS = {
     }
 
 
-def main(argv: Sequence | None = None):
+def main(argv: Sequence[str] | None = None) -> None:
     """
     Segment, shift, sync, validate or convert captions from command line.
 
@@ -244,7 +244,7 @@ _OUTPUT_EPILOG = (
     )
 
 
-def _add_input_arguments(parser: argparse.ArgumentParser):
+def _add_input_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the arguments of the input of a command."""
     parser.add_argument(
         'file',
@@ -266,7 +266,7 @@ def _add_input_arguments(parser: argparse.ArgumentParser):
         )
 
 
-def _add_convert_command(commands: typing.Any):
+def _add_convert_command(commands: typing.Any) -> None:
     """Add the convert command."""
     convert_command = commands.add_parser(
         'convert',
@@ -302,7 +302,7 @@ def _check_arguments(
         parser: argparse.ArgumentParser,
         sync_parser: argparse.ArgumentParser,
         args: argparse.Namespace
-        ):
+        ) -> None:
     """Exit with an error if the arguments cannot be used."""
     if args.command == 'sync':
         _check_sync_points(sync_parser, args.points)
@@ -313,7 +313,7 @@ def _check_arguments(
 def _check_sync_points(
         parser: argparse.ArgumentParser,
         points: list[list[typing.Any]] | None
-        ):
+        ) -> None:
     """Exit with a usage error if the sync points cannot be used."""
     try:
         if points:
@@ -322,7 +322,7 @@ def _check_sync_points(
         parser.error(str(error))
 
 
-def _check_output(parser: argparse.ArgumentParser, output: str):
+def _check_output(parser: argparse.ArgumentParser, output: str) -> None:
     """Exit with an error if the output has the files of an earlier run."""
     try:
         earlier_file = segmenter._earlier_output(pathlib.Path(output))
@@ -338,7 +338,7 @@ def _check_output(parser: argparse.ArgumentParser, output: str):
             )
 
 
-def _segment(args: argparse.Namespace):
+def _segment(args: argparse.Namespace) -> None:
     """Run the segment command."""
     segmenter.segment(
         _read(args),
@@ -350,7 +350,7 @@ def _segment(args: argparse.Namespace):
         )
 
 
-def _shift(args: argparse.Namespace):
+def _shift(args: argparse.Namespace) -> None:
     """Run the shift command."""
     vtt = _read(args)
     vtt.shift(args.offset, start=args.start,
@@ -358,7 +358,7 @@ def _shift(args: argparse.Namespace):
     _write(vtt, args.output, _edited_format(args), keep_formatting=True)
 
 
-def _sync(args: argparse.Namespace):
+def _sync(args: argparse.Namespace) -> None:
     """Run the sync command."""
     vtt = _read(args)
     if args.points:
@@ -368,7 +368,7 @@ def _sync(args: argparse.Namespace):
     _write(vtt, args.output, _edited_format(args), keep_formatting=True)
 
 
-def _convert(args: argparse.Namespace):
+def _convert(args: argparse.Namespace) -> None:
     """Run the convert command."""
     output_format = (args.to or
                      (args.output and _path_format(args.output)) or
@@ -392,7 +392,7 @@ def _path_format(path: str) -> str | None:
     return _EXTENSION_FORMATS.get(os.path.splitext(path)[1].lower())
 
 
-def _validate(args: argparse.Namespace):
+def _validate(args: argparse.Namespace) -> None:
     """Run the validate command, exiting with status 1 if there are errors."""
     read = _reader(args)
     name = _input_name(args.file)
@@ -476,7 +476,7 @@ def _input_name(path: str) -> str:
     return 'standard input' if path == _STDIN else path
 
 
-def _stdin() -> typing.IO:
+def _stdin() -> typing.IO[typing.Any]:
     """
     Return standard input to read the captions from.
 
@@ -502,7 +502,7 @@ def _write(
         output: str | None,
         format: str,
         keep_formatting: bool
-        ):
+        ) -> None:
     """
     Save the captions to the output file or standard output in a format.
 
@@ -521,7 +521,7 @@ def _write(
         vtt.save(output)
 
 
-def _write_stdout(content: str):
+def _write_stdout(content: str) -> None:
     """
     Write content to standard output.
 

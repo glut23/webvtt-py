@@ -1,0 +1,6 @@
+# Commits that only reformat the code, which git blame skips with
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# as GitHub does on its own.
+
+# Modernize the type hints (#230)
+80fb7fa0fe6e216b311c1702c548aa55b5edb530

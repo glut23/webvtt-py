@@ -31,6 +31,7 @@ Changes:
 * ``keep_formatting`` reads the colours of ``::cue()`` selectors with a tag name, more than one class or both, as in ``::cue(c.loud)``, ``::cue(.loud.red)`` or ``::cue(b)``, and of class names with any character that WebVTT allows, written with CSS escapes, as in ``::cue(.c\+1)``, and the rule with the most classes, then with a tag name, applies before a later one, as in CSS (#179)
 * The commands of the CLI read SRT and SBV files, in the format of their extension or of the new ``--format`` option, with the new ``--encoding`` option for files in another encoding, and ``shift`` and ``sync`` write them in the same format, or in the format of the extension of the output. Added the ``convert`` command, which converts between WebVTT, SRT and SBV, as in ``webvtt convert captions.srt -o captions.vtt`` (#181)
 * Parsing is faster, by about a third for WebVTT and SRT and 40% for SBV on files with many cues, as empty cue settings are built without validating each setting, the parsed settings and times are kept instead of copied, the compiled patterns are used directly and the cue timings are only looked for until they are found (#182)
+* The type hints use the Python 3.10 syntax and are complete, checked with ``mypy --strict``, the path arguments of ``read``, ``from_srt``, ``from_sbv``, ``save``, ``save_as_srt``, ``save_as_sbv`` and ``segment`` are annotated as ``str | os.PathLike``, as ``pathlib.Path`` objects already worked, and indexing ``WebVTT`` with a slice is typed as a list of captions (#183)
 
 0.7.0 (01-11-2026)
 ------------------
