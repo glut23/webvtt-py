@@ -2,7 +2,7 @@ help: ## Show this help
 	@awk -F':.*## ' '/^[a-z_-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 clean: ## Remove the generated files, including dist
-	rm -rf build dist docs/build *.egg-info .tox .mypy_cache .pytest_cache .coverage coverage.xml
+	rm -rf build dist docs/build *.egg-info .tox .mypy_cache .pytest_cache .hypothesis .coverage coverage.xml
 
 codestyle: ## Check the code style and types
 	tox -e codestyle

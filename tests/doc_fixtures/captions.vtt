@@ -1,0 +1,51 @@
+WEBVTT - Sample title
+X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:126000
+Kind: captions
+
+NOTE
+Captions of the usage examples
+
+STYLE
+::cue(.colorE5E5E5) {
+  color: #e5e5e5;
+}
+
+REGION
+id:bill
+width:40%
+lines:3
+regionanchor:0%,100%
+viewportanchor:10%,90%
+scroll:up
+
+chapter 1
+00:00:00.000 --> 00:00:00.800 line:10%,end align:start
+This is a <c.colorE5E5E5>caption</c> text
+
+00:00:05.000 --> 00:00:07.000
+Caption text #2
+on two lines
+
+00:00:01.000 --> 00:00:02.000
+Caption text #3, out of order
+
+00:00:11.000 --> 00:00:15.000
+Caption text #4
+on two lines
+
+00:00:16.000 --> 00:00:20.000
+Caption text #5
+on two lines
+
+NOTE A comment of caption 6
+
+00:00.000 --> 00:0x.000
+bad
+
+00:00:21.000 --> 00:00:27.000
+Caption text #6
+
+00:00:30.000 --> 00:00:35.000
+Caption text #7
+
+NOTE End of the captions

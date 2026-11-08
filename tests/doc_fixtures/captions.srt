@@ -1,0 +1,8 @@
+1
+00:00:00,500 --> 00:00:07,000
+<font color="#ff0000">Caption</font> text #1
+
+2
+00:00:07,000 --> 00:00:11,890
+Caption text #2
+on two lines

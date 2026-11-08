@@ -32,6 +32,8 @@ Changes:
 * The commands of the CLI read SRT and SBV files, in the format of their extension or of the new ``--format`` option, with the new ``--encoding`` option for files in another encoding, and ``shift`` and ``sync`` write them in the same format, or in the format of the extension of the output. Added the ``convert`` command, which converts between WebVTT, SRT and SBV, as in ``webvtt convert captions.srt -o captions.vtt`` (#181)
 * Parsing is faster, by about a third for WebVTT and SRT and 40% for SBV on files with many cues, as empty cue settings are built without validating each setting, the parsed settings and times are kept instead of copied, the compiled patterns are used directly and the cue timings are only looked for until they are found (#182)
 * The type hints use the Python 3.10 syntax and are complete, checked with ``mypy --strict``, the path arguments of ``read``, ``from_srt``, ``from_sbv``, ``save``, ``save_as_srt``, ``save_as_sbv`` and ``segment`` are annotated as ``str | os.PathLike``, as ``pathlib.Path`` objects already worked, and indexing ``WebVTT`` with a slice is typed as a list of captions (#183)
+* Styles keep the whitespace at the start of their first line and at the end of their last line when read, so that a style is read back as it was saved (#186)
+* Added property-based tests with Hypothesis, tests that save every sample and read it again, and tests that run the examples of the documentation (#186)
 
 0.7.0 (01-11-2026)
 ------------------

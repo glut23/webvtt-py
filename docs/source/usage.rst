@@ -160,7 +160,10 @@ those captions, and ``clip`` trims them to the range:
 
 .. code-block:: python
 
-    # captions from 1 s to 5 s and from 3 s to 4 s
+    vtt = webvtt.WebVTT(captions=[
+        webvtt.Caption('00:00:01.000', '00:00:05.000', 'first'),
+        webvtt.Caption('00:00:03.000', '00:00:04.000', 'second'),
+        ])
     start, end = '00:00:02.000', '00:00:06.000'
 
     [c.text for c in vtt.iter_slice(start, end)]
@@ -638,7 +641,6 @@ removed from the text:
     """, format='srt')
 
     print(vtt.content)
-
     # WEBVTT
     #
     # STYLE

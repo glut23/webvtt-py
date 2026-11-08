@@ -260,8 +260,6 @@ class WebVTTCommentBlock:
 class WebVTTStyleBlock:
     """Representation of a style block."""
 
-    STYLE_PATTERN = re.compile(r'STYLE\s(.*?)\Z', re.DOTALL)
-
     def __init__(self, text: str):
         """
         Initialize.
@@ -297,11 +295,12 @@ class WebVTTStyleBlock:
         """
         Create a `WebVTTStyleBlock` from lines of text.
 
+        The style text is the lines after the ``STYLE`` line, as they are.
+
         :param lines: the lines of text
         :returns: `WebVTTStyleBlock` instance
         """
-        match = cls.STYLE_PATTERN.match('\n'.join(lines))
-        return cls(text=match.group(1).strip() if match else '')
+        return cls(text='\n'.join(list(lines)[1:]))
 
     @staticmethod
     def format_lines(lines: list[str]) -> list[str]:
