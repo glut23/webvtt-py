@@ -12,6 +12,7 @@ dist/
 .tox/
 .coverage
 coverage.xml
+.hypothesis/
 
 # PyCharm
 .idea

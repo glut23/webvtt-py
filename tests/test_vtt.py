@@ -310,6 +310,13 @@ class TestWebVTTStyleBlock(unittest.TestCase):
             ''').strip()
             )
 
+    def test_from_lines_keeps_whitespace(self):
+        style = vtt.WebVTTStyleBlock.from_lines(
+            ['STYLE \t', '  ::cue { color: red; } ', ' ', '::cue(b) {} ']
+            )
+        self.assertEqual(style.text,
+                         '  ::cue { color: red; } \n \n::cue(b) {} ')
+
 
 class TestWebVTTRegionBlock(unittest.TestCase):
 

@@ -992,12 +992,6 @@ class TestCaption(unittest.TestCase):
         self.assertEqual(caption.raw_text, 'This is a test')
         self.assertIsNone(caption.voice)
 
-    def test_voice_span_long_whitespace_is_linear(self):
-        caption = Caption(text='<v' + ' ' * 80000)
-        start = time.perf_counter()
-        self.assertIsNone(caption.voice)
-        self.assertLess(time.perf_counter() - start, 1)
-
     def test_voices(self):
         for raw_text, voices in (
                 ('<v Homer Simpson>Hello there!</v>', ['Homer Simpson']),
@@ -1033,16 +1027,6 @@ class TestCaption(unittest.TestCase):
         caption.lines.append('<v Carol>Three</v>')
         self.assertEqual(caption.voices, ['Bob', 'Alice', 'Carol'])
 
-    def test_voices_are_linear(self):
-        for raw_text in ('<v' + ' ' * 80000,
-                         '<v' + ' ' * 80000 + '>',
-                         '<v Bob>a' * 20000):
-            with self.subTest(length=len(raw_text)):
-                caption = Caption(text=raw_text)
-                start = time.perf_counter()
-                caption.voices
-                self.assertLess(time.perf_counter() - start, 1)
-
     def test_text_strips_tags_like_regex(self):
         for raw_text in (
             '<v Bob>Hello <b>test</b>!',
@@ -1057,12 +1041,58 @@ class TestCaption(unittest.TestCase):
                 re.sub('<.*?>', '', raw_text)
             )
 
-    def test_text_unclosed_tags_are_linear(self):
-        # re.sub('<.*?>', ...) took about 10 seconds on this input
-        caption = Caption(text='<' * 64000)
-        start = time.perf_counter()
-        self.assertEqual(caption.text, '<' * 64000)
-        self.assertLess(time.perf_counter() - start, 1)
+
+class TestLinearTime(unittest.TestCase):
+    """
+    The text and voices of captions, which were quadratic in the length of
+    a line.
+
+    The lines are long enough for a quadratic time to take many minutes, as
+    re.sub('<.*?>', '', line) for the text took about 10 seconds on 64000
+    "<", while a linear one takes less than a second.
+    """
+
+    LENGTH = 10 ** 6
+    # seconds, for slow machines
+    LIMIT = 5
+
+    def assertLinear(self, cases, attribute):
+        """Check the attribute of captions with each text and its value."""
+        for name, text, expected in cases:
+            with self.subTest(name):
+                caption = Caption(text=text)
+                start = time.perf_counter()
+                value = getattr(caption, attribute)
+                self.assertLess(time.perf_counter() - start, self.LIMIT)
+                self.assertEqual(value, expected)
+
+    def test_text(self):
+        n = self.LENGTH
+        lines = '\n'.join(['<'] * (n // 4))
+        self.assertLinear((
+            ('unclosed tags', '<' * n, '<' * n),
+            ('text and unclosed tags', 'a<' * n, 'a<' * n),
+            ('tags', '<b>a' * (n // 4), 'a' * (n // 4)),
+            ('lines', lines, lines),
+            ), 'text')
+
+    def test_voice(self):
+        n = self.LENGTH
+        self.assertLinear((
+            ('whitespace', '<v' + ' ' * n, None),
+            ('unclosed name', '<v' + ' ' * n + 'a' * n, None),
+            ('words', '<v' + ' a' * n, None),
+            ('classes', '<v' + '.a' * n, None),
+            ), 'voice')
+
+    def test_voices(self):
+        n = self.LENGTH
+        self.assertLinear((
+            ('whitespace', '<v' + ' ' * n + '>', []),
+            ('unclosed spans', '<v ' * n, []),
+            ('classes', '<v' + '.a' * n + '>', []),
+            ('spans', '<v Bob>a' * (n // 10), ['Bob'] * (n // 10)),
+            ), 'voices')
 
 
 class TestStyle(unittest.TestCase):
