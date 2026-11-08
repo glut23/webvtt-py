@@ -19,7 +19,42 @@ from . import utils
 
 _TIMESTAMP = r'[0-9]+:[0-9]{1,2}:[0-9]{1,2}[,.][0-9]+'
 
-_CUE_CLASS_SELECTOR = re.compile(r'::cue\(\s*\.([\w-]+)\s*\)')
+# a character of a CSS identifier, or an escape, as in ``c\+1`` or ``\31 a``.
+# Each character matches one alternative only, and a hex escape takes all
+# its digits, so that a selector that does not match fails in linear time
+_CSS_IDENTIFIER = (
+    r'(?:[a-zA-Z0-9_-]|[^\x00-\x7f]|'
+    r'\\(?:(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{1,5}(?![0-9a-fA-F]))[ \t\n\r\f]?|'
+    r'[^\n\r\f0-9a-fA-F]))+'
+    )
+
+# a ::cue() selector with a type, classes or both, as in ::cue(c.loud)
+_CUE_SELECTOR = re.compile(
+    rf'::cue\(\s*([a-zA-Z]+)?((?:\.{_CSS_IDENTIFIER})*)\s*\)'
+    )
+
+_CSS_CLASS = re.compile(rf'\.({_CSS_IDENTIFIER})')
+
+_CSS_ESCAPE = re.compile(
+    r'\\(?:([0-9a-fA-F]{1,6})[ \t\n\r\f]?|(.))', re.DOTALL
+    )
+
+# the selectors of a rule, split on the commas that are not escaped
+_CSS_SELECTORS = re.compile(r'(?:\\.|[^,\\])+', re.DOTALL)
+
+
+class _ColourRule(typing.NamedTuple):
+    """The colour of a ``::cue()`` selector of the styles."""
+
+    # the tag name of the selector, or None for any tag
+    name: typing.Optional[str]
+    # the classes that a tag needs to have
+    classes: typing.FrozenSet[str]
+    # the specificity of the selector and the position of its rule, the
+    # largest of which applies
+    priority: typing.Tuple[int, int, int]
+    colour: str
+
 
 # the cue tags that SRT players support
 _SRT_TAGS = {'b', 'i', 'u'}
@@ -550,20 +585,17 @@ def _css_colour(declarations: str) -> typing.Optional[str]:
     return colour
 
 
-def _cue_colours(
-        styles: typing.Iterable[Style]
-        ) -> typing.Dict[str, typing.Tuple[int, str]]:
+def _cue_colours(styles: typing.Iterable[Style]) -> typing.List[_ColourRule]:
     """
-    Return the colours of the cue classes defined in the styles.
+    Return the colours of the ``::cue()`` selectors of the styles.
 
-    Only the ``color`` of ``::cue(.class)`` selectors is read. Each class is
-    mapped to the colour and the position of its rule, as when a cue has
-    more than one class with a colour, the rule that comes last applies.
+    Only the ``color`` of selectors with a tag name, classes or both is
+    read, as in ``::cue(.loud)``, ``::cue(c.loud.red)`` or ``::cue(b)``.
 
     :param styles: Iterable of `Style` objects
-    :returns: a dict of class name to (rule position, colour)
+    :returns: the colour rules, in the order of the styles
     """
-    colours = {}
+    rules = []
     position = 0
     for style in styles:
         # split the rules on braces, as a regex for them is quadratic on
@@ -574,22 +606,90 @@ def _cue_colours(
             if colour is None:
                 continue
             position += 1
-            for selector in selectors.split(','):
-                match = _CUE_CLASS_SELECTOR.fullmatch(selector.strip())
-                if match:
-                    colours[match.group(1)] = (position, colour)
-    return colours
+            for selector in _CSS_SELECTORS.findall(selectors):
+                colour_rule = _colour_rule(selector.strip(), position, colour)
+                if colour_rule is not None:
+                    rules.append(colour_rule)
+    return rules
+
+
+def _colour_rule(
+        selector: str,
+        position: int,
+        colour: str
+        ) -> typing.Optional[_ColourRule]:
+    """
+    Return the colour rule of a ``::cue()`` selector.
+
+    :param selector: the selector
+    :param position: the position of the rule in the styles
+    :param colour: the colour of the rule
+    :returns: the colour rule, or None for a selector that is not read
+    """
+    match = _CUE_SELECTOR.fullmatch(selector)
+    if match is None or not any(match.groups()):
+        return None
+    name, classes = match.group(1), match.group(2)
+    class_names = frozenset(
+        _css_unescape(class_name)
+        for class_name in _CSS_CLASS.findall(classes)
+        )
+    # the specificity of CSS: the classes, then the tag name
+    priority = (len(class_names), int(name is not None), position)
+    return _ColourRule(name and name.lower(), class_names, priority, colour)
+
+
+def _css_unescape(identifier: str) -> str:
+    r"""
+    Return a CSS identifier without its escapes.
+
+    :param identifier: the identifier, as in ``c\+1`` or ``\31 a``
+    :returns: the identifier, as in ``c+1`` or ``1a``
+    """
+    def unescape(match: typing.Match[str]) -> str:
+        if match.group(2) is not None:
+            return match.group(2)
+        code = int(match.group(1), 16)
+        if code == 0 or 0xd800 <= code <= 0xdfff or code > 0x10ffff:
+            return '\ufffd'
+        return chr(code)
+
+    return _CSS_ESCAPE.sub(unescape, identifier)
+
+
+def _tag_colour(
+        name: str,
+        classes: typing.Collection[str],
+        colours: typing.Iterable[_ColourRule]
+        ) -> typing.Optional[str]:
+    """
+    Return the colour of a cue tag.
+
+    :param name: the tag name
+    :param classes: the classes of the tag
+    :param colours: the colour rules of the styles
+    :returns: the colour of the matching rule with the largest specificity,
+        the last one of them, or None when no rule matches
+    """
+    tag_classes = set(classes)
+    matches = [
+        rule for rule in colours
+        if rule.name in (None, name) and rule.classes <= tag_classes
+        ]
+    if not matches:
+        return None
+    return max(matches, key=operator.attrgetter('priority')).colour
 
 
 def _srt_tags(
         tag: str,
-        colours: typing.Mapping[str, typing.Tuple[int, str]]
+        colours: typing.Iterable[_ColourRule]
         ) -> typing.Optional[typing.Tuple[str, str, str]]:
     """
     Return the SRT tags for a cue start tag.
 
     :param tag: the content of the cue start tag
-    :param colours: the colours of the cue classes
+    :param colours: the colour rules of the styles
     :returns: the tag name and the SRT start and end tags, which are empty
         when SRT has no tag for it, or None for a timestamp tag
     """
@@ -604,9 +704,9 @@ def _srt_tags(
     start_tags = end_tags = ''
     if name in _SRT_TAGS:
         start_tags, end_tags = f'<{name}>', f'</{name}>'
-    matches = [colours[cls] for cls in classes if cls in colours]
-    if matches:
-        start_tags += f'<font color="{max(matches)[1]}">'
+    colour = _tag_colour(name, classes, colours)
+    if colour is not None:
+        start_tags += f'<font color="{colour}">'
         end_tags = '</font>' + end_tags
     return name, start_tags, end_tags
 
@@ -634,7 +734,7 @@ def _close_tags(
 
 def _format_cue_text(
         text: str,
-        colours: typing.Mapping[str, typing.Tuple[int, str]]
+        colours: typing.Iterable[_ColourRule]
         ) -> str:
     """
     Convert the cue tags of a cue text to SRT tags.
@@ -646,7 +746,7 @@ def _format_cue_text(
     the text, but stay open across lines.
 
     :param text: the cue text
-    :param colours: the colours of the cue classes
+    :param colours: the colour rules of the styles
     :returns: the text with SRT tags
     """
     lines = []

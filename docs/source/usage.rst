@@ -702,8 +702,15 @@ with that color. Other cue tags are removed, keeping their text:
     # the caption is saved as:
     # <font color="#ff00ff"><i>Hello</i> world</font>
 
-Only the ``color`` of ``::cue(.class)`` selectors is read. When a cue has more
-than one class with a color, the rule that comes last in the styles applies.
+Only the ``color`` of ``::cue()`` selectors with a tag name, classes or both
+is read, as in ``::cue(.loud)``, ``::cue(.loud.red)``, ``::cue(c.loud)`` or
+``::cue(b)``, which colours every ``b`` tag. Class names can have any
+character that WebVTT allows, written with CSS escapes where CSS needs them,
+as in ``::cue(.c\+1)`` for ``<c.c+1>``. Other selectors, such as ``::cue``,
+``::cue(#id)``, ``::cue([voice="Esme"])`` or ``::cue(c > b)``, are not read.
+When more than one rule matches a cue tag, the rule with the most classes
+applies, then one with a tag name, and then the one that comes last in the
+styles, as in CSS.
 Character references such as ``&lt;`` are written as they are.
 
 The ``line`` and ``align`` cue settings are written to SRT as a ``{\anN}``

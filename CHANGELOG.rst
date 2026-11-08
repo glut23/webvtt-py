@@ -27,6 +27,7 @@ Changes:
 * Added ``Caption.voices``, the voices of every voice span in the text, in order, as ``Caption.voice`` only reads a voice span at the start of the caption (#175)
 * Added ``WebVTT.sort()``, which sorts the captions by start time, and ``WebVTT.validate()``, which returns a ``ValidationIssue`` for each caption out of order, not ending after it starts, in a region that is not defined, overlapping an earlier one or without text, and the ``validate`` command of the CLI, which also reports the blocks skipped when reading (#176)
 * Added the ``format`` argument of ``from_string`` to read SRT and SBV from a string, ``to_string`` to get the captions as a string in any format, writing SBV with ``write(format='sbv')`` and ``save_as_sbv``, and the ``add_bom`` argument of ``save_as_srt``, as in ``save`` (#177)
+* ``keep_formatting`` reads the colours of ``::cue()`` selectors with a tag name, more than one class or both, as in ``::cue(c.loud)``, ``::cue(.loud.red)`` or ``::cue(b)``, and of class names with any character that WebVTT allows, written with CSS escapes, as in ``::cue(.c\+1)``, and the rule with the most classes, then with a tag name, applies before a later one, as in CSS (#179)
 
 0.7.0 (01-11-2026)
 ------------------
