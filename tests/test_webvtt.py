@@ -1720,6 +1720,97 @@ class TestWebVTT(unittest.TestCase):
 
         self.assertEqual([(c.start, c.end) for c in vtt], before)
 
+    def _drop_captions(self):
+        return webvtt.WebVTT(captions=[
+            Caption('00:00:01.000', '00:00:05.000', 'before'),
+            Caption('00:00:04.000', '00:00:10.000', 'at zero'),
+            Caption('00:00:08.000', '00:00:12.000', 'across zero'),
+            Caption('00:00:15.000', '00:00:18.000', 'after')
+            ])
+
+    def test_shift_keeps_captions_before_zero_by_default(self):
+        vtt = self._drop_captions()
+        vtt.shift(-10)
+        self.assertEqual(
+            [(c.start, c.end, c.text) for c in vtt],
+            [('00:00:00.000', '00:00:00.000', 'before'),
+             ('00:00:00.000', '00:00:00.000', 'at zero'),
+             ('00:00:00.000', '00:00:02.000', 'across zero'),
+             ('00:00:05.000', '00:00:08.000', 'after')]
+            )
+
+    def test_shift_drop_before_zero(self):
+        vtt = self._drop_captions()
+        captions = vtt.captions
+
+        vtt.shift(-10, drop_before_zero=True)
+
+        self.assertEqual(
+            [(c.start, c.end, c.text) for c in vtt],
+            [('00:00:00.000', '00:00:02.000', 'across zero'),
+             ('00:00:05.000', '00:00:08.000', 'after')]
+            )
+        self.assertIs(vtt.captions, captions)
+
+    def test_shift_drop_before_zero_later_or_none_before_zero(self):
+        for offset in (2, -0.5):
+            with self.subTest(offset=offset):
+                vtt = self._drop_captions()
+                vtt.shift(offset, drop_before_zero=True)
+                self.assertEqual(
+                    [c.text for c in vtt],
+                    ['before', 'at zero', 'across zero', 'after']
+                    )
+
+    def test_shift_drop_before_zero_captions_already_at_zero(self):
+        # they end at zero after the shift, so they are never shown either
+        for offset in (0, -1):
+            with self.subTest(offset=offset):
+                vtt = webvtt.WebVTT(captions=[
+                    Caption('00:00:00.000', '00:00:00.000', 'zero'),
+                    Caption('00:00:05.000', '00:00:06.000', 'kept')
+                    ])
+                vtt.shift(offset, drop_before_zero=True)
+                self.assertEqual([c.text for c in vtt], ['kept'])
+
+    def test_shift_drop_before_zero_from_start(self):
+        vtt = self._drop_captions()
+        vtt.shift(-10, start='00:00:04.000', drop_before_zero=True)
+        self.assertEqual(
+            [(c.start, c.end, c.text) for c in vtt],
+            [('00:00:01.000', '00:00:05.000', 'before'),
+             ('00:00:00.000', '00:00:02.000', 'across zero'),
+             ('00:00:05.000', '00:00:08.000', 'after')]
+            )
+
+    def test_shift_drop_before_zero_keeps_equal_captions(self):
+        # captions compare by content, so the one that is not shifted must
+        # not be removed with the equal one that is
+        vtt = webvtt.WebVTT(captions=[
+            Caption('00:00:00.000', '00:00:00.000', 'same'),
+            Caption('00:00:01.000', '00:00:02.000', 'same')
+            ])
+        vtt.shift(-5, start='00:00:01.000', drop_before_zero=True)
+        self.assertEqual(
+            [(c.start, c.end, c.text) for c in vtt],
+            [('00:00:00.000', '00:00:00.000', 'same')]
+            )
+
+    def test_shift_drop_before_zero_invalid_offset_unchanged(self):
+        vtt = self._drop_captions()
+        before = [(c.start, c.end) for c in vtt]
+
+        for offset in (10 ** 20, float('-inf')):
+            with self.subTest(offset=offset):
+                with self.assertRaises(ValueError):
+                    vtt.shift(offset, drop_before_zero=True)
+
+                self.assertEqual([(c.start, c.end) for c in vtt], before)
+
+    def test_shift_drop_before_zero_is_keyword_only(self):
+        with self.assertRaises(TypeError):
+            self._drop_captions().shift(-10, None, True)
+
     SYNC_CAPTIONS = textwrap.dedent('''
         WEBVTT
 

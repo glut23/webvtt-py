@@ -696,20 +696,27 @@ class WebVTT:
     def shift(
             self,
             offset: typing.Union[float, datetime.timedelta],
-            start: typing.Optional[_Position] = None
+            start: typing.Optional[_Position] = None,
+            *,
+            drop_before_zero: bool = False
             ):
         """
         Shift the start and end time of the captions.
 
         The offset is rounded to the nearest millisecond, halves away from
         zero, and a timestamp that would fall before zero is set to
-        ``00:00:00.000``.
+        ``00:00:00.000``, so a caption that ends at or before zero after
+        the shift is kept at ``00:00:00.000 --> 00:00:00.000``, where it is
+        never shown, unless ``drop_before_zero`` is given.
 
         :param offset: a number of seconds or a ``timedelta``, negative
             values move the captions earlier
         :param start: only shift the captions starting at or after this
             time, a timestamp string, a `Timestamp`, a number of seconds or
             a ``timedelta``
+        :param drop_before_zero: remove from ``captions`` the shifted
+            captions that end at or before zero. A caption that starts
+            before zero but ends after it is kept, starting at zero
 
         :raises TypeError: if the offset is not a number or a ``timedelta``
         :raises ValueError: if the offset is not finite, or would move a
@@ -721,7 +728,22 @@ class WebVTT:
         def mapping(milliseconds: int) -> int:
             return milliseconds + offset_ms
 
-        _retime_captions(self.iter_slice(start=start), mapping)
+        captions = list(self.iter_slice(start=start))
+        _retime_captions(captions, mapping)
+
+        if drop_before_zero:
+            # by identity, as other captions can be equal to a dropped one
+            dropped = {
+                id(caption)
+                for caption in captions
+                if caption.end_in_milliseconds == 0
+                }
+            if dropped:
+                self.captions[:] = [
+                    caption
+                    for caption in self.captions
+                    if id(caption) not in dropped
+                    ]
 
     def sync(self, *points: typing.Sequence[_Position]):
         """

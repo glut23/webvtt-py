@@ -397,7 +397,18 @@ The offset is rounded to the nearest millisecond of its decimal value, with
 halves rounded away from zero, so ``0.0005`` is 1 millisecond and ``-0.0005``
 is -1 millisecond. A timestamp that would fall before zero is set to
 ``00:00:00.000``, so a caption moved entirely before the start is kept with
-``00:00:00.000 --> 00:00:00.000`` timings.
+``00:00:00.000 --> 00:00:00.000`` timings, where it is never shown. To
+remove those captions instead, as when cutting the start of the video, pass
+``drop_before_zero``:
+
+.. code-block:: python
+
+    # cut the first 10 seconds, removing the captions that end within them
+    vtt.shift(-10, drop_before_zero=True)
+
+A caption that starts before zero but ends after it is kept, starting at
+``00:00:00.000``. Only the captions that are shifted can be removed, so with
+``start`` the captions before it stay.
 
 Shifting is also available from the command line, see :doc:`cli`.
 

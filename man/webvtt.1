@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "WEBVTT" "1" "Nov 01, 2026" "0.7.0" "webvtt-py"
+.TH "WEBVTT" "1" "Nov 08, 2026" "0.7.0" "webvtt-py"
 .SH NAME
 webvtt \- segment, shift and sync WebVTT captions
 .SH SYNOPSIS
@@ -38,7 +38,7 @@ webvtt \- segment, shift and sync WebVTT captions
 .ft C
 webvtt segment PATH \-o OUTPUT [\-d NUMBER] [\-m NUMBER] [\-\-duration TIME]
                [\-\-overwrite]
-webvtt shift PATH OFFSET [\-o OUTPUT] [\-s TIMESTAMP]
+webvtt shift PATH OFFSET [\-o OUTPUT] [\-s TIMESTAMP] [\-\-drop\-before\-zero]
 webvtt sync PATH (\-p FROM TO \-p FROM TO ... | \-\-fps FROM TO) [\-o OUTPUT]
 webvtt \-h
 webvtt \-\-version
@@ -73,8 +73,8 @@ seconds. The offset is rounded to the nearest millisecond as written, with
 halves rounded away from zero, so \fB1.0005\fP is 1001 milliseconds. A timestamp
 that would fall before zero is set to \fB00:00:00.000\fP, so a caption moved
 entirely before the start is kept with \fB00:00:00.000 \-\-> 00:00:00.000\fP
-timings. The shifted captions are written to standard output in UTF\-8, or to
-\fBOUTPUT\fP when given.
+timings, unless \fB\-\-drop\-before\-zero\fP is given to remove it. The shifted
+captions are written to standard output in UTF\-8, or to \fBOUTPUT\fP when given.
 .sp
 \fBsync\fP fixes captions that drift further out of sync along the video. With
 \fB\-p\fP, each point moves the time \fBFROM\fP in the captions to \fBTO\fP; times
@@ -162,6 +162,12 @@ Default: standard output.
 .B \fB\-s TIMESTAMP\fP, \fB\-\-start TIMESTAMP\fP
 Only shift the captions starting at or after \fBTIMESTAMP\fP, in
 \fB[hh:]mm:ss.mmm\fP format. Default: shift all the captions.
+.TP
+.B \fB\-\-drop\-before\-zero\fP
+Remove the shifted captions that end at or before \fB00:00:00.000\fP, as
+they are never shown. A caption that starts before zero but ends after
+it is kept, starting at \fB00:00:00.000\fP\&. Without it, those captions are
+kept with \fB00:00:00.000 \-\-> 00:00:00.000\fP timings.
 .UNINDENT
 .SS Sync options
 .INDENT 0.0
@@ -338,6 +344,26 @@ Hello and welcome.
 This caption spans two segments.
 
 00:00:13.000 \-\-> 00:00:16.500
+Thanks for watching!
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Cut the first 5 seconds of the video, removing the first caption, which
+would end before the start:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ webvtt shift captions.vtt \-5 \-\-drop\-before\-zero
+WEBVTT
+
+00:00:01.000 \-\-> 00:00:07.000
+This caption spans two segments.
+
+00:00:09.500 \-\-> 00:00:13.000
 Thanks for watching!
 .ft P
 .fi
