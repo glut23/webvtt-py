@@ -3,8 +3,8 @@
 import locale
 import os
 import re
-import typing
 import codecs
+from collections.abc import Generator, Iterable
 
 CODEC_BOMS = {
     'utf-8': codecs.BOM_UTF8,
@@ -21,10 +21,10 @@ _BOM_WRITING_CODECS = ('utf-8-sig', 'utf-16', 'utf-32')
 _LINE_TERMINATOR = re.compile(r'\r\n|\r|\n')
 
 # the line number where a block of text starts, from 1, and its lines
-_NumberedBlock = typing.Tuple[int, typing.List[str]]
+_NumberedBlock = tuple[int, list[str]]
 
 
-def _split_lines(text: str) -> typing.List[str]:
+def _split_lines(text: str) -> list[str]:
     """
     Split text into lines on CR, LF and CRLF.
 
@@ -41,7 +41,7 @@ def _split_lines(text: str) -> typing.List[str]:
     return lines
 
 
-def _check_errors(errors: typing.Optional[str]):
+def _check_errors(errors: str | None):
     """
     Check the name of an error handler for decoding.
 
@@ -61,9 +61,9 @@ class FileWrapper:
     def __init__(
             self,
             file_path: str,
-            mode: typing.Optional[str] = None,
-            encoding: typing.Optional[str] = None,
-            errors: typing.Optional[str] = None
+            mode: str | None = None,
+            encoding: str | None = None,
+            errors: str | None = None
             ):
         """
         Initialize.
@@ -89,9 +89,9 @@ class FileWrapper:
     def open(
             cls,
             file_path: str,
-            mode: typing.Optional[str] = None,
-            encoding: typing.Optional[str] = None,
-            errors: typing.Optional[str] = None
+            mode: str | None = None,
+            encoding: str | None = None,
+            errors: str | None = None
             ) -> 'FileWrapper':
         """
         Open a file.
@@ -120,7 +120,7 @@ class FileWrapper:
         self.file.close()
 
     @staticmethod
-    def detect_bom_encoding(file_path: str) -> typing.Optional[str]:
+    def detect_bom_encoding(file_path: str) -> str | None:
         """
         Detect the encoding of a file based on the presence of the BOM.
 
@@ -131,7 +131,7 @@ class FileWrapper:
             return _bom_encoding(f.read(4))
 
 
-def _bom_encoding(data: bytes) -> typing.Optional[str]:
+def _bom_encoding(data: bytes) -> str | None:
     """
     Return the encoding of the BOM at the start of the data.
 
@@ -147,7 +147,7 @@ def _bom_encoding(data: bytes) -> typing.Optional[str]:
 def _write_text_file(
         file_path: str,
         text: str,
-        encoding: typing.Optional[str] = None
+        encoding: str | None = None
         ):
     """
     Write text to a file, encoding all of it before the file is opened.
@@ -172,8 +172,8 @@ def _write_text_file(
 
 
 def iter_blocks_of_lines(
-        lines: typing.Iterable[str]
-        ) -> typing.Generator[typing.List[str], None, None]:
+        lines: Iterable[str]
+        ) -> Generator[list[str], None, None]:
     """
     Iterate blocks of text.
 
@@ -184,15 +184,15 @@ def iter_blocks_of_lines(
 
 
 def _iter_numbered_blocks(
-        lines: typing.Iterable[str]
-        ) -> typing.Generator[_NumberedBlock, None, None]:
+        lines: Iterable[str]
+        ) -> Generator[_NumberedBlock, None, None]:
     """
     Iterate blocks of text with the line number where each one starts.
 
     :param lines: lines of text.
     :returns: the line number where each block starts, from 1, and its lines
     """
-    current_text_block: typing.List[str] = []
+    current_text_block: list[str] = []
     number = 0
 
     for number, line in enumerate(lines, 1):

@@ -3,6 +3,7 @@
 import operator
 import typing
 import re
+from collections.abc import Collection, Generator, Iterable, Mapping, Sequence
 
 from .models import (
     Caption,
@@ -47,12 +48,12 @@ class _ColourRule(typing.NamedTuple):
     """The colour of a ``::cue()`` selector of the styles."""
 
     # the tag name of the selector, or None for any tag
-    name: typing.Optional[str]
+    name: str | None
     # the classes that a tag needs to have
-    classes: typing.FrozenSet[str]
+    classes: frozenset[str]
     # the specificity of the selector and the position of its rule, the
     # largest of which applies
-    priority: typing.Tuple[int, int, int]
+    priority: tuple[int, int, int]
     colour: str
 
 
@@ -74,9 +75,7 @@ _COLOUR_VALUE = re.compile(r'#?[\w-]+(?:\([\w\s,.%/+-]*\))?')
 _POSITION_TAG = re.compile(r'\{\\an([1-9])\}')
 
 # the line and align cue settings of each {\anN} tag
-_POSITIONS: typing.Dict[
-    int, typing.Tuple[typing.Optional[str], typing.Optional[str]]
-    ] = {
+_POSITIONS: dict[int, tuple[str | None, str | None]] = {
     1: (None, 'left'), 2: (None, None), 3: (None, 'right'),
     4: ('50%,center', 'left'), 5: ('50%,center', None),
     6: ('50%,center', 'right'),
@@ -93,10 +92,10 @@ class SRTCueBlock:
 
     def __init__(
             self,
-            index: typing.Optional[str],
+            index: str | None,
             start: str,
             end: str,
-            payload: typing.Sequence[str]
+            payload: Sequence[str]
             ):
         """
         Initialize.
@@ -114,7 +113,7 @@ class SRTCueBlock:
     @classmethod
     def is_valid(
             cls,
-            lines: typing.Sequence[str]
+            lines: Sequence[str]
             ) -> bool:
         """
         Validate the lines for a match of a cue time block.
@@ -134,7 +133,7 @@ class SRTCueBlock:
     @classmethod
     def from_lines(
             cls,
-            lines: typing.Sequence[str]
+            lines: Sequence[str]
             ) -> 'SRTCueBlock':
         """
         Create a `SRTCueBlock` from lines of text.
@@ -154,10 +153,10 @@ class SRTCueBlock:
 
 
 def parse(
-        lines: typing.Sequence[str],
-        issues: typing.Optional[typing.List[ParseIssue]] = None,
-        styles: typing.Optional[typing.List[Style]] = None
-        ) -> typing.List[Caption]:
+        lines: Sequence[str],
+        issues: list[ParseIssue] | None = None,
+        styles: list[Style] | None = None
+        ) -> list[Caption]:
     r"""
     Parse SRT captions from lines of text.
 
@@ -178,7 +177,7 @@ def parse(
     return parse_captions(lines, issues, styles)
 
 
-def is_valid_content(lines: typing.Sequence[str]) -> bool:
+def is_valid_content(lines: Sequence[str]) -> bool:
     """
     Validate lines of text for valid SRT content.
 
@@ -197,7 +196,7 @@ def is_valid_content(lines: typing.Sequence[str]) -> bool:
     )
 
 
-def _is_cue_start(lines: typing.Sequence[str]) -> bool:
+def _is_cue_start(lines: Sequence[str]) -> bool:
     """
     Validate if the lines start with cue timings or a cue index and timings.
 
@@ -218,7 +217,7 @@ def _is_index(line: str) -> bool:
     return line.isascii() and line.isdigit()
 
 
-def _timings_line(lines: typing.Sequence[str]) -> int:
+def _timings_line(lines: Sequence[str]) -> int:
     """Return the position of the cue timings, after the index if any."""
     return 1 if lines and _is_index(lines[0]) else 0
 
@@ -229,8 +228,8 @@ def _is_index_and_timings(line: str, next_line: str) -> bool:
 
 
 def _iter_cue_blocks(
-        lines: typing.Sequence[str]
-        ) -> typing.Generator[utils._NumberedBlock, None, None]:
+        lines: Sequence[str]
+        ) -> Generator[utils._NumberedBlock, None, None]:
     """
     Iterate blocks of text, also splitting a block where a cue starts.
 
@@ -242,7 +241,7 @@ def _iter_cue_blocks(
     :param lines: lines of text
     :returns: the line number where each block starts, from 1, and its lines
     """
-    index_block: typing.Optional[utils._NumberedBlock] = None
+    index_block: utils._NumberedBlock | None = None
 
     for number, block_lines in _iter_split_blocks(lines):
         if index_block is not None:
@@ -263,8 +262,8 @@ def _iter_cue_blocks(
 
 
 def _iter_split_blocks(
-        lines: typing.Sequence[str]
-        ) -> typing.Generator[utils._NumberedBlock, None, None]:
+        lines: Sequence[str]
+        ) -> Generator[utils._NumberedBlock, None, None]:
     """
     Iterate blocks of text, splitting a block where a cue index follows.
 
@@ -281,10 +280,10 @@ def _iter_split_blocks(
 
 
 def parse_captions(
-        lines: typing.Sequence[str],
-        issues: typing.Optional[typing.List[ParseIssue]] = None,
-        styles: typing.Optional[typing.List[Style]] = None
-        ) -> typing.List[Caption]:
+        lines: Sequence[str],
+        issues: list[ParseIssue] | None = None,
+        styles: list[Style] | None = None
+        ) -> list[Caption]:
     r"""
     Parse captions from the text.
 
@@ -306,7 +305,7 @@ def parse_captions(
         classes to, when there are any
     :returns: list of `Caption` objects
     """
-    skipped: typing.List[ParseIssue] = []
+    skipped: list[ParseIssue] = []
     cues = _read_cues(lines, skipped)
     _convert_captions([caption for _, _, caption in cues], styles)
 
@@ -322,9 +321,9 @@ def parse_captions(
 
 
 def _read_cues(
-        lines: typing.Sequence[str],
-        skipped: typing.List[ParseIssue]
-        ) -> typing.List[typing.Tuple[int, typing.List[str], Caption]]:
+        lines: Sequence[str],
+        skipped: list[ParseIssue]
+        ) -> list[tuple[int, list[str], Caption]]:
     """
     Read the cues of the text, with the blocks that add to their text.
 
@@ -333,8 +332,8 @@ def _read_cues(
     :returns: the line number, the lines of the block and the caption of
         each cue
     """
-    cues: typing.List[typing.Tuple[int, typing.List[str], Caption]] = []
-    caption: typing.Optional[Caption] = None
+    cues: list[tuple[int, list[str], Caption]] = []
+    caption: Caption | None = None
 
     for number, block_lines in _iter_cue_blocks(lines):
         if _is_cue_start(block_lines):
@@ -354,7 +353,7 @@ def _read_cues(
     return cues
 
 
-def _parse_cue(lines: typing.Sequence[str]) -> typing.Optional[Caption]:
+def _parse_cue(lines: Sequence[str]) -> Caption | None:
     """
     Parse a cue from the lines of a block that starts a cue.
 
@@ -372,8 +371,8 @@ def _parse_cue(lines: typing.Sequence[str]) -> typing.Optional[Caption]:
 
 
 def _convert_captions(
-        captions: typing.Iterable[Caption],
-        styles: typing.Optional[typing.List[Style]]
+        captions: Iterable[Caption],
+        styles: list[Style] | None
         ):
     """
     Convert the font and position tags of the captions read from SRT.
@@ -383,14 +382,14 @@ def _convert_captions(
         classes to, when there are any
     """
     # the classes of the colours, in order of first use
-    classes: typing.Dict[str, str] = {}
+    classes: dict[str, str] = {}
     for caption in captions:
         _convert_markup(caption, classes)
     if classes and styles is not None:
         styles.append(_colour_style(classes))
 
 
-def _convert_markup(caption: Caption, classes: typing.Dict[str, str]):
+def _convert_markup(caption: Caption, classes: dict[str, str]):
     """
     Convert the font and position tags of a caption read from SRT.
 
@@ -402,7 +401,7 @@ def _convert_markup(caption: Caption, classes: typing.Dict[str, str]):
     lines = []
     # whether each open font tag became a c tag, as tags stay open across
     # lines
-    open_fonts: typing.List[bool] = []
+    open_fonts: list[bool] = []
     for line in caption.lines:
         match = _POSITION_TAG.search(line)
         if match and position is None:
@@ -422,8 +421,8 @@ def _convert_markup(caption: Caption, classes: typing.Dict[str, str]):
 
 def _convert_fonts(
         line: str,
-        open_fonts: typing.List[bool],
-        classes: typing.Dict[str, str]
+        open_fonts: list[bool],
+        classes: dict[str, str]
         ) -> str:
     """
     Convert the font tags of a line of text to c tags with a class.
@@ -457,8 +456,8 @@ def _convert_fonts(
 
 def _colour_class(
         attributes: str,
-        classes: typing.Dict[str, str]
-        ) -> typing.Optional[str]:
+        classes: dict[str, str]
+        ) -> str | None:
     """
     Return the class of the colour of a font tag.
 
@@ -490,7 +489,7 @@ def _colour_class(
     return classes[colour]
 
 
-def _colour_style(classes: typing.Mapping[str, str]) -> Style:
+def _colour_style(classes: Mapping[str, str]) -> Style:
     """
     Return the style with the colour of each class.
 
@@ -565,7 +564,7 @@ def _strip_css_comments(css: str) -> str:
     return ''.join(parts)
 
 
-def _css_colour(declarations: str) -> typing.Optional[str]:
+def _css_colour(declarations: str) -> str | None:
     """
     Return the colour in the declarations of a CSS rule.
 
@@ -585,7 +584,7 @@ def _css_colour(declarations: str) -> typing.Optional[str]:
     return colour
 
 
-def _cue_colours(styles: typing.Iterable[Style]) -> typing.List[_ColourRule]:
+def _cue_colours(styles: Iterable[Style]) -> list[_ColourRule]:
     """
     Return the colours of the ``::cue()`` selectors of the styles.
 
@@ -617,7 +616,7 @@ def _colour_rule(
         selector: str,
         position: int,
         colour: str
-        ) -> typing.Optional[_ColourRule]:
+        ) -> _ColourRule | None:
     """
     Return the colour rule of a ``::cue()`` selector.
 
@@ -646,7 +645,7 @@ def _css_unescape(identifier: str) -> str:
     :param identifier: the identifier, as in ``c\+1`` or ``\31 a``
     :returns: the identifier, as in ``c+1`` or ``1a``
     """
-    def unescape(match: typing.Match[str]) -> str:
+    def unescape(match: re.Match[str]) -> str:
         if match.group(2) is not None:
             return match.group(2)
         code = int(match.group(1), 16)
@@ -659,9 +658,9 @@ def _css_unescape(identifier: str) -> str:
 
 def _tag_colour(
         name: str,
-        classes: typing.Collection[str],
-        colours: typing.Iterable[_ColourRule]
-        ) -> typing.Optional[str]:
+        classes: Collection[str],
+        colours: Iterable[_ColourRule]
+        ) -> str | None:
     """
     Return the colour of a cue tag.
 
@@ -683,8 +682,8 @@ def _tag_colour(
 
 def _srt_tags(
         tag: str,
-        colours: typing.Iterable[_ColourRule]
-        ) -> typing.Optional[typing.Tuple[str, str, str]]:
+        colours: Iterable[_ColourRule]
+        ) -> tuple[str, str, str] | None:
     """
     Return the SRT tags for a cue start tag.
 
@@ -712,9 +711,9 @@ def _srt_tags(
 
 
 def _close_tags(
-        open_tags: typing.List[typing.Tuple[str, str]],
+        open_tags: list[tuple[str, str]],
         name: str
-        ) -> typing.List[str]:
+        ) -> list[str]:
     """
     Close the last open tag with a name and the tags opened after it.
 
@@ -734,7 +733,7 @@ def _close_tags(
 
 def _format_cue_text(
         text: str,
-        colours: typing.Iterable[_ColourRule]
+        colours: Iterable[_ColourRule]
         ) -> str:
     """
     Convert the cue tags of a cue text to SRT tags.
@@ -750,7 +749,7 @@ def _format_cue_text(
     :returns: the text with SRT tags
     """
     lines = []
-    open_tags: typing.List[typing.Tuple[str, str]] = []
+    open_tags: list[tuple[str, str]] = []
     for line in text.split('\n'):
         output = []
         for token, is_tag in _iter_cue_text_tokens(line):
@@ -771,8 +770,8 @@ def _format_cue_text(
 
 def write(
         f: typing.IO[str],
-        captions: typing.Iterable[Caption],
-        styles: typing.Optional[typing.Iterable[Style]] = None
+        captions: Iterable[Caption],
+        styles: Iterable[Style] | None = None
         ):
     r"""
     Write captions to an output.
