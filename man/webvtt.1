@@ -1,4 +1,5 @@
-.\" Man page generated from reStructuredText.
+.\" Man page generated from reStructuredText
+.\" by the Docutils 0.22.4 manpage writer.
 .
 .
 .nr rst2man-indent-level 0
@@ -34,8 +35,7 @@ webvtt \- segment, shift, sync, validate and convert WebVTT, SRT and SBV caption
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 webvtt segment PATH \-o OUTPUT [\-d NUMBER] [\-m NUMBER] [\-\-duration TIME]
                [\-\-overwrite] [INPUT OPTIONS]
 webvtt shift PATH OFFSET [\-o OUTPUT] [\-s TIME] [\-\-drop\-before\-zero]
@@ -47,13 +47,12 @@ webvtt convert PATH [\-o OUTPUT] [\-t FORMAT] [\-\-keep\-formatting]
                [INPUT OPTIONS]
 webvtt \-h
 webvtt \-\-version
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH DESCRIPTION
 .sp
-\fBwebvtt\fP segments a caption file for \X'tty: link https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis'\fI\%HTTP Live Streaming\fP\X'tty: link' (HLS),
+\fBwebvtt\fP segments a caption file for HTTP Live Streaming \%<https://\:datatracker\:.ietf\:.org/\:doc/\:html/\:draft-pantos-hls-rfc8216bis> (HLS),
 shifts or synchronizes the timestamps of its captions, checks it for
 problems, or converts it to another format. The file can be WebVTT, SRT or
 SBV, read in the format of its extension: \fB\&.srt\fP for SRT, \fB\&.sbv\fP for SBV
@@ -278,11 +277,9 @@ example:
 .INDENT 7.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 webvtt: error: captions.vtt: not a valid WebVTT file
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .UNINDENT
@@ -302,8 +299,7 @@ Given \fBcaptions.vtt\fP:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 WEBVTT
 
 00:00:01.000 \-\-> 00:00:04.000
@@ -314,8 +310,7 @@ This caption spans two segments.
 
 00:00:14.500 \-\-> 00:00:18.000
 Thanks for watching!
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -323,13 +318,11 @@ Segment it into 10\-second segments:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ webvtt segment captions.vtt \-\-output out
 $ ls out
 fileSequence0.webvtt  fileSequence1.webvtt  prog_index.m3u8
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -337,8 +330,7 @@ fileSequence0.webvtt  fileSequence1.webvtt  prog_index.m3u8
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 #EXTM3U
 #EXT\-X\-TARGETDURATION:10
 #EXT\-X\-VERSION:3
@@ -348,8 +340,7 @@ fileSequence0.webvtt
 #EXTINF:10.00000,
 fileSequence1.webvtt
 #EXT\-X\-ENDLIST
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -357,8 +348,7 @@ fileSequence1.webvtt
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 WEBVTT
 X\-TIMESTAMP\-MAP=MPEGTS:900000,LOCAL:00:00:00.000
 
@@ -367,8 +357,7 @@ Hello and welcome.
 
 00:00:06.000 \-\-> 00:00:12.000
 This caption spans two segments.
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -376,8 +365,7 @@ This caption spans two segments.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 WEBVTT
 X\-TIMESTAMP\-MAP=MPEGTS:900000,LOCAL:00:00:00.000
 
@@ -386,8 +374,7 @@ This caption spans two segments.
 
 00:00:14.500 \-\-> 00:00:18.000
 Thanks for watching!
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -396,13 +383,11 @@ MPEG\-TS value, replacing the earlier segments:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ webvtt segment captions.vtt \-o out
 webvtt: error: out: has the files of an earlier segmentation, such as fileSequence0.webvtt; use \-\-overwrite to replace them
 $ webvtt segment captions.vtt \-o out \-d 6 \-m 0 \-\-overwrite
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -410,8 +395,7 @@ Show the captions 1.5 seconds earlier:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ webvtt shift captions.vtt \-1.5
 WEBVTT
 
@@ -423,8 +407,7 @@ This caption spans two segments.
 
 00:00:13.000 \-\-> 00:00:16.500
 Thanks for watching!
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -433,8 +416,7 @@ would end before the start:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ webvtt shift captions.vtt \-5 \-\-drop\-before\-zero
 WEBVTT
 
@@ -443,8 +425,7 @@ This caption spans two segments.
 
 00:00:09.500 \-\-> 00:00:13.000
 Thanks for watching!
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -452,11 +433,9 @@ Show the last caption 2 seconds later, updating the file in place:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ webvtt shift captions.vtt 2 \-\-start 00:14.500 \-o captions.vtt
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -465,8 +444,7 @@ Keep the first caption in place and move the last one from 00:14.500 to
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ webvtt sync captions.vtt \-p 00:01.000 00:01.000 \-p 00:14.500 00:15.850
 WEBVTT
 
@@ -478,8 +456,7 @@ This caption spans two segments.
 
 00:00:15.850 \-\-> 00:00:19.700
 Thanks for watching!
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -488,11 +465,9 @@ updating the file in place:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ webvtt sync captions.vtt \-\-fps 25 23.976 \-o captions.vtt
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -501,11 +476,9 @@ input:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ webvtt shift captions.vtt 2 | webvtt sync \- \-\-fps 25 23.976 > fixed.vtt
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -513,11 +486,9 @@ Synchronize the captions and segment them, without a file in between:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ webvtt sync captions.vtt \-\-fps 25 23.976 | webvtt segment \- \-o out
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -525,11 +496,9 @@ Check \fBcaptions.vtt\fP, which has no problems, so nothing is printed:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ webvtt validate captions.vtt
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -539,15 +508,13 @@ not a cue:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ webvtt validate edited.vtt
 edited.vtt: line 12: error: Invalid block [\(aqNOTEBOOK\(aq]
 edited.vtt: caption 2: error: starts at 00:00:01.000, before caption 1, which starts at 00:00:06.000
 edited.vtt: caption 3: error: is in the region \(aqbottom\(aq, which is not defined
 edited.vtt: caption 3: warning: starts at 00:00:11.000, before caption 1 ends at 00:00:12.000
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -555,12 +522,10 @@ Shift SRT captions, keeping them in SRT, and convert them to WebVTT:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ webvtt shift captions.srt 2 \-o captions.srt
 $ webvtt convert captions.srt \-o captions.vtt
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -569,12 +534,10 @@ Windows\-1252 from standard input:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ webvtt convert captions.vtt \-o captions.srt \-\-keep\-formatting
 $ cat old.srt | webvtt convert \- \-f srt \-\-encoding cp1252 > new.vtt
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH SEE ALSO
@@ -585,9 +548,8 @@ are available from Python with \fBwebvtt.segment()\fP, \fBWebVTT.shift()\fP,
 \fBwebvtt.from_srt()\fP, \fBwebvtt.from_sbv()\fP, \fBWebVTT.save_as_srt()\fP and
 \fBWebVTT.save_as_sbv()\fP, and \fBWebVTT.sort()\fP puts the captions in order
 of start time.
-.SH AUTHOR
+.SH Author
 Alejandro Mendez
-.SH COPYRIGHT
+.SH Copyright
 2016-2026, Alejandro Mendez
-.\" Generated by docutils manpage writer.
-.
+.\" End of generated man page.
