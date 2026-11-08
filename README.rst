@@ -88,9 +88,9 @@ Supported formats:
 
 CLI
 ---
-Caption segmentation, shifting, synchronizing and validation are also
-available from the command line with the ``webvtt`` executable. Given
-``captions.vtt``:
+Caption segmentation, shifting, synchronizing, validation and conversion are
+also available from the command line with the ``webvtt`` executable, for
+WebVTT, SRT and SBV files. Given ``captions.vtt``:
 
 .. code-block:: text
 
@@ -170,9 +170,21 @@ printed one per line, with exit status 1 when there are errors:
 
     $ webvtt validate captions.vtt
 
+Convert captions to another format, here by the extension of the output, or
+with ``--to``:
+
+::
+
+    $ webvtt convert captions.srt -o captions.vtt
+    $ webvtt convert captions.vtt --to srt --keep-formatting
+
+The commands read SRT and SBV files by their extension, or with
+``--format``, and ``--encoding`` reads a file in another encoding, as in
+``webvtt shift captions.srt 2 --encoding cp1252 -o captions.srt``.
+
 For all the options, run ``webvtt segment --help``, ``webvtt shift --help``,
-``webvtt sync --help``, ``webvtt validate --help`` or ``man webvtt``, or see
-the `CLI documentation`_.
+``webvtt sync --help``, ``webvtt validate --help``, ``webvtt convert --help``
+or ``man webvtt``, or see the `CLI documentation`_.
 
 .. _`CLI documentation`: https://webvtt-py.readthedocs.io/en/latest/cli.html
 

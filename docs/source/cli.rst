@@ -10,19 +10,25 @@ Synopsis
 ::
 
     webvtt segment PATH -o OUTPUT [-d NUMBER] [-m NUMBER] [--duration TIME]
-                   [--overwrite]
+                   [--overwrite] [INPUT OPTIONS]
     webvtt shift PATH OFFSET [-o OUTPUT] [-s TIMESTAMP] [--drop-before-zero]
+                 [INPUT OPTIONS]
     webvtt sync PATH (-p FROM TO -p FROM TO ... | --fps FROM TO) [-o OUTPUT]
-    webvtt validate PATH
+                [INPUT OPTIONS]
+    webvtt validate PATH [INPUT OPTIONS]
+    webvtt convert PATH [-o OUTPUT] [-t FORMAT] [--keep-formatting]
+                   [INPUT OPTIONS]
     webvtt -h
     webvtt --version
 
 Description
 -----------
 
-``webvtt`` segments a WebVTT caption file for `HTTP Live Streaming`_ (HLS)
-and shifts or synchronizes the timestamps of its captions, or checks it for
-problems.
+``webvtt`` segments a caption file for `HTTP Live Streaming`_ (HLS),
+shifts or synchronizes the timestamps of its captions, checks it for
+problems, or converts it to another format. The file can be WebVTT, SRT or
+SBV, read in the format of its extension: ``.srt`` for SRT, ``.sbv`` for SBV
+and any other for WebVTT, unless ``--format`` is given.
 
 ``segment`` splits the captions in ``PATH`` into segments of a target
 duration. Each segment is written to ``OUTPUT`` as ``fileSequenceN.webvtt``,
@@ -49,7 +55,10 @@ halves rounded away from zero, so ``1.0005`` is 1001 milliseconds. A timestamp
 that would fall before zero is set to ``00:00:00.000``, so a caption moved
 entirely before the start is kept with ``00:00:00.000 --> 00:00:00.000``
 timings, unless ``--drop-before-zero`` is given to remove it. The shifted
-captions are written to standard output in UTF-8, or to ``OUTPUT`` when given.
+captions are written to standard output in UTF-8, or to ``OUTPUT`` when given,
+in the format of the input, or of the extension of ``OUTPUT`` when it is
+``.vtt``, ``.webvtt``, ``.srt`` or ``.sbv``. The formatting of the cue text
+is kept when writing SRT.
 
 ``sync`` fixes captions that drift further out of sync along the video. With
 ``-p``, each point moves the time ``FROM`` in the captions to ``TO``; times
@@ -65,33 +74,42 @@ reading the file, or ``PATH: caption N: SEVERITY: MESSAGE`` for a caption,
 numbered from 1. Captions out of order, not ending after they start or in a
 region that is not defined are errors, as they are not valid WebVTT.
 Captions that overlap an earlier one or have no text are warnings. When
-there is no other error, the file is also read with strict parsing, which
-finds other problems such as cue settings that are not valid, and its first
-error is printed as ``PATH: line N: error: MESSAGE``. Nothing is printed when
-there is no problem.
+there is no other error, a WebVTT file is also read with strict parsing,
+which finds other problems such as cue settings that are not valid, and its
+first error is printed as ``PATH: line N: error: MESSAGE``. Nothing is
+printed when there is no problem.
+
+``convert`` writes the captions in ``PATH`` in the format given with ``-t``,
+or else in the format of the extension of ``OUTPUT``, or else as WebVTT, to
+standard output in UTF-8 or to ``OUTPUT``. Reading SRT turns its ``font``
+colours into cue classes with a ``STYLE`` block and its ``{\anN}``
+positions into cue settings, and writing SRT writes the positions back.
 
 The commands can also be run as ``python -m webvtt``, as in
 ``python -m webvtt shift captions.vtt 2``.
 
-``segment``, ``shift``, ``sync`` and ``validate`` read the captions from
-standard input
-when ``PATH`` is ``-``, decoded as UTF-8 as WebVTT requires, so they can be
-used in pipes. A file named ``-`` can be read as ``./-``.
+The commands read the captions from standard input when ``PATH`` is ``-``,
+as WebVTT unless ``--format`` is given and decoded as UTF-8 unless
+``--encoding`` is given, so they can be used in pipes. A file named ``-`` can
+be read as ``./-``.
 
 Commands
 --------
 
 ``segment``
-    Segment the WebVTT file at ``PATH``.
+    Segment the captions at ``PATH`` into WebVTT segments.
 
 ``shift``
-    Shift the timestamps of the WebVTT file at ``PATH``.
+    Shift the timestamps of the captions at ``PATH``.
 
 ``sync``
-    Synchronize the timestamps of the WebVTT file at ``PATH``.
+    Synchronize the timestamps of the captions at ``PATH``.
 
 ``validate``
-    Check the WebVTT file at ``PATH`` for problems.
+    Check the captions at ``PATH`` for problems.
+
+``convert``
+    Convert the captions at ``PATH`` to another format.
 
 Options
 -------
@@ -102,6 +120,22 @@ Options
 
 ``--version``
     Show the version of webvtt-py and exit.
+
+Input options
+~~~~~~~~~~~~~
+
+These options are available for every command.
+
+``-f FORMAT``, ``--format FORMAT``
+    Format of the captions at ``PATH``: ``vtt``, ``srt`` or ``sbv``.
+    Default: from the extension of ``PATH``, ``.srt`` for ``srt``, ``.sbv``
+    for ``sbv`` and any other for ``vtt``, or ``vtt`` for standard input.
+
+``--encoding ENCODING``
+    Encoding of an input without a Byte Order Mark, such as ``cp1252``. The
+    Byte Order Mark is used when there is one. Writing SRT to a file keeps
+    this encoding, while WebVTT and SBV are written in UTF-8. Default:
+    ``utf-8``.
 
 Segment options
 ~~~~~~~~~~~~~~~
@@ -145,8 +179,10 @@ Shift options
 ``-o OUTPUT``, ``--output OUTPUT``
     File where the shifted captions are written, keeping the encoding and
     Byte Order Mark of the input file. It can be the input file itself to
-    shift it in place. A ``.vtt`` extension is added if it has no
-    extension, and if it is a directory the file is written there with the
+    shift it in place. The captions are written in the format of its
+    extension when it is ``.vtt``, ``.webvtt``, ``.srt`` or ``.sbv``, and
+    else in the format of the input, whose extension is added if it has no
+    extension. If it is a directory, the file is written there with the
     input file name, which is an error when reading standard input.
     Default: standard output.
 
@@ -181,6 +217,23 @@ Sync options
     File where the synchronized captions are written, as with ``shift``.
     Default: standard output.
 
+Convert options
+~~~~~~~~~~~~~~~
+
+``-o OUTPUT``, ``--output OUTPUT``
+    File where the converted captions are written, as with ``shift``, with
+    the extension of the output format added if it has no extension.
+    Default: standard output.
+
+``-t FORMAT``, ``--to FORMAT``
+    Format of the output: ``vtt``, ``srt`` or ``sbv``. Default: the format
+    of the extension of ``OUTPUT``, or ``vtt``.
+
+``--keep-formatting``
+    When writing SRT, keep bold, italic and underline, and write the colours
+    of the cue classes in the styles as ``font`` tags, instead of removing
+    the cue tags. SBV has no formatting.
+
 Exit status
 -----------
 
@@ -189,7 +242,7 @@ Exit status
     errors, though it can have warnings.
 
 ``1``
-    The input could not be read or is not a valid WebVTT file, the captions
+    The input could not be read or is not valid in its format, the captions
     could not be moved as asked, or the output could not be written. For
     ``segment``, it is also an error when the output directory has the files
     of an earlier run without ``--overwrite``, or when a caption starts at or
@@ -203,7 +256,8 @@ are printed to standard output.
 
 ``2``
     Invalid command line arguments, such as an offset that is not a number,
-    an invalid ``--start`` timestamp or sync points that cannot be used.
+    an invalid ``--start`` timestamp, sync points that cannot be used, or an
+    unknown format or encoding.
 
 Examples
 --------
@@ -371,11 +425,27 @@ not a cue:
     edited.vtt: caption 3: error: is in the region 'bottom', which is not defined
     edited.vtt: caption 3: warning: starts at 00:00:11.000, before caption 1 ends at 00:00:12.000
 
+Shift SRT captions, keeping them in SRT, and convert them to WebVTT:
+
+::
+
+    $ webvtt shift captions.srt 2 -o captions.srt
+    $ webvtt convert captions.srt -o captions.vtt
+
+Convert WebVTT to SRT, keeping the formatting, and read an SRT file in
+Windows-1252 from standard input:
+
+::
+
+    $ webvtt convert captions.vtt -o captions.srt --keep-formatting
+    $ cat old.srt | webvtt convert - -f srt --encoding cp1252 > new.vtt
+
 See also
 --------
 
-The same segmentation, shifting, synchronizing and validation are available
-from Python
-with ``webvtt.segment()``, ``WebVTT.shift()``, ``WebVTT.sync()``,
-``WebVTT.change_framerate()`` and ``WebVTT.validate()``, and
-``WebVTT.sort()`` puts the captions in order of start time.
+The same segmentation, shifting, synchronizing, validation and conversion
+are available from Python with ``webvtt.segment()``, ``WebVTT.shift()``,
+``WebVTT.sync()``, ``WebVTT.change_framerate()``, ``WebVTT.validate()``,
+``webvtt.from_srt()``, ``webvtt.from_sbv()``, ``WebVTT.save_as_srt()`` and
+``WebVTT.save_as_sbv()``, and ``WebVTT.sort()`` puts the captions in order
+of start time.
