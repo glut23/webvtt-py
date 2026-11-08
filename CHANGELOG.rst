@@ -35,6 +35,7 @@ Changes:
 * Styles keep the whitespace at the start of their first line and at the end of their last line when read, so that a style is read back as it was saved (#186)
 * Added property-based tests with Hypothesis, tests that save every sample and read it again, and tests that run the examples of the documentation (#186)
 * The ``--start`` option of the ``shift`` command of the CLI accepts a number of seconds, as in ``webvtt shift captions.vtt 3 --start 47``, besides a timestamp, and a number of seconds after the largest timestamp is reported as an invalid ``--start`` or ``--point`` argument (#217)
+* Releases are published to PyPI from CI with trusted publishing when a GitHub release is published, and to TestPyPI when the release workflow is run by hand, instead of ``make release`` and ``make release_test``, which are removed. CI checks the code style and types and builds the documentation, with ``nitpicky`` references and ``make docs``, apart from the tests, and Dependabot updates the actions, pinned by commit, and the documentation requirements (#185)
 
 0.7.0 (01-11-2026)
 ------------------

@@ -11,8 +11,9 @@ on:
 permissions:
   contents: read
 
+# the actions are pinned to the commit of a release, which Dependabot updates
 jobs:
-  build:
+  test:
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -32,10 +33,12 @@ jobs:
 
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v7
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v7
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -48,21 +51,50 @@ jobs:
     - name: Install tox
       run: python -m pip install tox
 
-    - name: Run tox
-      run: tox
-
-    - name: Check manpage is up to date
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
-      run: |
-        make man
-        git diff --exit-code -I '^\.TH' man/webvtt.1
-
-    - name: Check the packages build
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
-      run: make build
+    - name: Run the tests
+      run: tox -e py,coverage
 
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v7
+      uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: coverage.xml
+
+  # the checks run once, apart from the tests, so their failures are told
+  # apart from test failures
+  checks:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # codestyle runs mypy for Python 3.10, as set in pyproject.toml, docs
+        # fails on warnings and broken references, and build checks the
+        # packages
+        env: [codestyle, docs, build]
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - name: Set up Python
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      with:
+        python-version: '3.12'
+
+    - name: Upgrade pip
+      run: python -m pip install --upgrade 'pip>=26.2.2'
+
+    - name: Install tox
+      run: python -m pip install tox
+
+    - name: Run tox -e ${{ matrix.env }}
+      run: tox -e ${{ matrix.env }}
+
+    - name: Check manpage is up to date
+      if: matrix.env == 'docs'
+      run: |
+        tox -e man
+        git diff --exit-code -I '^\.TH' man/webvtt.1
