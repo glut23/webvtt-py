@@ -48,7 +48,7 @@ class SBVCueBlock:
         """
         return bool(
           len(lines) >= 2 and
-          re.match(cls.CUE_TIMINGS_PATTERN, lines[0]) and
+          cls.CUE_TIMINGS_PATTERN.match(lines[0]) and
           lines[1].strip()
           )
 
@@ -63,7 +63,7 @@ class SBVCueBlock:
         :param lines: the lines of text
         :returns: `SBVCueBlock` instance
         """
-        match = re.match(cls.CUE_TIMINGS_PATTERN, lines[0])
+        match = cls.CUE_TIMINGS_PATTERN.match(lines[0])
         assert match is not None
 
         payload = lines[1:]
@@ -103,7 +103,7 @@ def _is_valid_content(lines: typing.Sequence[str]) -> bool:
     first_block = next(utils.iter_blocks_of_lines(lines), None)
     return bool(
         first_block and
-        re.match(SBVCueBlock.CUE_TIMINGS_PATTERN, first_block[0])
+        SBVCueBlock.CUE_TIMINGS_PATTERN.match(first_block[0])
         )
 
 
@@ -158,7 +158,7 @@ def _skipped_block_kind(lines: typing.Sequence[str]) -> str:
     :param lines: the lines of the block
     :returns: the description of what is wrong with the block
     """
-    if not re.match(SBVCueBlock.CUE_TIMINGS_PATTERN, lines[0]):
+    if not SBVCueBlock.CUE_TIMINGS_PATTERN.match(lines[0]):
         return 'Invalid block'
     return 'Invalid cue block' if len(lines) > 1 else 'Cue without text'
 

@@ -103,15 +103,16 @@ class Timestamp:
         if not match:
             raise MalformedCaptionError(f'Invalid timestamp {value!r}')
 
-        hours = int(match.group(1) or 0)
-        minutes = int(match.group(2))
-        seconds = int(match.group(3))
-        milliseconds = int(match.group(4).ljust(3, '0'))
-
+        hours, minutes, seconds, fraction = match.groups()
+        minutes, seconds = int(minutes), int(seconds)
         if minutes > 59 or seconds > 59:
             raise MalformedCaptionError(f'Invalid timestamp {value!r}')
 
-        return cls(hours, minutes, seconds, milliseconds)
+        return cls(int(hours or 0),
+                   minutes,
+                   seconds,
+                   int(fraction.ljust(3, '0'))
+                   )
 
     @classmethod
     def from_seconds(cls, value: float) -> 'Timestamp':
@@ -618,6 +619,19 @@ class _Settings:
         """Initialize without settings."""
         self._settings: typing.List[str] = []
 
+    def _set_given(self, **values: typing.Optional[str]):
+        """
+        Set the settings that are given, in order.
+
+        The settings that are None are not set, as there are none to
+        remove yet, which keeps creating empty settings fast.
+
+        :raises MalformedCaptionError: if a value is not valid
+        """
+        for name, value in values.items():
+            if value is not None:
+                setattr(self, name, value)
+
     @classmethod
     def from_string(
             cls: typing.Type[_SettingsT],
@@ -770,12 +784,13 @@ class CueSettings(_Settings):
         :raises MalformedCaptionError: if a value is not valid
         """
         super().__init__()
-        self.vertical = vertical
-        self.line = line
-        self.position = position
-        self.size = size
-        self.align = align
-        self.region = region
+        self._set_given(vertical=vertical,
+                        line=line,
+                        position=position,
+                        size=size,
+                        align=align,
+                        region=region
+                        )
 
     @classmethod
     def from_string(cls, value: str, strict: bool = False) -> 'CueSettings':
@@ -831,7 +846,9 @@ def _to_cue_settings(
         settings = CueSettings()
         settings._settings = list(value._settings)
         return settings
-    return CueSettings.from_string('' if value is None else value)
+    if value is None:
+        return CueSettings()
+    return CueSettings.from_string(value)
 
 
 class Caption:
@@ -1064,7 +1081,7 @@ class Caption:
     def voice(self) -> typing.Optional[str]:
         """Return the voice span if present."""
         if self.lines and self.lines[0].startswith('<v'):
-            match = re.match(self.VOICE_SPAN_PATTERN, self.lines[0])
+            match = self.VOICE_SPAN_PATTERN.match(self.lines[0])
             if match:
                 return match.group(1)
 
@@ -1140,6 +1157,10 @@ def _retime_captions(
         caption.start_time, caption.end_time = start_time, end_time
 
 
+# the separators of the fields of an SRT or SBV timing
+_TIMING_FIELDS = re.compile('[:,.]')
+
+
 def _timing_in_milliseconds(value: str) -> int:
     """
     Return the milliseconds of a SRT or SBV timestamp.
@@ -1154,10 +1175,11 @@ def _timing_in_milliseconds(value: str) -> int:
 
     :raises ValueError: if a field is past the range of a timestamp
     """
-    fields = re.split('[:,.]', value)
+    fields = _TIMING_FIELDS.split(value)
     # a field with more than 17 significant digits is past the largest
     # timestamp whatever its unit, so it is rejected without converting it
-    if any(len(field.lstrip('0')) > 17 for field in fields):
+    if (max(map(len, fields)) > 17 and
+            any(len(field.lstrip('0')) > 17 for field in fields)):
         raise ValueError(_OUT_OF_RANGE)
 
     hours, minutes, seconds, milliseconds = map(int, fields)
@@ -1179,14 +1201,18 @@ def _caption_from_timings(
         is after the largest timestamp
     """
     try:
-        start_time, end_time = (
-            Timestamp._from_milliseconds(_timing_in_milliseconds(timing))
-            for timing in (start, end)
+        start_time = Timestamp._from_milliseconds(
+            _timing_in_milliseconds(start)
             )
+        end_time = Timestamp._from_milliseconds(_timing_in_milliseconds(end))
     except ValueError:
         return None
 
-    return Caption(start_time, end_time, lines)
+    caption = Caption(text=lines)
+    # the timestamps are new, so the caption keeps them instead of copies
+    caption.start_time = start_time
+    caption.end_time = end_time
+    return caption
 
 
 @dataclass
@@ -1344,12 +1370,13 @@ class Region(_Settings):
         :raises MalformedRegionError: if a value is not valid
         """
         super().__init__()
-        self.id = id
-        self.width = width
-        self.lines = lines
-        self.regionanchor = regionanchor
-        self.viewportanchor = viewportanchor
-        self.scroll = scroll
+        self._set_given(id=id,
+                        width=width,
+                        lines=lines,
+                        regionanchor=regionanchor,
+                        viewportanchor=viewportanchor,
+                        scroll=scroll
+                        )
         self.comments: typing.List[str] = []
 
     @classmethod
