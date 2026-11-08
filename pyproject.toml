@@ -93,6 +93,8 @@ commands = [["coverage", "xml"], ["coverage", "report"]]
 
 [tool.tox.env.man]
 description = "regenerate the man page"
+# the Python of the docs in CI and Read the Docs, which Sphinx 9.2 needs
+base_python = ["py313"]
 skip_install = true
 deps = ["-r docs/requirements.txt"]
 commands = [
@@ -101,6 +103,7 @@ commands = [
 
 [tool.tox.env.docs]
 description = "build the documentation, failing on warnings and broken references"
+base_python = ["py313"]
 skip_install = true
 deps = ["-r docs/requirements.txt"]
 commands = [
