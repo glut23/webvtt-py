@@ -953,7 +953,7 @@ class WebVTT:
                     f'is in the region {region!r}, which is not defined'
                     ))
 
-            if not caption.text.strip():
+            if not utils._has_cue_text(caption.text):
                 issues.append(ValidationIssue(
                     index, 'empty', 'warning', 'has no text'
                     ))

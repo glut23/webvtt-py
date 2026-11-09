@@ -3119,9 +3119,13 @@ class TestParseSBV(unittest.TestCase):
                 PATH_TO_SAMPLES / 'styles_colours.vtt'
                 ).save_as_srt(f.name, keep_formatting=True)
 
+            legacy = PATH_TO_SAMPLES / 'styles_colours.srt'
+            expected = legacy.read_text(encoding='utf-8')
+            self.assertIn('2 &lt; 3', expected)
+            self.assertIn('2 < 3', webvtt.from_srt(legacy)[2].text)
             self.assertEqual(
-                (PATH_TO_SAMPLES / 'styles_colours.srt').read_text(),
-                pathlib.Path(f.name).read_text()
+                expected.replace('2 &lt; 3', '2 < 3'),
+                pathlib.Path(f.name).read_text(encoding='utf-8')
                 )
 
     def test_save_file_with_bom(self):

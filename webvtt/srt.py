@@ -1,5 +1,6 @@
 """SRT format module."""
 
+import html.entities
 import operator
 import typing
 import re
@@ -12,7 +13,8 @@ from .models import (
     Style,
     _caption_from_timings,
     _iter_cue_text_tokens,
-    _skipped_block
+    _skipped_block,
+    _unescape_cue_text
     )
 from .errors import MalformedFileError
 from . import utils
@@ -59,6 +61,16 @@ class _ColourRule(typing.NamedTuple):
 
 # the cue tags that SRT players support
 _SRT_TAGS = {'b', 'i', 'u'}
+
+# Require a tag name starting with a letter so "<3" stays text.
+_SRT_TAG_START = re.compile(r'</?[A-Za-z][\w.:-]*(?=[ \t/>])')
+
+_CueTokens = list[tuple[str, bool]]
+
+# Earlier versions copied WebVTT references into SRT exports.
+_SRT_REFERENCE = re.compile(
+    r'&(#[0-9]+|#[xX][0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]*);'
+    )
 
 # the color of a font tag, quoted or not
 _FONT_COLOUR = re.compile(
@@ -187,8 +199,10 @@ def is_valid_content(lines: Sequence[str]) -> bool:
     :param lines: lines of text
     :returns: true for a valid SRT content
     """
-    start = next((i for i, line in enumerate(lines) if line.strip()),
-                 len(lines))
+    start = next(
+        (i for i, line in enumerate(lines) if utils._has_cue_text(line)),
+        len(lines)
+        )
     return bool(
         len(lines) >= start + 2 and
         _is_index(lines[start]) and
@@ -375,7 +389,7 @@ def _convert_captions(
         styles: list[Style] | None
         ) -> None:
     """
-    Convert the font and position tags of the captions read from SRT.
+    Normalize the cue text and markup of captions read from SRT.
 
     :param captions: the captions, changed in place
     :param styles: a list to add the style of the colours of the cue
@@ -391,26 +405,31 @@ def _convert_captions(
 
 def _convert_markup(caption: Caption, classes: dict[str, str]) -> None:
     """
-    Convert the font and position tags of a caption read from SRT.
+    Normalize the cue text and markup of a caption read from SRT.
 
     :param caption: the caption, changed in place
     :param classes: the classes of the colours, which new colours are
         added to
     """
     position = None
-    lines = []
-    # whether each open font tag became a c tag, as tags stay open across
-    # lines
-    open_fonts: list[bool] = []
+    tokens_by_line = []
     for line in caption.lines:
         match = _POSITION_TAG.search(line)
         if match and position is None:
             position = int(match.group(1))
-        converted = _convert_fonts(
-            _POSITION_TAG.sub('', line), open_fonts, classes
-            )
+        tokens_by_line.append(list(_iter_cue_text_tokens(
+            _POSITION_TAG.sub('', line), tag_start=_SRT_TAG_START
+            )))
+    _keep_paired_emphasis(tokens_by_line)
+
+    lines = []
+    # whether each open font tag became a c tag, as tags stay open across
+    # lines
+    open_fonts: list[bool] = []
+    for line, tokens in zip(caption.lines, tokens_by_line):
+        converted = _convert_cue_text(tokens, open_fonts, classes)
         # a line of only tags that are removed would end the cue
-        if converted.strip() or converted == line:
+        if utils._has_cue_text(converted) or converted == line:
             lines.append(converted)
     caption.lines = lines
 
@@ -419,15 +438,60 @@ def _convert_markup(caption: Caption, classes: dict[str, str]) -> None:
         caption.settings = CueSettings(line=line_setting, align=align)
 
 
-def _convert_fonts(
-        line: str,
+def _keep_paired_emphasis(lines: Iterable[_CueTokens]) -> None:
+    """Treat unmatched bold, italic and underline tags as cue text."""
+    pending: dict[str, list[tuple[_CueTokens, int]]] = {
+        tag: [] for tag in _SRT_TAGS
+        }
+    for tokens in lines:
+        for index, (token, is_tag) in enumerate(tokens):
+            if not is_tag:
+                continue
+            name = token.split(None, 1)[0].split('.', 1)[0]
+            tag = name.removeprefix('/').lower()
+            openings = pending.get(tag)
+            if openings is None:
+                continue
+            if not name.startswith('/'):
+                openings.append((tokens, index))
+            elif openings:
+                start_line, start_index = openings.pop()
+                opening = start_line[start_index][0]
+                start_line[start_index] = tag + opening[len(tag):], True
+                tokens[index] = f'/{tag}', True
+            else:
+                tokens[index] = f'<{token}>', False
+
+    for openings in pending.values():
+        for tokens, index in openings:
+            tokens[index] = f'<{tokens[index][0]}>', False
+
+
+def _decode_srt_reference(match: re.Match[str]) -> str:
+    """Decode a complete reference, keeping unknown names as text."""
+    name = match[1]
+    if name.startswith('#'):
+        return _unescape_cue_text(match[0])
+    return html.entities.html5.get(name + ';', match[0])
+
+
+def _srt_text_to_vtt(text: str) -> str:
+    """Store plain SRT text and legacy references in the same spelling."""
+    decoded = _SRT_REFERENCE.sub(_decode_srt_reference, text)
+    # Keep line breaks from references inside the same WebVTT payload line.
+    return (decoded.replace('&', '&amp;').replace('<', '&lt;')
+            .replace('\r', '&#13;').replace('\n', '&#10;'))
+
+
+def _convert_cue_text(
+        tokens: _CueTokens,
         open_fonts: list[bool],
         classes: dict[str, str]
         ) -> str:
     """
-    Convert the font tags of a line of text to c tags with a class.
+    Convert font tags and normalize the plain text for WebVTT.
 
-    :param line: the line of text
+    :param tokens: the tags and text of one cue line
     :param open_fonts: whether each open font tag became a c tag, which is
         updated with the tags of the line
     :param classes: the classes of the colours, which new colours are
@@ -435,9 +499,9 @@ def _convert_fonts(
     :returns: the line with the font tags converted or removed
     """
     output = []
-    for token, is_tag in _iter_cue_text_tokens(line):
+    for token, is_tag in tokens:
         if not is_tag:
-            output.append(token)
+            output.append(_srt_text_to_vtt(token))
             continue
         name, *attributes = token.split(None, 1) or ['']
         name = name.lower()
@@ -451,7 +515,8 @@ def _convert_fonts(
                 output.append('</c>')
         else:
             output.append(f'<{token}>')
-    return ''.join(output)
+    # A decoded reference can complete an arrow after markup is removed.
+    return ''.join(output).replace('-->', '--&gt;')
 
 
 def _colour_class(
@@ -754,7 +819,7 @@ def _format_cue_text(
         output = []
         for token, is_tag in _iter_cue_text_tokens(line):
             if not is_tag:
-                output.append(token)
+                output.append(_unescape_cue_text(token))
             elif token.startswith('/'):
                 output.extend(_close_tags(open_tags, token[1:].strip()))
             else:
@@ -792,11 +857,14 @@ def write(
     for caption in captions:
         # the text without cue tags, so tags with no text are left out also
         # when keeping the formatting
-        if not caption.text.strip():
+        plain_text = caption.text
+        if not utils._has_cue_text(plain_text):
             continue
-        text = (caption.text if colours is None
+        text = (plain_text if colours is None
                 else _format_cue_text(caption.raw_text, colours))
-        lines = [line for line in text.split('\n') if line.strip()]
+        lines = [
+            line for line in text.split('\n') if utils._has_cue_text(line)
+            ]
         # a text with a position tag, as written by earlier versions, keeps
         # it
         if not _POSITION_TAG.search(text):

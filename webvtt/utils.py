@@ -3,6 +3,7 @@
 import locale
 import os
 import re
+import string
 import codecs
 from collections.abc import Generator, Iterable
 
@@ -43,6 +44,11 @@ def _split_lines(text: str) -> list[str]:
     if not lines[-1]:
         lines.pop()
     return lines
+
+
+def _has_cue_text(text: str) -> bool:
+    """Return whether text contains more than ASCII whitespace."""
+    return bool(text.strip(string.whitespace))
 
 
 def _check_errors(errors: str | None) -> None:
@@ -200,7 +206,7 @@ def _iter_numbered_blocks(
     number = 0
 
     for number, line in enumerate(lines, 1):
-        if line.strip():
+        if _has_cue_text(line):
             current_text_block.append(line)
         elif current_text_block:
             yield number - len(current_text_block), current_text_block

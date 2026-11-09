@@ -1027,6 +1027,25 @@ class TestCaption(unittest.TestCase):
         caption.lines.append('<v Carol>Three</v>')
         self.assertEqual(caption.voices, ['Bob', 'Alice', 'Carol'])
 
+    def test_text_decodes_each_text_token_once(self):
+        for raw_text, plain_text in (
+            ('<v Bob>Tom &amp; Jerry &lt;3</v>', 'Tom & Jerry <3'),
+            ('&lt;b&gt;literal&lt;/b&gt;', '<b>literal</b>'),
+            ('&amp;lt;', '&lt;'),
+            ('&am<lang en></lang>p;', '&amp;'),
+        ):
+            with self.subTest(raw_text=raw_text):
+                caption = Caption(text=raw_text)
+                self.assertEqual(caption.text, plain_text)
+                self.assertEqual(caption.raw_text, raw_text)
+
+    def test_text_decodes_long_decimal_references(self):
+        caption = Caption(text='&#' + '0' * 5000 + '60;')
+        self.assertEqual(caption.text, '<')
+
+        caption.text = '&#' + '9' * 5000 + ';'
+        self.assertEqual(caption.text, '\ufffd')
+
     def test_text_strips_tags_like_regex(self):
         for raw_text in (
             '<v Bob>Hello <b>test</b>!',
