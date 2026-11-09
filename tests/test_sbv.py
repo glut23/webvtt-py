@@ -287,8 +287,7 @@ class TestWriteSBV(unittest.TestCase):
         self.assertEqual(
             self.write([Caption('00:00:00.500', '00:00:07.000',
                                 '<v Joe><b>Hi</b> &amp; bye</v>')]),
-            # character references are written as they are, as in SRT
-            '0:00:00.500,0:00:07.000\nHi &amp; bye\n'
+            '0:00:00.500,0:00:07.000\nHi & bye\n'
             )
 
     def test_write_leaves_out_captions_without_text(self):

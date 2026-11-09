@@ -36,6 +36,10 @@ Reading WebVTT caption files
     vtt[0].identifier  # 'chapter 1'
 
 
+``Caption.text`` removes cue tags and decodes character references.
+``raw_text`` and ``lines`` expose the stored WebVTT cue text.
+
+
 Reading WebVTT caption files from a file-like object
 ----------------------------------------------------
 
@@ -622,6 +626,15 @@ text are skipped, so a file whose first cue has no text is read. SRT cues
 without an index are read, as most SRT players do, but the first cue of the
 file needs one for the content to be read as SRT.
 
+Cue text from SRT and SBV is stored in WebVTT syntax. Literal ampersands
+and less-than signs are escaped in ``raw_text``. SRT input also accepts
+complete character references such as ``&lt;`` for compatibility with
+older SRT exports.
+
+Paired bold, italic and underline tags in the same SRT cue are kept as
+formatting. A standalone tag, such as ``<b>`` in ``a <b> c``,
+is read as text.
+
 The colours and positions of SRT are read into WebVTT. A ``font`` tag with a
 ``color`` becomes a ``c`` tag with a class named from the colour, and a
 ``STYLE`` block gives each class its colour. Other ``font`` tags and
@@ -678,6 +691,7 @@ and SBV files, as these formats cannot have a cue without text, and the
 others are numbered consecutively in SRT. The blank lines of the text are
 also left out, as a blank line ends the cue. The cue tags are removed when
 converting to SBV, which has no formatting.
+Character references in cue text are decoded before writing to SRT or SBV.
 
 The cue tags are removed when converting to SRT. To keep the formatting
 instead, use ``keep_formatting``. Bold, italic, underline and ``font`` tags are
@@ -713,7 +727,6 @@ as in ``::cue(.c\+1)`` for ``<c.c+1>``. Other selectors, such as ``::cue``,
 When more than one rule matches a cue tag, the rule with the most classes
 applies, then one with a tag name, and then the one that comes last in the
 styles, as in CSS.
-Character references such as ``&lt;`` are written as they are.
 
 The ``line`` and ``align`` cue settings are written to SRT as a ``{\anN}``
 tag, with or without ``keep_formatting``, so captions read from SRT keep

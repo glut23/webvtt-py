@@ -1,6 +1,13 @@
 History
 =======
 
+Unreleased
+----------
+
+Changes that may need updates to the code using the library:
+
+* ``Caption.text`` decodes HTML character references in cue text. SRT and SBV imports store text in WebVTT syntax, and exports to SRT and SBV write decoded text. SRT reads unpaired bold, italic and underline markers as text, thanks to `@mirad-tech <https://github.com/mirad-tech>`_ (#189, #219)
+
 0.8.0 (08-11-2026)
 ------------------
 

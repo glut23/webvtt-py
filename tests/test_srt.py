@@ -846,7 +846,7 @@ class TestFormatCueText(unittest.TestCase):
     def test_text_without_tags(self):
         self.assertEqual(
             srt._format_cue_text('2 &lt; 3', self.COLOURS),
-            '2 &lt; 3'
+            '2 < 3'
             )
 
     def test_nested_tags_with_colours(self):
@@ -1049,7 +1049,7 @@ class TestReadMarkup(unittest.TestCase):
         captions, _, _ = self.parse('<fontx>a</fontx> font color=red 2 < 3')
 
         self.assertEqual(captions[0].raw_text,
-                         '<fontx>a</fontx> font color=red 2 < 3')
+                         '<fontx>a</fontx> font color=red 2 &lt; 3')
 
     def test_bgcolor_is_not_color(self):
         captions, _, _ = self.parse('<font bgcolor="red">a</font>')

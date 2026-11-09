@@ -50,7 +50,7 @@ class SBVCueBlock:
         return bool(
           len(lines) >= 2 and
           cls.CUE_TIMINGS_PATTERN.match(lines[0]) and
-          lines[1].strip()
+          utils._has_cue_text(lines[1])
           )
 
     @classmethod
@@ -146,10 +146,10 @@ def _parse_cue(lines: Sequence[str]) -> Caption | None:
         return None
 
     cue_block = SBVCueBlock.from_lines(lines)
-    return _caption_from_timings(cue_block.start,
-                                 cue_block.end,
-                                 cue_block.payload
-                                 )
+    # SBV payloads are plain text, including text that looks like a tag.
+    payload = [line.replace('&', '&amp;').replace('<', '&lt;')
+               for line in cue_block.payload]
+    return _caption_from_timings(cue_block.start, cue_block.end, payload)
 
 
 def _skipped_block_kind(lines: Sequence[str]) -> str:
@@ -178,12 +178,13 @@ def write(f: typing.IO[str], captions: Iterable[Caption]) -> None:
     """
     output = []
     for caption in captions:
-        if not caption.text.strip():
+        text = caption.text
+        if not utils._has_cue_text(text):
             continue
         output.extend([
             f'{_timestamp(caption.start_time)},'
             f'{_timestamp(caption.end_time)}',
-            *(line for line in caption.text.split('\n') if line.strip()),
+            *(line for line in text.split('\n') if utils._has_cue_text(line)),
             ''
             ])
     f.write('\n'.join(output))

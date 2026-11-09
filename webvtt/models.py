@@ -6,6 +6,7 @@ import datetime
 import decimal
 import fractions
 import functools
+import html
 import math
 import re
 import typing
@@ -474,7 +475,9 @@ def _frame_rate(value: _FrameRate) -> fractions.Fraction:
 
 
 def _iter_cue_text_tokens(
-        line: str
+        line: str,
+        *,
+        tag_start: re.Pattern[str] | None = None
         ) -> Generator[tuple[str, bool], None, None]:
     """
     Iterate the text and the cue tags of a single line of text.
@@ -484,11 +487,17 @@ def _iter_cue_text_tokens(
     which keeps it linear in the length of the line.
 
     :param line: a line of cue text
+    :param tag_start: a pattern for tag starts in input with different
+        markup, such as SRT, where "<3" is text
     :returns: tuples of the text or the tag content and true for a tag
     """
     pos = 0
     while True:
-        start = line.find('<', pos)
+        if tag_start is None:
+            start = line.find('<', pos)
+        else:
+            match = tag_start.search(line, pos)
+            start = match.start() if match else -1
         if start < 0:
             break
         end = line.find('>', start + 1)
@@ -502,17 +511,37 @@ def _iter_cue_text_tokens(
         yield line[pos:], False
 
 
+_LONG_DECIMAL_REFERENCE = re.compile(r'&#([0-9]{8,});?')
+
+
+def _short_decimal_reference(match: re.Match[str]) -> str:
+    """Reduce a long decimal reference to a value that can be parsed."""
+    digits = match[1].lstrip('0')
+    return f'&#{digits or "0"};' if len(digits) <= 7 else '\ufffd'
+
+
+def _unescape_cue_text(text: str) -> str:
+    """Decode character references in a WebVTT text token."""
+    # Python limits the number of decimal digits that int() can read.
+    if '&#' in text:
+        text = _LONG_DECIMAL_REFERENCE.sub(_short_decimal_reference, text)
+    return html.unescape(text)
+
+
 def _strip_cue_text_tags(line: str) -> str:
     """
-    Remove cue tags from a single line of text.
+    Remove cue tags and decode character references in a line.
 
-    Gives the same result as ``re.sub('<.*?>', '', line)`` for a line
+    Decode each text token separately so that removing a tag does not
+    join the text around it into a character reference. The tag scan
+    gives the same result as ``re.sub('<.*?>', '', line)`` for a line
     without a newline, in linear time. That regex rescans the rest of the
     line from every ``<`` that has no ``>`` after it, which is quadratic in
     the length of the line.
     """
     return ''.join(
-        token for token, is_tag in _iter_cue_text_tokens(line) if not is_tag
+        _unescape_cue_text(token)
+        for token, is_tag in _iter_cue_text_tokens(line) if not is_tag
         )
 
 
@@ -850,7 +879,7 @@ def _to_cue_settings(
 
 
 class Caption:
-    """Representation of a caption."""
+    """Representation of a caption whose lines use WebVTT cue syntax."""
 
     VOICE_SPAN_PATTERN = re.compile(r'<v(?:\.\w+)*\s+([^>\s][^>]*)>')
 
@@ -1053,7 +1082,7 @@ class Caption:
 
     @property
     def text(self) -> str:
-        """Return the text of the caption (without cue tags)."""
+        """Return plain text with character references decoded."""
         return '\n'.join(
             _strip_cue_text_tags(line)
             for line in self.raw_text.split('\n')
