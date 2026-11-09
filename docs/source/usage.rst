@@ -35,6 +35,11 @@ Reading WebVTT caption files
     # caption identifiers
     vtt[0].identifier  # 'chapter 1'
 
+Cue tags in ``text``, ``voice`` and ``voices`` are read across line breaks, so
+a tag that spans lines joins them in ``text``, and voice names have their
+leading and trailing ASCII whitespace removed and runs of ASCII whitespace
+collapsed to a single space.
+
 
 Reading WebVTT caption files from a file-like object
 ----------------------------------------------------
@@ -677,7 +682,8 @@ Captions without text, such as text of blank lines, are left out of the SRT
 and SBV files, as these formats cannot have a cue without text, and the
 others are numbered consecutively in SRT. The blank lines of the text are
 also left out, as a blank line ends the cue. The cue tags are removed when
-converting to SBV, which has no formatting.
+converting to SBV, which has no formatting, and when converting to SRT without
+``keep_formatting``, joining the lines that a tag spans.
 
 The cue tags are removed when converting to SRT. To keep the formatting
 instead, use ``keep_formatting``. Bold, italic, underline and ``font`` tags are

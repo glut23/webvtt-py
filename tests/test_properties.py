@@ -144,7 +144,11 @@ class TestShift(unittest.TestCase):
 class TestText(unittest.TestCase):
 
     @untimed
-    @given(st.text(st.sampled_from('<>/ab v.\t')))
-    def test_text_strips_tags_like_regex(self, line):
-        self.assertEqual(Caption(text=line).text,
-                         re.sub('<.*?>', '', line))
+    @given(st.lists(st.text(st.sampled_from('<>/ab v.\t')),
+                    min_size=1, max_size=4))
+    def test_text_strips_tags_like_regex(self, lines):
+        caption = Caption(text=lines)
+        self.assertEqual(
+            caption.text,
+            re.sub('<.*?>', '', caption.raw_text, flags=re.DOTALL)
+            )
