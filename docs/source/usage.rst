@@ -275,8 +275,7 @@ captions were read from or last saved to, and can be set to choose where
 
 ``WebVTT`` takes keyword arguments only and does not read files, so
 ``WebVTT('captions.vtt')`` raises ``TypeError``: use ``webvtt.read()`` to
-read captions from a file. The ``file`` argument of ``WebVTT`` is
-deprecated in favor of the ``file`` attribute.
+read captions from a file.
 
 
 Manipulating captions
