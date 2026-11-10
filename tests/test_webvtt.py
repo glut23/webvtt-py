@@ -467,22 +467,9 @@ class TestWebVTT(unittest.TestCase):
                     '''
                     ).strip())
 
-    def test_deprecated_read_buffer(self):
-        with open(PATH_TO_SAMPLES / 'sample.vtt', 'r', encoding='utf-8') as f:
-            with warnings.catch_warnings(record=True) as warns:
-                warnings.simplefilter('always')
-                vtt = webvtt.read_buffer(f)
-
-                self.assertIsInstance(vtt.captions, list)
-                self.assertEqual(len(warns), 1)
-                self.assertIs(warns[0].category, DeprecationWarning)
-                self.assertEqual(
-                    'Deprecated: use from_buffer instead.',
-                    str(warns[0].message)
-                    )
-                # the warning points to the code calling read_buffer
-                self.assertEqual(os.path.basename(warns[0].filename),
-                                 os.path.basename(__file__))
+    def test_read_buffer_removed(self):
+        self.assertFalse(hasattr(webvtt, 'read_buffer'))
+        self.assertFalse(hasattr(webvtt.WebVTT, 'read_buffer'))
 
     def test_read_memory_buffer(self):
         buffer = io.StringIO(
@@ -1153,19 +1140,9 @@ class TestWebVTT(unittest.TestCase):
             self.assertIn('use webvtt.read()', str(cm.exception))
             self.assertEqual(pathlib.Path(vtt_file).read_text(), content)
 
-    def test_deprecated_file_argument(self):
-        with warnings.catch_warnings(record=True) as warns:
-            warnings.simplefilter('always')
-            vtt = webvtt.WebVTT(file='captions.vtt')
-
-        self.assertEqual(vtt.file, 'captions.vtt')
-        self.assertEqual(len(warns), 1)
-        self.assertIs(warns[0].category, DeprecationWarning)
-        self.assertIn('The file argument of WebVTT() is deprecated',
-                      str(warns[0].message))
-        # the warning points to the code creating the instance
-        self.assertEqual(os.path.basename(warns[0].filename),
-                         os.path.basename(__file__))
+    def test_file_argument_removed(self):
+        with self.assertRaises(TypeError):
+            webvtt.WebVTT(file='captions.vtt')
 
     def test_readers_set_file_without_warnings(self):
         sample = str(PATH_TO_SAMPLES / 'sample.vtt')

@@ -6,8 +6,7 @@ import datetime
 import os
 import io
 import typing
-import warnings
-from collections.abc import Generator, Iterable, Iterator, Sequence
+from collections.abc import Generator, Iterable, Sequence
 
 from . import vtt, utils
 from . import srt
@@ -59,7 +58,6 @@ class WebVTT:
             self,
             # NoReturn, so type checkers report positional arguments too
             *args: typing.NoReturn,
-            file: str | None = None,
             captions: list[Caption] | None = None,
             styles: list[Style] | None = None,
             header_comments: list[str] | None = None,
@@ -82,7 +80,6 @@ class WebVTT:
         The lists are kept as the attributes, not copied, so changes to a
         list after creating the instance show in it.
 
-        :param file: DEPRECATED, set the ``file`` attribute instead
         :param captions: the list of captions
         :param styles: the list of styles
         :param header_comments: list of comments for the start of the file
@@ -104,17 +101,7 @@ class WebVTT:
                 'captions from a file'
                 )
 
-        if file is not None:
-            warnings.warn(
-                f'The file argument of {self.__class__.__name__}() is '
-                'deprecated, use webvtt.read() to read captions from a file '
-                'and set the file attribute, or pass the output to save(), '
-                'to choose where they are saved',
-                DeprecationWarning,
-                stacklevel=2
-                )
-
-        self.file = file
+        self.file: str | None = None
         self.captions = _list_or_new(captions)
         self.styles = _list_or_new(styles)
         self.header_comments = _list_or_new(header_comments)
@@ -203,29 +190,6 @@ class WebVTT:
         :raises LookupError: if the errors handler is not known
         """
         return cls._from_file(file, 'vtt', encoding, errors, strict)
-
-    @classmethod
-    def read_buffer(
-            cls,
-            buffer: Iterator[str]
-            ) -> 'WebVTT':
-        """
-        Read WebVTT captions from a file-like object.
-
-        This method is DEPRECATED. Use from_buffer instead.
-
-        Such file-like object may be the return of an io.open call,
-        io.StringIO object, tempfile.TemporaryFile object, etc.
-
-        :param buffer: the file-like object to read captions from
-        :returns: a `WebVTT` instance
-        """
-        warnings.warn(
-            'Deprecated: use from_buffer instead.',
-            DeprecationWarning,
-            stacklevel=2
-            )
-        return cls.from_buffer(buffer)
 
     @classmethod
     def from_buffer(

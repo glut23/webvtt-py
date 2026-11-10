@@ -14,7 +14,6 @@ __all__ = [
     ]
 
 read = WebVTT.read
-read_buffer = WebVTT.read_buffer
 from_buffer = WebVTT.from_buffer
 from_srt = WebVTT.from_srt
 from_sbv = WebVTT.from_sbv

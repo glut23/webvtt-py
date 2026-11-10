@@ -1,6 +1,14 @@
 History
 =======
 
+Unreleased
+----------
+
+Changes that may need updates to the code using the library:
+
+* Removed ``read_buffer``, deprecated in 0.5.0, use ``from_buffer`` instead (#192)
+* Removed the ``file`` argument of ``WebVTT``, deprecated in 0.6.0, set the ``file`` attribute instead (#123, #192)
+
 0.8.0 (08-11-2026)
 ------------------
 
