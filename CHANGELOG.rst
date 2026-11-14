@@ -1,6 +1,11 @@
 History
 =======
 
+Unreleased
+----------
+
+* Encode all HLS segments before writing any, so an encoding error in a later segment does not create or overwrite earlier segment files.
+
 0.8.0 (08-11-2026)
 ------------------
 
