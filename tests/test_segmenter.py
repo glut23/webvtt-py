@@ -897,3 +897,39 @@ class TestSegmenter(unittest.TestCase):
                 )
 
         self.assertEqual(segment_file.read_text(), 'old')
+
+    def test_write_segments_later_encoding_error_creates_no_files(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+        captions = [Caption(0, 1, 'valid'), Caption(20, 21, '\ud800')]
+
+        with self.assertRaises(UnicodeEncodeError):
+            segmenter.write_segments(
+                output_folder, segmenter.slice_segments(captions, 10),
+                segmenter.DEFAULT_MPEGTS
+                )
+
+        self.assertEqual(list(output_folder.iterdir()), [])
+
+    def test_segment_later_encoding_error_preserves_all_output(self):
+        output_folder = pathlib.Path(self.temp_dir.name)
+        original = {
+            'fileSequence0.webvtt': b'old first',
+            'fileSequence1.webvtt': b'old second',
+            'fileSequence2.webvtt': b'old third',
+            'fileSequence3.webvtt': b'old stale segment',
+            'prog_index.m3u8': b'old playlist',
+            'unrelated.txt': b'leave me alone',
+            }
+        for name, content in original.items():
+            (output_folder / name).write_bytes(content)
+        captions = webvtt.WebVTT(captions=[
+            Caption(0, 1, 'valid'), Caption(20, 21, '\ud800')
+            ])
+
+        with self.assertRaises(UnicodeEncodeError):
+            segmenter.segment(captions, output_folder, overwrite=True)
+
+        self.assertEqual(
+            {path.name: path.read_bytes() for path in output_folder.iterdir()},
+            original
+            )

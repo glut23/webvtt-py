@@ -247,8 +247,8 @@ def write_segments(
     """
     Write the segments to the output folder.
 
-    Every segment is built before any is written, so a caption or style
-    that cannot be written leaves the files of the folder unchanged.
+    Every segment is built and encoded before any is written, so a caption
+    or style that cannot be written leaves the files of the folder unchanged.
 
     :param output_folder: folder where the segment files will be stored
     :param segments: the segments of `Caption` objects
@@ -275,9 +275,14 @@ def write_segments(
         for segment in segments
         ]
 
-    for index, content in enumerate(contents):
+    encoded_contents = [
+        content.replace('\n', os.linesep).encode('utf-8')
+        for content in contents
+        ]
+    for index, content in enumerate(encoded_contents):
         segment_file = output_folder / f'fileSequence{index}.webvtt'
-        utils._write_text_file(str(segment_file), content, 'utf-8')
+        with open(segment_file, 'wb') as f:
+            f.write(content)
 
 
 def write_manifest(
