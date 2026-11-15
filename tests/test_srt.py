@@ -1,3 +1,4 @@
+import time
 import unittest
 import io
 import textwrap
@@ -733,6 +734,24 @@ class TestSRTModule(unittest.TestCase):
             ''').strip() + '\n'
             )
 
+    def test_write_tags_across_line_breaks(self):
+        captions = [
+            Caption(start='00:00:00.500',
+                    end='00:00:07.000',
+                    text=['<v Bob', 'Smith>Hi</v> <b', '>there</b>']
+                    )
+            ]
+        for styles, text in ((None, 'Hi there'), ([], 'Hi <b>there</b>')):
+            with self.subTest(styles=styles):
+                out = io.StringIO()
+
+                srt.write(out, captions, styles)
+
+                self.assertEqual(
+                    out.getvalue(),
+                    f'1\n00:00:00,500 --> 00:00:07,000\n{text}\n'
+                    )
+
     def test_write_with_empty_styles_keeps_bold_italic_underline(self):
         out = io.StringIO()
         captions = [
@@ -908,11 +927,17 @@ class TestFormatCueText(unittest.TestCase):
             '<i><font color="#0000ff">line 1\nline 2</font></i>'
             )
 
-    def test_tags_are_found_in_each_line(self):
-        self.assertEqual(
-            srt._format_cue_text('if a < b\nthen b > a', self.COLOURS),
-            'if a < b\nthen b > a'
-            )
+    def test_tags_read_across_line_breaks(self):
+        for text, expected in (
+                ('<v Bob\nSmith>Hi</v>', 'Hi'),
+                ('<b\n>bold</b>', '<b>bold</b>'),
+                ('<i.blue\n>x</i\n>', '<i><font color="#0000ff">x</font></i>'),
+                ('<font\ncolor="red">x</font>', '<font color="red">x</font>'),
+                ('if a < b\nthen b > a', 'if a  a')):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    srt._format_cue_text(text, self.COLOURS), expected
+                    )
 
     def test_keeps_font_tags(self):
         self.assertEqual(
@@ -1015,6 +1040,27 @@ class TestReadMarkup(unittest.TestCase):
 
         self.assertEqual(captions[0].lines,
                          ['<c.color-red>line 1', 'line 2</c>'])
+
+    def test_font_tag_across_a_line_break(self):
+        captions, styles, _ = self.parse(
+            '<font\ncolor=red>a</font\n> <FONT size=2\ncolor="blue">b</FONT>'
+            )
+
+        self.assertEqual(captions[0].lines,
+                         ['<c.color-red>a</c> <c.color-blue>b</c>'])
+        self.assertEqual(len(styles[0].lines), 6)
+
+    def test_font_tag_with_class_kept_as_written(self):
+        captions, styles, _ = self.parse('<font.x color=red>a</font.x>')
+
+        self.assertEqual(captions[0].raw_text, '<font.x color=red>a</font.x>')
+        self.assertEqual(styles, [])
+
+    def test_other_tags_across_lines_kept_as_written(self):
+        captions, _, _ = self.parse('if a < b\nthen b > a <i\n>c</i>')
+
+        self.assertEqual(captions[0].lines,
+                         ['if a < b', 'then b > a <i', '>c</i>'])
 
     def test_colours_not_written_in_style(self):
         captions, styles, _ = self.parse(
@@ -1283,3 +1329,53 @@ class TestCueSelectors(unittest.TestCase):
             self.format(r'::cue(.\00004111) { color: red; }', '<c.A11>t</c>'),
             '<font color="red">t</font>'
             )
+
+
+class TestLinearTime(unittest.TestCase):
+    """
+    The conversion of cue text to and from SRT, which reads the cue tags of
+    the whole text, as the text of captions does.
+    """
+
+    LENGTH = 10 ** 6
+    # seconds, for slow machines
+    LIMIT = 5
+
+    def assertLinear(self, cases, function):
+        """Check the result of the function for each text."""
+        for name, text, expected in cases:
+            with self.subTest(name):
+                start = time.perf_counter()
+                value = function(text)
+                self.assertLess(time.perf_counter() - start, self.LIMIT)
+                self.assertEqual(value, expected)
+
+    def test_format_cue_text(self):
+        n = self.LENGTH // 8
+        self.assertLinear((
+            ('nested tags', '<b>' * n + 'a' + '</b>' * n,
+             '<b>' * n + 'a' + '</b>' * n),
+            ('end tags not open', '<b>' * n + '</i>' * n,
+             '<b>' * n + '</b>' * n),
+            ('unclosed tags', '<' * self.LENGTH, '<' * self.LENGTH),
+            ('tags across lines', '\n'.join(['<b\n>a</b>'] * n),
+             '\n'.join(['<b>a</b>'] * n)),
+            ), lambda text: srt._format_cue_text(text, []))
+
+    def test_read_markup(self):
+        n = self.LENGTH // 24
+
+        def read(text):
+            lines = ['1', '00:00:01,000 --> 00:00:02,000', *text.split('\n')]
+            return srt.parse(lines)[0].raw_text
+
+        self.assertLinear((
+            ('nested fonts', '<font color=red>a' * n + '</font>' * n,
+             '<c.color-red>a' * n + '</c>' * n),
+            ('end tags not open', 'a' + '</font>' * n, 'a'),
+            ('unclosed tags', 'a' + '<' * self.LENGTH,
+             'a' + '<' * self.LENGTH),
+            ('tags across lines',
+             '\n'.join(['<font\ncolor=red>a</font>'] * n),
+             '\n'.join(['<c.color-red>a</c>'] * n)),
+            ), read)

@@ -10,8 +10,11 @@ from .models import (
     CueSettings,
     ParseIssue,
     Style,
+    _CueTag,
     _caption_from_timings,
+    _cue_tag,
     _iter_cue_text_tokens,
+    _scan_cue_text,
     _skipped_block
     )
 from .errors import MalformedFileError
@@ -70,6 +73,10 @@ _FONT_COLOUR = re.compile(
 # function such as rgb(255, 0, 0), with its parentheses balanced so that
 # the rest of the style is read
 _COLOUR_VALUE = re.compile(r'#?[\w-]+(?:\([\w\s,.%/+-]*\))?')
+
+# the start of the content of a font start or end tag, as in ``font color``
+# or ``/ FONT``
+_FONT_TAG_START = re.compile(r'(?:/[ \t\n\f\r]*)?font', re.IGNORECASE)
 
 # a {\anN} tag, which places the cue as the keys of a numeric keypad
 _POSITION_TAG = re.compile(r'\{\\an([1-9])\}')
@@ -397,61 +404,86 @@ def _convert_markup(caption: Caption, classes: dict[str, str]) -> None:
     :param classes: the classes of the colours, which new colours are
         added to
     """
-    position = None
-    lines = []
-    # whether each open font tag became a c tag, as tags stay open across
-    # lines
-    open_fonts: list[bool] = []
-    for line in caption.lines:
-        match = _POSITION_TAG.search(line)
-        if match and position is None:
-            position = int(match.group(1))
-        converted = _convert_fonts(
-            _POSITION_TAG.sub('', line), open_fonts, classes
-            )
-        # a line of only tags that are removed would end the cue
-        if converted.strip() or converted == line:
-            lines.append(converted)
-    caption.lines = lines
+    text = caption.raw_text
+    position = _POSITION_TAG.search(text)
+    converted = _convert_fonts(_POSITION_TAG.sub('', text), classes)
+    # a line left with only tags that are removed would end the cue, and the
+    # lines read from SRT are not blank
+    caption.lines = [line for line in converted.split('\n') if line.strip()]
 
     if position is not None:
-        line_setting, align = _POSITIONS[position]
+        line_setting, align = _POSITIONS[int(position.group(1))]
         caption.settings = CueSettings(line=line_setting, align=align)
 
 
 def _convert_fonts(
-        line: str,
+        text: str,
+        classes: dict[str, str]
+        ) -> str:
+    """
+    Convert the font tags of a text to c tags with a class.
+
+    The other tags are kept as written.
+
+    :param text: the text, with tags read across line breaks
+    :param classes: the classes of the colours, which new colours are
+        added to
+    :returns: the text with the font tags converted or removed
+    """
+    output = []
+    # whether each open font tag became a c tag
+    open_fonts: list[bool] = []
+    for token, is_tag in _scan_cue_text(text):
+        tag = _font_tag(token) if is_tag else None
+        if tag is not None:
+            output.append(_convert_font(tag, open_fonts, classes))
+        elif is_tag:
+            output.append(f'<{token}>')
+        else:
+            output.append(token)
+    return ''.join(output)
+
+
+def _font_tag(content: str) -> _CueTag | None:
+    """
+    Read a font start or end tag.
+
+    Only a tag that can be one is read, as reading every tag would slow
+    down reading SRT. A ``font`` tag with a class, as in ``<font.x>``, is
+    not one, as its end tag would not match it.
+
+    :param content: the text between ``<`` and ``>``
+    :returns: the tag, or None for any other tag
+    """
+    if not _FONT_TAG_START.match(content):
+        return None
+    tag = _cue_tag(content)
+    if tag.name.lower() != 'font' or tag.classes:
+        return None
+    return tag
+
+
+def _convert_font(
+        tag: _CueTag,
         open_fonts: list[bool],
         classes: dict[str, str]
         ) -> str:
     """
-    Convert the font tags of a line of text to c tags with a class.
+    Convert a font start or end tag to a c tag with a class.
 
-    :param line: the line of text
+    :param tag: the font tag
     :param open_fonts: whether each open font tag became a c tag, which is
-        updated with the tags of the line
-    :param classes: the classes of the colours, which new colours are
+        updated with the tag
+    :param classes: the classes of the colours, which a new colour is
         added to
-    :returns: the line with the font tags converted or removed
+    :returns: the c tag, or an empty string for a font tag without a
+        colour and its end tag
     """
-    output = []
-    for token, is_tag in _iter_cue_text_tokens(line):
-        if not is_tag:
-            output.append(token)
-            continue
-        name, *attributes = token.split(None, 1) or ['']
-        name = name.lower()
-        if name == 'font':
-            class_name = _colour_class(''.join(attributes), classes)
-            open_fonts.append(class_name is not None)
-            if class_name is not None:
-                output.append(f'<c.{class_name}>')
-        elif name == '/font':
-            if open_fonts and open_fonts.pop():
-                output.append('</c>')
-        else:
-            output.append(f'<{token}>')
-    return ''.join(output)
+    if tag.kind == 'start':
+        class_name = _colour_class(tag.annotation, classes)
+        open_fonts.append(class_name is not None)
+        return '' if class_name is None else f'<c.{class_name}>'
+    return '</c>' if open_fonts and open_fonts.pop() else ''
 
 
 def _colour_class(
@@ -681,54 +713,95 @@ def _tag_colour(
 
 
 def _srt_tags(
-        tag: str,
+        tag: _CueTag,
         colours: Iterable[_ColourRule]
-        ) -> tuple[str, str, str] | None:
+        ) -> tuple[str, str] | None:
     """
     Return the SRT tags for a cue start tag.
 
-    :param tag: the content of the cue start tag
+    :param tag: the cue start tag
     :param colours: the colour rules of the styles
-    :returns: the tag name and the SRT start and end tags, which are empty
-        when SRT has no tag for it, or None for a timestamp tag
+    :returns: the SRT start and end tags, which are empty when SRT has no
+        tag for it, or None for a tag whose name is not a word, as no cue
+        tag has one
     """
-    name, *classes = (tag.split(maxsplit=1) or [''])[0].split('.')
-    # timestamp tags have no name
+    name = tag.name
     if not name.isalpha():
         return None
     # font tags, as in WebVTT written by versions that kept those of SRT,
-    # are kept as they are
+    # are kept as they are, on one line
     if name == 'font':
-        return name, f'<{tag}>', '</font>'
+        content = tag.content.replace('\n', ' ')
+        return f'<{content}>', '</font>'
     start_tags = end_tags = ''
     if name in _SRT_TAGS:
         start_tags, end_tags = f'<{name}>', f'</{name}>'
-    colour = _tag_colour(name, classes, colours)
+    colour = _tag_colour(name, tag.classes, colours)
     if colour is not None:
         start_tags += f'<font color="{colour}">'
         end_tags = '</font>' + end_tags
-    return name, start_tags, end_tags
+    return start_tags, end_tags
 
 
-def _close_tags(
-        open_tags: list[tuple[str, str]],
-        name: str
-        ) -> list[str]:
+class _OpenTags:
     """
-    Close the last open tag with a name and the tags opened after it.
+    The open cue tags of a cue text, with their SRT end tags.
 
-    :param open_tags: the names and SRT end tags of the open tags, which
-        are removed when closed
-    :param name: the name of the cue end tag
-    :returns: the SRT end tags, or none when no tag with the name is open
+    Closing the tags takes linear time in their number: the count of each
+    name tells at once whether a tag with the name is open, and the tags
+    passed over while looking for it from the last one are all closed.
     """
-    names = [open_name for open_name, _ in open_tags]
-    if name not in names:
-        return []
-    index = len(names) - 1 - names[::-1].index(name)
-    closed = open_tags[index:]
-    del open_tags[index:]
-    return [end_tags for _, end_tags in reversed(closed)]
+
+    def __init__(self) -> None:
+        """Initialize, with no tag open."""
+        self._tags: list[tuple[str, str]] = []
+        self._counts: dict[str, int] = {}
+
+    def open(self, name: str, end_tags: str) -> None:
+        """
+        Open a tag.
+
+        :param name: the name of the cue start tag
+        :param end_tags: the SRT end tags that close it
+        """
+        self._tags.append((name, end_tags))
+        self._counts[name] = self._counts.get(name, 0) + 1
+
+    def close(self, name: str) -> list[str]:
+        """
+        Close the last open tag with a name and the tags opened after it.
+
+        :param name: the name of the cue end tag
+        :returns: the SRT end tags, or none when no tag with the name is
+            open
+        """
+        if not self._counts.get(name):
+            return []
+        index = len(self._tags) - 1
+        while self._tags[index][0] != name:
+            index -= 1
+        return self._close_from(index)
+
+    def close_all(self) -> list[str]:
+        """
+        Close every open tag.
+
+        :returns: the SRT end tags
+        """
+        return self._close_from(0)
+
+    def _close_from(self, index: int) -> list[str]:
+        """
+        Close the tags from a position on.
+
+        :param index: the position of the first tag to close
+        :returns: the SRT end tags, the last opened first
+        """
+        closed = self._tags[index:]
+        del self._tags[index:]
+        for name, _ in closed:
+            self._counts[name] -= 1
+        return [end_tags for _, end_tags in reversed(closed)]
 
 
 def _format_cue_text(
@@ -741,31 +814,28 @@ def _format_cue_text(
     Bold, italic, underline and ``font`` tags are kept, and a class with a
     colour adds a ``font`` tag with that colour. Other tags are removed,
     keeping their text, and the tags left open at the end of the text are
-    closed. Tags are found in each line, as when the tags are removed from
-    the text, but stay open across lines.
+    closed. Tags are read across line breaks, as when the tags are removed
+    from the text, so a tag that spans lines joins them.
 
     :param text: the cue text
     :param colours: the colour rules of the styles
     :returns: the text with SRT tags
     """
-    lines = []
-    open_tags: list[tuple[str, str]] = []
-    for line in text.split('\n'):
-        output = []
-        for token, is_tag in _iter_cue_text_tokens(line):
-            if not is_tag:
-                output.append(token)
-            elif token.startswith('/'):
-                output.extend(_close_tags(open_tags, token[1:].strip()))
-            else:
-                tags = _srt_tags(token, colours)
-                if tags is not None:
-                    name, start_tags, end_tags = tags
-                    output.append(start_tags)
-                    open_tags.append((name, end_tags))
-        lines.append(''.join(output))
-    lines[-1] += ''.join(end_tags for _, end_tags in reversed(open_tags))
-    return '\n'.join(lines)
+    output = []
+    open_tags = _OpenTags()
+    for token in _iter_cue_text_tokens(text):
+        if isinstance(token, str):
+            output.append(token)
+        elif token.kind == 'end':
+            output.extend(open_tags.close(token.name))
+        elif token.kind == 'start':
+            tags = _srt_tags(token, colours)
+            if tags is not None:
+                start_tags, end_tags = tags
+                output.append(start_tags)
+                open_tags.open(token.name, end_tags)
+    output.extend(open_tags.close_all())
+    return ''.join(output)
 
 
 def write(

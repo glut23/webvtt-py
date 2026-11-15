@@ -291,6 +291,13 @@ class TestWriteSBV(unittest.TestCase):
             '0:00:00.500,0:00:07.000\nHi &amp; bye\n'
             )
 
+    def test_write_tags_across_line_breaks(self):
+        self.assertEqual(
+            self.write([Caption('00:00:00.500', '00:00:07.000',
+                                '<v Bob\nSmith>Hi</v> <b\n>there</b>')]),
+            '0:00:00.500,0:00:07.000\nHi there\n'
+            )
+
     def test_write_leaves_out_captions_without_text(self):
         self.assertEqual(
             self.write([
