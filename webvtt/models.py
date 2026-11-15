@@ -473,18 +473,53 @@ def _frame_rate(value: _FrameRate) -> fractions.Fraction:
     return fractions.Fraction(value)
 
 
-def _iter_cue_text_tokens(
-        text: str
-        ) -> Generator[tuple[str, bool], None, None]:
+class _CueTag(typing.NamedTuple):
     """
-    Iterate the text and the cue tags of cue text.
+    A cue tag of cue text, as read by `_iter_cue_text_tokens`.
 
-    A ``<`` without a ``>`` after it is part of the text. The scan stops at
+    The name of a start tag ends at the first ``.`` or ASCII whitespace,
+    and its classes are the parts after each ``.`` up to the first ASCII
+    whitespace, with any character. The annotation is the rest of the tag,
+    with leading and trailing ASCII whitespace removed and each run of it
+    replaced with a single space, as in the WebVTT cue text parsing rules.
+    The name of an end tag is the text after the ``/``, without leading
+    and trailing ASCII whitespace.
+    """
+
+    #: the text between ``<`` and ``>``, as written
+    content: str
+    kind: typing.Literal['start', 'end', 'timestamp']
+    #: the name of a start or end tag, empty for a timestamp tag
+    name: str = ''
+    #: the classes of a start tag
+    classes: tuple[str, ...] = ()
+    #: the annotation of a start tag, such as the name of a voice
+    annotation: str = ''
+
+
+# ASCII whitespace, which WebVTT treats as spaces, as between cue settings
+# and in cue tags
+_ASCII_WHITESPACE = ' \t\n\f\r'
+_SETTINGS_SEPARATOR = re.compile(f'[{_ASCII_WHITESPACE}]+')
+# a start tag: its name and classes, up to the first whitespace, and the
+# annotation after the whitespace
+_START_TAG = re.compile(
+    f'([^{_ASCII_WHITESPACE}]*)[{_ASCII_WHITESPACE}]*(.*)', re.DOTALL
+    )
+
+
+def _scan_cue_text(text: str) -> Generator[tuple[str, bool], None, None]:
+    """
+    Iterate the text and the content of the cue tags of cue text.
+
+    A tag runs from a ``<`` to the next ``>``, also across line breaks. A
+    ``<`` without a ``>`` after it is part of the text. The scan stops at
     the first one, as no later ``<`` in the text has a ``>`` after it
     either, which keeps it linear in the length of the text.
 
     :param text: the cue text
-    :returns: tuples of the text or the tag content and true for a tag
+    :returns: tuples of the text or the tag content, as written, and true
+        for a tag
     """
     pos = 0
     while True:
@@ -502,6 +537,44 @@ def _iter_cue_text_tokens(
         yield text[pos:], False
 
 
+def _iter_cue_text_tokens(
+        text: str
+        ) -> Generator[str | _CueTag, None, None]:
+    """
+    Iterate the text and the cue tags of cue text.
+
+    The tags are found as by `_scan_cue_text`, and the text is given as
+    written, with its character references.
+
+    :param text: the cue text
+    :returns: the text between the tags, as strings, and the tags, as
+        `_CueTag`
+    """
+    for token, is_tag in _scan_cue_text(text):
+        yield _cue_tag(token) if is_tag else token
+
+
+def _cue_tag(content: str) -> _CueTag:
+    """
+    Read a cue tag.
+
+    :param content: the text between ``<`` and ``>``
+    :returns: the tag
+    """
+    if content.startswith('/'):
+        return _CueTag(content, 'end', content[1:].strip(_ASCII_WHITESPACE))
+    if content and content[0] in '0123456789':
+        return _CueTag(content, 'timestamp')
+    match = _START_TAG.match(content)
+    # always matches, as every part can be empty
+    assert match is not None
+    name, *classes = match[1].split('.')
+    annotation = match[2]
+    if annotation:
+        annotation = _SETTINGS_SEPARATOR.sub(' ', annotation).rstrip(' ')
+    return _CueTag(content, 'start', name, tuple(classes), annotation)
+
+
 def _strip_cue_text_tags(text: str) -> str:
     """
     Remove cue tags from cue text.
@@ -512,23 +585,22 @@ def _strip_cue_text_tags(text: str) -> str:
     the text.
     """
     return ''.join(
-        token for token, is_tag in _iter_cue_text_tokens(text) if not is_tag
+        token for token, is_tag in _scan_cue_text(text) if not is_tag
         )
 
 
-# the characters WebVTT treats as spaces when splitting settings
-_SETTINGS_SEPARATOR = re.compile('[ \t\n\f\r]+')
-
-
-def _normalize_voice(name: str) -> str:
+def _voice(token: str | _CueTag) -> str | None:
     """
-    Return a voice name with its ASCII whitespace stripped and collapsed.
+    Return the voice of a voice span start tag.
 
-    As in the WebVTT start tag annotation state, leading and trailing
-    ASCII whitespace is removed and each run of ASCII whitespace is
-    replaced with a single space.
+    :param token: a token of `_iter_cue_text_tokens`
+    :returns: the voice, or None when the token is not a ``v`` start tag
+        with a name
     """
-    return _SETTINGS_SEPARATOR.sub(' ', name.strip(' \t\n\f\r'))
+    if (isinstance(token, _CueTag) and token.kind == 'start'
+            and token.name == 'v' and token.annotation):
+        return token.annotation
+    return None
 
 
 _PERCENTAGE = re.compile(r'[0-9]+(?:\.[0-9]+)?%')
@@ -865,6 +937,7 @@ def _to_cue_settings(
 class Caption:
     """Representation of a caption."""
 
+    # not used, as the voices are read with the cue tags; public until 1.0
     VOICE_SPAN_PATTERN = re.compile(
         r'<v(?:\.\w+)*[ \t\n\f\r]+([^> \t\n\f\r][^>]*)>'
         )
@@ -1085,13 +1158,9 @@ class Caption:
 
     @property
     def voice(self) -> str | None:
-        """Return the voice span if present."""
-        if self.lines and self.lines[0].startswith('<v'):
-            match = self.VOICE_SPAN_PATTERN.match(self.raw_text)
-            if match:
-                return _normalize_voice(match.group(1))
-
-        return None
+        """Return the voice of the voice span that starts the text, if any."""
+        first = next(_iter_cue_text_tokens(self.raw_text), '')
+        return _voice(first)
 
     @property
     def voices(self) -> list[str]:
@@ -1099,17 +1168,12 @@ class Caption:
         Return the voices of every voice span in the text, in order.
 
         Unlike `voice`, which only reads a voice span at the start of the
-        first line, the spans can be anywhere in the text, and a voice is
+        text, the spans can be anywhere in the text, and a voice is
         returned once for each of its spans. The names are read as for
         `voice`, so a caption that starts with a voice span has it first.
         """
-        voices = []
-        for token, is_tag in _iter_cue_text_tokens(self.raw_text):
-            if is_tag:
-                match = self.VOICE_SPAN_PATTERN.fullmatch(f'<{token}>')
-                if match:
-                    voices.append(_normalize_voice(match.group(1)))
-        return voices
+        tokens = _iter_cue_text_tokens(self.raw_text)
+        return [voice for voice in map(_voice, tokens) if voice is not None]
 
 
 def _caption_lines(

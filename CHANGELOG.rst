@@ -6,11 +6,11 @@ Unreleased
 
 Changes that may need updates to the code using the library:
 
-* Voice names have leading and trailing ASCII whitespace stripped and runs of ASCII whitespace collapsed to a single space, and cue tags are read across line breaks in ``text``, ``voice`` and ``voices``, joining the lines that a tag spans in ``text`` and in SRT and SBV output (#221, #223)
+* Voice names have leading and trailing ASCII whitespace stripped and runs of ASCII whitespace collapsed to a single space, only ASCII whitespace ends the name of a cue tag, so a no-break space after ``<v`` does not start a voice name, and voice spans can have classes with any character, as in ``<v.lo-ud Bob>``. Cue tags are read across line breaks in ``text``, ``voice``, ``voices`` and when reading and writing SRT, joining the lines that a tag spans in ``text`` and in SRT and SBV output, also with ``keep_formatting``, and a ``<`` on one line with a ``>`` on a later one is read as a tag, leaving out the text between them (#221, #223, #241)
 
 Changes:
 
-* Encode all HLS segments before writing any, so an encoding error in a later segment does not create or overwrite earlier segment files.
+* Encode all HLS segments before writing any, so an encoding error in a later segment does not create or overwrite earlier segment files (#240)
 
 0.8.0 (08-11-2026)
 ------------------

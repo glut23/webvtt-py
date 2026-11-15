@@ -6,7 +6,8 @@ import unittest
 import unittest.mock
 
 from webvtt.models import (
-    Timestamp, Caption, CueSettings, ParseIssue, Region, Style
+    Timestamp, Caption, CueSettings, ParseIssue, Region, Style,
+    _CueTag, _iter_cue_text_tokens
     )
 from webvtt.errors import MalformedCaptionError, MalformedRegionError
 
@@ -1009,6 +1010,20 @@ class TestCaption(unittest.TestCase):
                     [] if expected is None else [expected]
                     )
 
+    def test_voice_classes_with_any_character(self):
+        for raw_text in ('<v.lo-ud Bob>Hi', '<v.a+b.c Bob>Hi', '<v. Bob>Hi'):
+            with self.subTest(raw_text=raw_text):
+                caption = Caption(text=raw_text)
+                self.assertEqual(caption.voice, 'Bob')
+                self.assertEqual(caption.voices, ['Bob'])
+
+    def test_voice_only_from_span_that_starts_the_text(self):
+        for raw_text in (' <v Bob>Hi', 'Hi <v Bob>there', '<b><v Bob>Hi'):
+            with self.subTest(raw_text=raw_text):
+                caption = Caption(text=raw_text)
+                self.assertIsNone(caption.voice)
+                self.assertEqual(caption.voices, ['Bob'])
+
     def test_tags_across_line_breaks(self):
         caption = Caption(text='<v Bob\nSmith>Hi</v>')
         self.assertEqual(caption.voice, 'Bob Smith')
@@ -1073,6 +1088,69 @@ class TestCaption(unittest.TestCase):
             )
 
 
+class TestCueTextTokens(unittest.TestCase):
+
+    def tokens(self, text):
+        return list(_iter_cue_text_tokens(text))
+
+    def test_text_and_tags(self):
+        self.assertEqual(
+            self.tokens('a <b>c</b> <00:01.000>d'),
+            ['a ', _CueTag('b', 'start', 'b'), 'c', _CueTag('/b', 'end', 'b'),
+             ' ', _CueTag('00:01.000', 'timestamp'), 'd']
+            )
+
+    def test_text_as_written(self):
+        self.assertEqual(
+            self.tokens('&amp;<b>&lt;3'),
+            ['&amp;', _CueTag('b', 'start', 'b'), '&lt;3']
+            )
+
+    def test_start_tag(self):
+        for content, name, classes, annotation in (
+                ('c', 'c', (), ''),
+                ('c.loud.lo-ud', 'c', ('loud', 'lo-ud'), ''),
+                ('v.a+b Bob', 'v', ('a+b',), 'Bob'),
+                ('v \t\n\f\rBob \t\n Smith\r\n', 'v', (), 'Bob Smith'),
+                ('v\nBob', 'v', (), 'Bob'),
+                ('lang\ten', 'lang', (), 'en'),
+                ('v Bob\xa0 Smith\xa0', 'v', (), 'Bob\xa0 Smith\xa0'),
+                ('v\xa0Bob', 'v\xa0Bob', (), ''),
+                ('v.', 'v', ('',), ''),
+                ('', '', (), ''),
+                (' v Bob', '', (), 'v Bob')):
+            with self.subTest(content=content):
+                self.assertEqual(
+                    self.tokens(f'<{content}>'),
+                    [_CueTag(content, 'start', name, classes, annotation)]
+                    )
+
+    def test_end_tag(self):
+        for content, name in (('/b', 'b'), ('/ v \n', 'v'), ('/', '')):
+            with self.subTest(content=content):
+                self.assertEqual(self.tokens(f'<{content}>'),
+                                 [_CueTag(content, 'end', name)])
+
+    def test_tags_across_line_breaks(self):
+        self.assertEqual(
+            self.tokens('a <v Bob\nSmith>b\nc</v\n>'),
+            ['a ', _CueTag('v Bob\nSmith', 'start', 'v', (), 'Bob Smith'),
+             'b\nc', _CueTag('/v\n', 'end', 'v')]
+            )
+
+    def test_less_than_without_greater_than_is_text(self):
+        for text, tokens in (
+                ('a <b', ['a <b']),
+                ('<', ['<']),
+                ('a<b>c<d\n<e', ['a', _CueTag('b', 'start', 'b'), 'c<d\n<e']),
+                ('a > b', ['a > b'])):
+            with self.subTest(text=text):
+                self.assertEqual(self.tokens(text), tokens)
+
+    def test_no_text(self):
+        self.assertEqual(self.tokens(''), [])
+
+
 class TestLinearTime(unittest.TestCase):
     """
     The text and voices of captions, which were quadratic in the length of
@@ -1100,11 +1178,15 @@ class TestLinearTime(unittest.TestCase):
     def test_text(self):
         n = self.LENGTH
         lines = '\n'.join(['<'] * (n // 4))
+        span_lines = '\n'.join(['<v '] * (n // 4))
         self.assertLinear((
             ('unclosed tags', '<' * n, '<' * n),
             ('text and unclosed tags', 'a<' * n, 'a<' * n),
             ('tags', '<b>a' * (n // 4), 'a' * (n // 4)),
             ('lines', lines, lines),
+            ('unclosed spans on lines', span_lines, span_lines),
+            ('tags across lines', '\n'.join(['<b\n>a'] * (n // 6)),
+             '\n'.join(['a'] * (n // 6))),
             ), 'text')
 
     def test_voice(self):
@@ -1114,6 +1196,10 @@ class TestLinearTime(unittest.TestCase):
             ('unclosed name', '<v' + ' ' * n + 'a' * n, None),
             ('words', '<v' + ' a' * n, None),
             ('classes', '<v' + '.a' * n, None),
+            ('line breaks', '<v' + '\n' * n, None),
+            ('unclosed spans on lines', '\n'.join(['<v '] * (n // 4)), None),
+            ('name across lines', '<v' + '\na' * n + '>',
+             ' '.join(['a'] * n)),
             ), 'voice')
 
     def test_voices(self):
@@ -1123,6 +1209,9 @@ class TestLinearTime(unittest.TestCase):
             ('unclosed spans', '<v ' * n, []),
             ('classes', '<v' + '.a' * n + '>', []),
             ('spans', '<v Bob>a' * (n // 10), ['Bob'] * (n // 10)),
+            ('unclosed spans on lines', '\n'.join(['<v '] * (n // 4)), []),
+            ('spans across lines', '<v\nBob>a\n' * (n // 10),
+             ['Bob'] * (n // 10)),
             ), 'voices')
 
 

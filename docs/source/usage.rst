@@ -36,9 +36,13 @@ Reading WebVTT caption files
     vtt[0].identifier  # 'chapter 1'
 
 Cue tags in ``text``, ``voice`` and ``voices`` are read across line breaks, so
-a tag that spans lines joins them in ``text``, and voice names have their
-leading and trailing ASCII whitespace removed and runs of ASCII whitespace
-collapsed to a single space.
+a tag that spans lines joins them in ``text``. A ``<`` with a ``>`` after it
+starts a tag also when the ``>`` is on a later line, so text such as
+``a < b`` on one line and ``c > d`` on the next is read as a tag; write a
+``<`` that is text as ``&lt;``. Voice names have their leading and trailing
+ASCII whitespace removed and runs of ASCII whitespace collapsed to a single
+space, and the classes of a voice span can have any character, as in
+``<v.lo-ud Bob>``.
 
 
 Reading WebVTT caption files from a file-like object
@@ -628,7 +632,8 @@ without an index are read, as most SRT players do, but the first cue of the
 file needs one for the content to be read as SRT.
 
 The colours and positions of SRT are read into WebVTT. A ``font`` tag with a
-``color`` becomes a ``c`` tag with a class named from the colour, and a
+``color``, also one that spans lines, becomes a ``c`` tag with a class named
+from the colour, and a
 ``STYLE`` block gives each class its colour. Other ``font`` tags and
 attributes, such as ``face`` and ``size``, are removed, keeping their text.
 A ``{\an1}`` to ``{\an9}`` tag, which places the cue as the keys of a
@@ -683,7 +688,8 @@ and SBV files, as these formats cannot have a cue without text, and the
 others are numbered consecutively in SRT. The blank lines of the text are
 also left out, as a blank line ends the cue. The cue tags are removed when
 converting to SBV, which has no formatting, and when converting to SRT without
-``keep_formatting``, joining the lines that a tag spans.
+``keep_formatting``. A tag that spans lines joins them, also with
+``keep_formatting``.
 
 The cue tags are removed when converting to SRT. To keep the formatting
 instead, use ``keep_formatting``. Bold, italic, underline and ``font`` tags are

@@ -152,3 +152,12 @@ class TestText(unittest.TestCase):
             caption.text,
             re.sub('<.*?>', '', caption.raw_text, flags=re.DOTALL)
             )
+
+    @untimed
+    @given(st.lists(st.text(st.sampled_from('<>/ab v.\t')),
+                    min_size=1, max_size=4))
+    def test_text_has_no_tags(self, lines):
+        text = Caption(text=lines).text
+        start = text.find('<')
+        if start >= 0:
+            self.assertNotIn('>', text[start:])
