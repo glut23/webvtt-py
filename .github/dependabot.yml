@@ -23,3 +23,9 @@ updates:
     groups:
       docs:
         patterns: ['*']
+    ignore:
+      # sphinx-rtd-theme 3.1.0 requires docutils<0.23; remove this when a
+      # release of the theme allows it, and bump docutils by hand with the
+      # man page
+      - dependency-name: docutils
+        versions: ['>=0.23']
