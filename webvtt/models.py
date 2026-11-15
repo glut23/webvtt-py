@@ -474,50 +474,63 @@ def _frame_rate(value: _FrameRate) -> fractions.Fraction:
 
 
 def _iter_cue_text_tokens(
-        line: str
+        text: str
         ) -> Generator[tuple[str, bool], None, None]:
     """
-    Iterate the text and the cue tags of a single line of text.
+    Iterate the text and the cue tags of cue text.
 
     A ``<`` without a ``>`` after it is part of the text. The scan stops at
-    the first one, as no later ``<`` on the line has a ``>`` after it either,
-    which keeps it linear in the length of the line.
+    the first one, as no later ``<`` in the text has a ``>`` after it
+    either, which keeps it linear in the length of the text.
 
-    :param line: a line of cue text
+    :param text: the cue text
     :returns: tuples of the text or the tag content and true for a tag
     """
     pos = 0
     while True:
-        start = line.find('<', pos)
+        start = text.find('<', pos)
         if start < 0:
             break
-        end = line.find('>', start + 1)
+        end = text.find('>', start + 1)
         if end < 0:
             break
         if start > pos:
-            yield line[pos:start], False
-        yield line[start + 1:end], True
+            yield text[pos:start], False
+        yield text[start + 1:end], True
         pos = end + 1
-    if pos < len(line):
-        yield line[pos:], False
+    if pos < len(text):
+        yield text[pos:], False
 
 
-def _strip_cue_text_tags(line: str) -> str:
+def _strip_cue_text_tags(text: str) -> str:
     """
-    Remove cue tags from a single line of text.
+    Remove cue tags from cue text.
 
-    Gives the same result as ``re.sub('<.*?>', '', line)`` for a line
-    without a newline, in linear time. That regex rescans the rest of the
-    line from every ``<`` that has no ``>`` after it, which is quadratic in
-    the length of the line.
+    Gives the same result as ``re.sub('<.*?>', '', text, flags=re.DOTALL)``
+    in linear time. That regex rescans the rest of the text from every
+    ``<`` that has no ``>`` after it, which is quadratic in the length of
+    the text.
     """
     return ''.join(
-        token for token, is_tag in _iter_cue_text_tokens(line) if not is_tag
+        token for token, is_tag in _iter_cue_text_tokens(text) if not is_tag
         )
 
 
 # the characters WebVTT treats as spaces when splitting settings
 _SETTINGS_SEPARATOR = re.compile('[ \t\n\f\r]+')
+
+
+def _normalize_voice(name: str) -> str:
+    """
+    Return a voice name with its ASCII whitespace stripped and collapsed.
+
+    As in the WebVTT start tag annotation state, leading and trailing
+    ASCII whitespace is removed and each run of ASCII whitespace is
+    replaced with a single space.
+    """
+    return _SETTINGS_SEPARATOR.sub(' ', name.strip(' \t\n\f\r'))
+
+
 _PERCENTAGE = re.compile(r'[0-9]+(?:\.[0-9]+)?%')
 _LINE_NUMBER = re.compile(r'-?[0-9]+')
 _NUMBER_OF_LINES = re.compile(r'[0-9]+')
@@ -852,7 +865,9 @@ def _to_cue_settings(
 class Caption:
     """Representation of a caption."""
 
-    VOICE_SPAN_PATTERN = re.compile(r'<v(?:\.\w+)*\s+([^>\s][^>]*)>')
+    VOICE_SPAN_PATTERN = re.compile(
+        r'<v(?:\.\w+)*[ \t\n\f\r]+([^> \t\n\f\r][^>]*)>'
+        )
 
     def __init__(self,
                  start: _Position | None = None,
@@ -1054,10 +1069,7 @@ class Caption:
     @property
     def text(self) -> str:
         """Return the text of the caption (without cue tags)."""
-        return '\n'.join(
-            _strip_cue_text_tags(line)
-            for line in self.raw_text.split('\n')
-        )
+        return _strip_cue_text_tags(self.raw_text)
 
     @text.setter
     def text(self, value: str | Sequence[str]) -> None:
@@ -1075,9 +1087,9 @@ class Caption:
     def voice(self) -> str | None:
         """Return the voice span if present."""
         if self.lines and self.lines[0].startswith('<v'):
-            match = self.VOICE_SPAN_PATTERN.match(self.lines[0])
+            match = self.VOICE_SPAN_PATTERN.match(self.raw_text)
             if match:
-                return match.group(1)
+                return _normalize_voice(match.group(1))
 
         return None
 
@@ -1092,12 +1104,11 @@ class Caption:
         `voice`, so a caption that starts with a voice span has it first.
         """
         voices = []
-        for line in self.lines:
-            for token, is_tag in _iter_cue_text_tokens(line):
-                if is_tag:
-                    match = self.VOICE_SPAN_PATTERN.fullmatch(f'<{token}>')
-                    if match:
-                        voices.append(match.group(1))
+        for token, is_tag in _iter_cue_text_tokens(self.raw_text):
+            if is_tag:
+                match = self.VOICE_SPAN_PATTERN.fullmatch(f'<{token}>')
+                if match:
+                    voices.append(_normalize_voice(match.group(1)))
         return voices
 
 

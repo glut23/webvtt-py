@@ -992,6 +992,32 @@ class TestCaption(unittest.TestCase):
         self.assertEqual(caption.raw_text, 'This is a test')
         self.assertIsNone(caption.voice)
 
+    def test_voice_whitespace(self):
+        for raw_text, expected in (
+                ('<v  Bob   Smith >Hi</v>', 'Bob Smith'),
+                ('<v \t\n\f\rBob \t\n\f\r Smith\t\n\f\r >Hi</v>',
+                 'Bob Smith'),
+                ('<v Bob\xa0Smith>Hi</v>', 'Bob\xa0Smith'),
+                ('<v \xa0Bob\xa0Smith\xa0>Hi</v>', '\xa0Bob\xa0Smith\xa0'),
+                ('<v\xa0Bob>Hi</v>', None),
+                ('<v \t\n\f\r>Hi</v>', None)):
+            with self.subTest(raw_text=raw_text):
+                caption = Caption(text=raw_text)
+                self.assertEqual(caption.voice, expected)
+                self.assertEqual(
+                    caption.voices,
+                    [] if expected is None else [expected]
+                    )
+
+    def test_tags_across_line_breaks(self):
+        caption = Caption(text='<v Bob\nSmith>Hi</v>')
+        self.assertEqual(caption.voice, 'Bob Smith')
+        self.assertEqual(caption.voices, ['Bob Smith'])
+        self.assertEqual(caption.text, 'Hi')
+
+        caption = Caption(text='a <b\nc> d')
+        self.assertEqual(caption.text, 'a  d')
+
     def test_voices(self):
         for raw_text, voices in (
                 ('<v Homer Simpson>Hello there!</v>', ['Homer Simpson']),
@@ -1001,7 +1027,10 @@ class TestCaption(unittest.TestCase):
                  ['Bob', 'Alice', 'Bob']),
                 ('<b><v.quiet.slow Lisa Simpson>I am Lisa</v></b>',
                  ['Lisa Simpson']),
+                ('Hi <v  Bob   Smith >there</v>, <v Alice\nSmith>hello</v>',
+                 ['Bob Smith', 'Alice Smith']),
                 ('No voice <b>here</b>', []),
+                ('<b <v Bob>x</b>', []),
                 ('', []),
                 ('<v>no name</v> <v  >spaces</v> <V Bob>upper</V>', []),
                 ('<vBob>no space</v> <voice Bob>other tag</voice>', []),
@@ -1014,7 +1043,8 @@ class TestCaption(unittest.TestCase):
     def test_voices_first_is_voice(self):
         for raw_text in ('<v Homer Simpson>Hello there!</v>',
                          '<v.quiet.slow Lisa Simpson>I am Lisa</v>',
-                         '<v Bob  >trailing spaces</v> <v Alice>x</v>'):
+                         '<v  Bob   Smith  >spaces</v> <v Alice>x</v>',
+                         '<v Bob\nSmith>across lines</v> <v Alice>x</v>'):
             with self.subTest(raw_text=raw_text):
                 caption = Caption(text=raw_text)
                 self.assertEqual(caption.voices[0], caption.voice)
@@ -1033,12 +1063,13 @@ class TestCaption(unittest.TestCase):
             'a <unclosed tag',
             'a <b <i>nested< one',
             '<b>first line\nsecond</b> line <',
+            'a <b\nc> d',
             '',
         ):
             caption = Caption(text=raw_text)
             self.assertEqual(
                 caption.text,
-                re.sub('<.*?>', '', raw_text)
+                re.sub('<.*?>', '', raw_text, flags=re.DOTALL)
             )
 
 
