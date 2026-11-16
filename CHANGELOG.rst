@@ -10,8 +10,8 @@ Changes that may need updates to the code using the library:
 
 * ``Caption.text``, ``voice`` and ``voices`` resolve character references once; ``raw_text``, ``lines`` and WebVTT output keep the original cue text. Voice names normalize ASCII whitespace after resolving references, thanks to `@mirad-tech <https://github.com/mirad-tech>`_ (#189, #219)
 
-* SRT and SBV input treats character references as literal text and escapes non-markup ampersands and angle brackets into WebVTT cue syntax. Only supported SRT tags are read as markup, so comparisons before a formatting tag and unknown tags keep their text. Numeric text lines followed by ordinary arrow expressions are kept instead of being misread as cue timings. SRT output with ``keep_formatting`` resolves each text token once, thanks to `@mirad-tech <https://github.com/mirad-tech>`_ (#189)
-* SRT and SBV treat only ASCII whitespace as blank lines, preserving nonbreaking-space cues and lines. ``validate()`` uses the same ASCII whitespace rule for empty text, thanks to `@mirad-tech <https://github.com/mirad-tech>`_ (#189)
+* SRT and SBV input treats character references as literal text and escapes non-markup ampersands and angle brackets into WebVTT cue syntax. Only supported SRT tags are read as markup, so comparisons before a formatting tag and unknown tags keep their text. Numeric text lines followed by ordinary arrow expressions are kept instead of being misread as cue timings. SRT output with ``keep_formatting`` resolves each text token once, thanks to `@mirad-tech <https://github.com/mirad-tech>`_ (#189, #249)
+* SRT and SBV treat only ASCII whitespace as blank lines, preserving nonbreaking-space cues and lines. ``validate()`` uses the same ASCII whitespace rule for empty text, thanks to `@mirad-tech <https://github.com/mirad-tech>`_ (#189, #249)
 
 Changes:
 
