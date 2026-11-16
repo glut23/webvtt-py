@@ -1072,6 +1072,99 @@ class TestCaption(unittest.TestCase):
         caption.lines.append('<v Carol>Three</v>')
         self.assertEqual(caption.voices, ['Bob', 'Alice', 'Carol'])
 
+    def test_text_decodes_html_character_references(self):
+        for raw_text, expected in (
+                ('&amp; &lt; &gt; &quot; &apos;', '& < > " \''),
+                ('&nbsp;&lrm;&rlm;', '\xa0\u200e\u200f'),
+                ('&#60; &#x3c; &#X3C; &#128;', '< < < \u20ac'),
+                ('&#0; &#xD800; &#1114112;', '\ufffd \ufffd \ufffd'),
+                ('&unknown; &#xZZ; &#;', '&unknown; &#xZZ; &#;'),
+                ('&amp &notanentity;', '& \xacanentity;')):
+            with self.subTest(raw_text=raw_text):
+                caption = Caption(text=raw_text)
+                self.assertEqual(caption.text, expected)
+                self.assertEqual(caption.raw_text, raw_text)
+                self.assertEqual(caption.lines, [raw_text])
+
+    def test_text_decodes_each_text_token_once(self):
+        for raw_text, expected in (
+                ('<v Bob>Tom &amp; Jerry &lt;3</v>', 'Tom & Jerry <3'),
+                ('&lt;b&gt;literal&lt;/b&gt;', '<b>literal</b>'),
+                ('&amp;lt;', '&lt;'),
+                ('&am<b></b>p;', '&amp;'),
+                ('a &amp;<b\nc> &lt;3', 'a & <3')):
+            with self.subTest(raw_text=raw_text):
+                caption = Caption(text=raw_text)
+                self.assertEqual(caption.text, expected)
+                self.assertEqual(caption.raw_text, raw_text)
+
+    def test_decodes_long_decimal_references(self):
+        for digits, expected in (('0' * 5000 + '60', '<'),
+                                 ('9' * 5000, '\ufffd'),
+                                 ('0' * 5000, '\ufffd')):
+            for ending in (';', ''):
+                with self.subTest(
+                        significant_digits=len(digits.lstrip('0')),
+                        ending=ending):
+                    reference = '&#' + digits + ending
+                    caption = Caption(text=f'<v {reference}>{reference}</v>')
+                    self.assertEqual(caption.text, expected)
+                    self.assertEqual(caption.voice, expected)
+                    self.assertEqual(caption.voices, [expected])
+
+    def test_voice_decodes_references_before_normalizing_whitespace(self):
+        for annotation, expected in (
+                ('&#32;Bob&#10;&#9;Smith&#32;', 'Bob Smith'),
+                ('&#32;&#9;&#10;&#12;&#13;', None),
+                ('&nbsp;Bob&nbsp;Smith&nbsp;', '\xa0Bob\xa0Smith\xa0'),
+                ('Bob &amp; Alice', 'Bob & Alice'),
+                ('&amp;lt;', '&lt;'),
+                ('&lt;b&gt;Bob&lt;/b&gt;', '<b>Bob</b>')):
+            with self.subTest(annotation=annotation):
+                raw_text = f'<v {annotation}>Hi</v>'
+                caption = Caption(text=raw_text)
+                self.assertEqual(caption.voice, expected)
+                self.assertEqual(caption.voices,
+                                 [] if expected is None else [expected])
+                self.assertEqual(caption.raw_text, raw_text)
+
+    def test_decoded_voices_keep_token_order_and_duplicates(self):
+        raw_text = ('<v Bob &amp; Alice>One</v>'
+                    '<v &#32;&#9;>empty</v>'
+                    '<v Carol>Two</v><v Bob &amp; Alice>Three</v>')
+        for prefix in ('', ' ', '<b>', '&lt;v Bob&gt;'):
+            with self.subTest(prefix=prefix):
+                caption = Caption(text=prefix + raw_text)
+                self.assertEqual(caption.voice,
+                                 None if prefix else 'Bob & Alice')
+                self.assertEqual(caption.voices,
+                                 ['Bob & Alice', 'Carol', 'Bob & Alice'])
+
+    def test_decoding_follows_setter_and_direct_line_changes(self):
+        lines = ['<v Bob &amp; Alice>Tom &amp; Jerry</v>',
+                 '&lt;b&gt;literal&lt;/b&gt;']
+        constructed = Caption(text=lines)
+        assigned = Caption(text='old text')
+        assigned.text = lines
+        for caption in (constructed, assigned):
+            self.assertEqual(caption.text, 'Tom & Jerry\n<b>literal</b>')
+            self.assertEqual(caption.voice, 'Bob & Alice')
+            self.assertEqual(caption.voices, ['Bob & Alice'])
+            self.assertEqual(caption.lines, lines)
+            self.assertEqual(caption.raw_text, '\n'.join(lines))
+        self.assertEqual(assigned, constructed)
+        self.assertEqual(repr(assigned), repr(constructed))
+        self.assertEqual(lines, ['<v Bob &amp; Alice>Tom &amp; Jerry</v>',
+                                 '&lt;b&gt;literal&lt;/b&gt;'])
+
+        assigned.lines[:] = ['<v Carol &amp; Dave>&amp;lt;</v>']
+        self.assertEqual(assigned.text, '&lt;')
+        self.assertEqual(assigned.voice, 'Carol & Dave')
+        self.assertEqual(assigned.voices, ['Carol & Dave'])
+        self.assertEqual(assigned.raw_text,
+                         '<v Carol &amp; Dave>&amp;lt;</v>')
+        self.assertEqual(constructed.raw_text, '\n'.join(lines))
+
     def test_text_strips_tags_like_regex(self):
         for raw_text in (
             '<v Bob>Hello <b>test</b>!',
@@ -1099,6 +1192,18 @@ class TestCueTextTokens(unittest.TestCase):
             ['a ', _CueTag('b', 'start', 'b'), 'c', _CueTag('/b', 'end', 'b'),
              ' ', _CueTag('00:01.000', 'timestamp'), 'd']
             )
+
+    def test_character_references_stay_raw_in_tokens(self):
+        self.assertEqual(
+            self.tokens('&amp;<v.&amp; &#32;Bob&#32;>&lt;</v>'),
+            ['&amp;',
+             _CueTag('v.&amp; &#32;Bob&#32;', 'start', 'v', ('&amp;',),
+                     '&#32;Bob&#32;'),
+             '&lt;', _CueTag('/v', 'end', 'v')]
+            )
+        caption = Caption(text='<&#118; Bob>Hi</&#118;>')
+        self.assertIsNone(caption.voice)
+        self.assertEqual(caption.voices, [])
 
     def test_text_as_written(self):
         self.assertEqual(

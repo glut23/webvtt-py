@@ -6,6 +6,7 @@ import datetime
 import decimal
 import fractions
 import functools
+import html
 import math
 import re
 import typing
@@ -575,18 +576,21 @@ def _cue_tag(content: str) -> _CueTag:
     return _CueTag(content, 'start', name, tuple(classes), annotation)
 
 
-def _strip_cue_text_tags(text: str) -> str:
-    """
-    Remove cue tags from cue text.
+_LONG_DECIMAL_REFERENCE = re.compile(r'&#([0-9]{8,});?')
 
-    Gives the same result as ``re.sub('<.*?>', '', text, flags=re.DOTALL)``
-    in linear time. That regex rescans the rest of the text from every
-    ``<`` that has no ``>`` after it, which is quadratic in the length of
-    the text.
-    """
-    return ''.join(
-        token for token, is_tag in _scan_cue_text(text) if not is_tag
-        )
+
+def _short_decimal_reference(match: re.Match[str]) -> str:
+    """Reduce a long decimal reference to a value that can be parsed."""
+    digits = match[1].lstrip('0')
+    return f'&#{digits or "0"};' if len(digits) <= 7 else '\ufffd'
+
+
+def _unescape_cue_text(text: str) -> str:
+    """Decode character references in a text token or a tag annotation."""
+    # Python limits the number of decimal digits that int() can read.
+    if '&#' in text:
+        text = _LONG_DECIMAL_REFERENCE.sub(_short_decimal_reference, text)
+    return html.unescape(text)
 
 
 def _voice(token: str | _CueTag) -> str | None:
@@ -598,8 +602,12 @@ def _voice(token: str | _CueTag) -> str | None:
         with a name
     """
     if (isinstance(token, _CueTag) and token.kind == 'start'
-            and token.name == 'v' and token.annotation):
-        return token.annotation
+            and token.name == 'v'):
+        # References can introduce whitespace after the tag was read.
+        name = _SETTINGS_SEPARATOR.sub(
+            ' ', _unescape_cue_text(token.annotation)
+            ).strip(' ')
+        return name if name else None
     return None
 
 
@@ -1141,8 +1149,13 @@ class Caption:
 
     @property
     def text(self) -> str:
-        """Return the text of the caption (without cue tags)."""
-        return _strip_cue_text_tags(self.raw_text)
+        """Return the text without cue tags, resolving character references."""
+        # Decode before joining, so references cannot form across tags.
+        return ''.join(
+            _unescape_cue_text(token)
+            for token in _iter_cue_text_tokens(self.raw_text)
+            if isinstance(token, str)
+            )
 
     @text.setter
     def text(self, value: str | Sequence[str]) -> None:
@@ -1158,7 +1171,7 @@ class Caption:
 
     @property
     def voice(self) -> str | None:
-        """Return the voice of the voice span that starts the text, if any."""
+        """Return the resolved voice name of the initial voice span, if any."""
         first = next(_iter_cue_text_tokens(self.raw_text), '')
         return _voice(first)
 

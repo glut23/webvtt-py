@@ -8,6 +8,8 @@ Changes that may need updates to the code using the library:
 
 * Voice names have leading and trailing ASCII whitespace stripped and runs of ASCII whitespace collapsed to a single space, only ASCII whitespace ends the name of a cue tag, so a no-break space after ``<v`` does not start a voice name, and voice spans can have classes with any character, as in ``<v.lo-ud Bob>``. Cue tags are read across line breaks in ``text``, ``voice``, ``voices`` and when reading and writing SRT, joining the lines that a tag spans in ``text`` and in SRT and SBV output, also with ``keep_formatting``, and a ``<`` on one line with a ``>`` on a later one is read as a tag, leaving out the text between them (#221, #223, #241)
 
+* ``Caption.text``, ``voice`` and ``voices`` resolve character references once with Python's ``html.unescape``; ``raw_text``, ``lines`` and WebVTT output keep the original cue text. Voice names normalize ASCII whitespace after resolving references, thanks to `@mirad-tech <https://github.com/mirad-tech>`_ (#189, #219)
+
 Changes:
 
 * Encode all HLS segments before writing any, so an encoding error in a later segment does not create or overwrite earlier segment files (#240)

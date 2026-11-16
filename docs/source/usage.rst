@@ -44,6 +44,21 @@ ASCII whitespace removed and runs of ASCII whitespace collapsed to a single
 space, and the classes of a voice span can have any character, as in
 ``<v.lo-ud Bob>``.
 
+``text``, ``voice`` and ``voices`` resolve character references once, using
+Python's :func:`html.unescape`. In ``text``, each piece between cue tags is
+resolved separately, so removing tags does not form a new reference, and
+an escaped tag such as ``&lt;b&gt;`` stays literal text. Voice names normalize
+ASCII whitespace after resolving references. ``raw_text``, ``lines`` and
+WebVTT output keep the original cue text.
+
+.. code-block:: python
+
+    caption = webvtt.Caption(text='<v Tom &amp; Jerry>&lt;b&gt; &amp;lt;</v>')
+    caption.text    # '<b> &lt;'
+    caption.voice   # 'Tom & Jerry'
+    caption.voices  # ['Tom & Jerry']
+    caption.raw_text  # '<v Tom &amp; Jerry>&lt;b&gt; &amp;lt;</v>'
+
 
 Reading WebVTT caption files from a file-like object
 ----------------------------------------------------
@@ -253,6 +268,11 @@ The lists given to ``WebVTT``, such as ``WebVTT(captions=captions)``, are
 kept as its attributes, not copied, so changes to them show in the
 instance. The list of lines given to a ``Caption`` or a ``Style`` is
 copied.
+
+The ``text`` argument of ``Caption()`` and the ``text`` setter take cue text,
+including tags and character references. Assigning ``caption.text`` back
+to itself can therefore interpret literal tags or resolve references again;
+use ``caption.raw_text`` when copying the cue text.
 
 As in WebVTT, only CR, LF and CRLF break text into lines. Other characters
 such as U+2028 or a form feed stay in the line.
@@ -689,7 +709,9 @@ others are numbered consecutively in SRT. The blank lines of the text are
 also left out, as a blank line ends the cue. The cue tags are removed when
 converting to SBV, which has no formatting, and when converting to SRT without
 ``keep_formatting``. A tag that spans lines joins them, also with
-``keep_formatting``.
+``keep_formatting``. These checks use the resolved text, so a cue containing
+only ``&nbsp;`` is also left out, including with ``keep_formatting``, and
+``validate()`` reports it as empty.
 
 The cue tags are removed when converting to SRT. To keep the formatting
 instead, use ``keep_formatting``. Bold, italic, underline and ``font`` tags are
@@ -725,7 +747,9 @@ as in ``::cue(.c\+1)`` for ``<c.c+1>``. Other selectors, such as ``::cue``,
 When more than one rule matches a cue tag, the rule with the most classes
 applies, then one with a tag name, and then the one that comes last in the
 styles, as in CSS.
-Character references such as ``&lt;`` are written as they are.
+With ``keep_formatting``, character references such as ``&lt;`` are written
+as they are. Without it, SRT output uses ``Caption.text`` and resolves them,
+as SBV output does.
 
 The ``line`` and ``align`` cue settings are written to SRT as a ``{\anN}``
 tag, with or without ``keep_formatting``, so captions read from SRT keep
