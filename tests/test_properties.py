@@ -4,7 +4,7 @@ import datetime
 import re
 import unittest
 
-from hypothesis import given, settings, strategies as st
+from hypothesis import example, given, settings, strategies as st
 
 import webvtt
 from webvtt.errors import MalformedFileError
@@ -108,11 +108,39 @@ class TestRoundTrip(unittest.TestCase):
     def test_write_and_read(self, vtt):
         self.assertEqual(webvtt.from_string(vtt.content), vtt)
 
-    # without captions the SRT file is empty, which is not read as SRT
+    # Keep the input domain; choose WebVTT for text SRT cannot preserve.
     @untimed
-    @given(st.lists(plain_captions, min_size=1))
-    def test_vtt_to_srt_to_vtt(self, caption_list):
+    @given(caption_list=st.lists(plain_captions, min_size=1),
+           expected_format=st.none())
+    @example(caption_list=[Caption(text='&amp;lt;')], expected_format='srt')
+    @example(caption_list=[Caption(text='&nbsp;')], expected_format='srt')
+    @example(caption_list=[Caption(text='1\na --&gt; b')],
+             expected_format='srt')
+    @example(caption_list=[Caption(text='2 &lt; 3\n1\na --&gt; b')],
+             expected_format='srt')
+    @example(caption_list=[Caption(text='&lt;b&gt;literal&lt;/b&gt;')],
+             expected_format='vtt')
+    def test_lossless_round_trip_uses_representable_format(
+            self, caption_list, expected_format
+            ):
         vtt = webvtt.WebVTT(captions=caption_list)
+        literal_markup = re.compile(
+            r'<(?:(?:b|i|u|font)(?=[ \t\n\f\r>])[^>]*|'
+            r'/[ \t\n\f\r]*(?:b|i|u|font)[ \t\n\f\r]*)>',
+            re.IGNORECASE | re.ASCII)
+        requires_vtt = any(
+            literal_markup.search(caption.text)
+            or re.search(r'{\\an[1-9]}', caption.text)
+            or '\r' in caption.text
+            or any(not line.strip(' \t\n\f\r')
+                   for line in caption.text.split('\n'))
+            for caption in vtt)
+        selected_format = 'vtt' if requires_vtt else 'srt'
+        if expected_format is not None:
+            self.assertEqual(selected_format, expected_format)
+        if selected_format == 'vtt':
+            self.assertEqual(webvtt.from_string(vtt.to_string('vtt')), vtt)
+            return
         srt = webvtt.from_string(vtt.to_string('srt'), format='srt')
         self.assertEqual(
             [(caption.start, caption.end, caption.text) for caption in srt],

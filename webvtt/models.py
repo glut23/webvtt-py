@@ -509,7 +509,11 @@ _START_TAG = re.compile(
     )
 
 
-def _scan_cue_text(text: str) -> Generator[tuple[str, bool], None, None]:
+def _scan_cue_text(
+        text: str,
+        *,
+        tag_start: re.Pattern[str] | None = None
+        ) -> Generator[tuple[str, bool], None, None]:
     """
     Iterate the text and the content of the cue tags of cue text.
 
@@ -519,12 +523,18 @@ def _scan_cue_text(text: str) -> Generator[tuple[str, bool], None, None]:
     either, which keeps it linear in the length of the text.
 
     :param text: the cue text
+    :param tag_start: a pattern restricting tag starts, as for SRT, or
+        None to treat every less-than sign as a tag start
     :returns: tuples of the text or the tag content, as written, and true
         for a tag
     """
     pos = 0
     while True:
-        start = text.find('<', pos)
+        if tag_start is None:
+            start = text.find('<', pos)
+        else:
+            match = tag_start.search(text, pos)
+            start = match.start() if match is not None else -1
         if start < 0:
             break
         end = text.find('>', start + 1)
@@ -539,7 +549,9 @@ def _scan_cue_text(text: str) -> Generator[tuple[str, bool], None, None]:
 
 
 def _iter_cue_text_tokens(
-        text: str
+        text: str,
+        *,
+        tag_start: re.Pattern[str] | None = None
         ) -> Generator[str | _CueTag, None, None]:
     """
     Iterate the text and the cue tags of cue text.
@@ -548,10 +560,11 @@ def _iter_cue_text_tokens(
     written, with its character references.
 
     :param text: the cue text
+    :param tag_start: the tag start pattern of `_scan_cue_text`, if any
     :returns: the text between the tags, as strings, and the tags, as
         `_CueTag`
     """
-    for token, is_tag in _scan_cue_text(text):
+    for token, is_tag in _scan_cue_text(text, tag_start=tag_start):
         yield _cue_tag(token) if is_tag else token
 
 
