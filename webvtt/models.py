@@ -6,6 +6,7 @@ import datetime
 import decimal
 import fractions
 import functools
+import html
 import math
 import re
 import typing
@@ -508,7 +509,11 @@ _START_TAG = re.compile(
     )
 
 
-def _scan_cue_text(text: str) -> Generator[tuple[str, bool], None, None]:
+def _scan_cue_text(
+        text: str,
+        *,
+        tag_start: re.Pattern[str] | None = None
+        ) -> Generator[tuple[str, bool], None, None]:
     """
     Iterate the text and the content of the cue tags of cue text.
 
@@ -518,12 +523,18 @@ def _scan_cue_text(text: str) -> Generator[tuple[str, bool], None, None]:
     either, which keeps it linear in the length of the text.
 
     :param text: the cue text
+    :param tag_start: a pattern restricting tag starts, as for SRT, or
+        None to treat every less-than sign as a tag start
     :returns: tuples of the text or the tag content, as written, and true
         for a tag
     """
     pos = 0
     while True:
-        start = text.find('<', pos)
+        if tag_start is None:
+            start = text.find('<', pos)
+        else:
+            match = tag_start.search(text, pos)
+            start = match.start() if match is not None else -1
         if start < 0:
             break
         end = text.find('>', start + 1)
@@ -538,7 +549,9 @@ def _scan_cue_text(text: str) -> Generator[tuple[str, bool], None, None]:
 
 
 def _iter_cue_text_tokens(
-        text: str
+        text: str,
+        *,
+        tag_start: re.Pattern[str] | None = None
         ) -> Generator[str | _CueTag, None, None]:
     """
     Iterate the text and the cue tags of cue text.
@@ -547,10 +560,11 @@ def _iter_cue_text_tokens(
     written, with its character references.
 
     :param text: the cue text
+    :param tag_start: the tag start pattern of `_scan_cue_text`, if any
     :returns: the text between the tags, as strings, and the tags, as
         `_CueTag`
     """
-    for token, is_tag in _scan_cue_text(text):
+    for token, is_tag in _scan_cue_text(text, tag_start=tag_start):
         yield _cue_tag(token) if is_tag else token
 
 
@@ -575,18 +589,40 @@ def _cue_tag(content: str) -> _CueTag:
     return _CueTag(content, 'start', name, tuple(classes), annotation)
 
 
-def _strip_cue_text_tags(text: str) -> str:
-    """
-    Remove cue tags from cue text.
+_NUMERIC_REFERENCE = re.compile(r'&#([xX][0-9a-fA-F]+|[0-9]+);?')
 
-    Gives the same result as ``re.sub('<.*?>', '', text, flags=re.DOTALL)``
-    in linear time. That regex rescans the rest of the text from every
-    ``<`` that has no ``>`` after it, which is quadratic in the length of
-    the text.
-    """
-    return ''.join(
-        token for token, is_tag in _scan_cue_text(text) if not is_tag
-        )
+
+def _unescape_numeric_reference(match: re.Match[str]) -> str:
+    """Resolve a numeric reference without discarding valid code points."""
+    digits = match[1]
+    base, max_digits = 10, 7
+    if digits[0] in 'xX':
+        digits = digits[1:]
+        base, max_digits = 16, 6
+    digits = digits.lstrip('0')
+    # Bound int() conversion, keeping the value of long leading zeroes.
+    if len(digits) > max_digits:
+        return '\ufffd'
+    value = int(digits or '0', base)
+    resolved = html.unescape(f'&#{value};')
+    # HTML reports controls and noncharacters as parse errors but keeps
+    # them. html.unescape drops some instead; keep their code points.
+    if resolved == '':
+        return chr(value)
+    return resolved
+
+
+def _unescape_cue_text(text: str) -> str:
+    """Decode character references in a text token or a tag annotation."""
+    output = []
+    pos = 0
+    for match in _NUMERIC_REFERENCE.finditer(text):
+        output.append(html.unescape(text[pos:match.start()]))
+        output.append(_unescape_numeric_reference(match))
+        pos = match.end()
+    output.append(html.unescape(text[pos:]))
+    # Do not decode the joined result: a numeric reference can yield '&'.
+    return ''.join(output)
 
 
 def _voice(token: str | _CueTag) -> str | None:
@@ -598,8 +634,12 @@ def _voice(token: str | _CueTag) -> str | None:
         with a name
     """
     if (isinstance(token, _CueTag) and token.kind == 'start'
-            and token.name == 'v' and token.annotation):
-        return token.annotation
+            and token.name == 'v'):
+        # References can introduce whitespace after the tag was read.
+        name = _SETTINGS_SEPARATOR.sub(
+            ' ', _unescape_cue_text(token.annotation)
+            ).strip(' ')
+        return name if name else None
     return None
 
 
@@ -1141,8 +1181,13 @@ class Caption:
 
     @property
     def text(self) -> str:
-        """Return the text of the caption (without cue tags)."""
-        return _strip_cue_text_tags(self.raw_text)
+        """Return the text without cue tags, resolving character references."""
+        # Decode before joining, so references cannot form across tags.
+        return ''.join(
+            _unescape_cue_text(token)
+            for token in _iter_cue_text_tokens(self.raw_text)
+            if isinstance(token, str)
+            )
 
     @text.setter
     def text(self, value: str | Sequence[str]) -> None:
@@ -1158,7 +1203,7 @@ class Caption:
 
     @property
     def voice(self) -> str | None:
-        """Return the voice of the voice span that starts the text, if any."""
+        """Return the resolved voice name of the initial voice span, if any."""
         first = next(_iter_cue_text_tokens(self.raw_text), '')
         return _voice(first)
 

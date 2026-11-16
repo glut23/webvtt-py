@@ -1780,7 +1780,9 @@ class TestWebVTT(unittest.TestCase):
             Caption('00:00:01.000', '00:00:02.000', ''),
             Caption('00:00:02.000', '00:00:03.000', ['', '  ']),
             Caption('00:00:03.000', '00:00:04.000', '<b> </b>'),
-            Caption('00:00:04.000', '00:00:05.000', 'text')
+            Caption('00:00:04.000', '00:00:05.000', 'text'),
+            Caption('00:00:05.000', '00:00:06.000', '&nbsp;'),
+            Caption('00:00:06.000', '00:00:07.000', '\xa0')
             ])
         self.assertEqual(
             [(i.index, i.code, i.severity, i.message)
@@ -3120,7 +3122,8 @@ class TestParseSBV(unittest.TestCase):
                 ).save_as_srt(f.name, keep_formatting=True)
 
             self.assertEqual(
-                (PATH_TO_SAMPLES / 'styles_colours.srt').read_text(),
+                (PATH_TO_SAMPLES / 'styles_colours.srt').read_text()
+                .replace('2 &lt; 3', '2 < 3'),
                 pathlib.Path(f.name).read_text()
                 )
 
