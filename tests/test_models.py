@@ -1091,6 +1091,8 @@ class TestCaption(unittest.TestCase):
                 ('<v Bob>Tom &amp; Jerry &lt;3</v>', 'Tom & Jerry <3'),
                 ('&lt;b&gt;literal&lt;/b&gt;', '<b>literal</b>'),
                 ('&amp;lt;', '&lt;'),
+                ('&#38;amp;', '&amp;'),
+                ('&am&#112;;', '&amp;'),
                 ('&am<b></b>p;', '&amp;'),
                 ('a &amp;<b\nc> &lt;3', 'a & <3')):
             with self.subTest(raw_text=raw_text):
@@ -1098,15 +1100,40 @@ class TestCaption(unittest.TestCase):
                 self.assertEqual(caption.text, expected)
                 self.assertEqual(caption.raw_text, raw_text)
 
-    def test_decodes_long_decimal_references(self):
-        for digits, expected in (('0' * 5000 + '60', '<'),
-                                 ('9' * 5000, '\ufffd'),
-                                 ('0' * 5000, '\ufffd')):
+    def test_numeric_references_preserve_controls_and_noncharacters(self):
+        for reference, character in (('&#1;', '\x01'), ('&#11;', '\x0b'),
+                                     ('&#127;', '\x7f'),
+                                     ('&#xFDD0;', '\ufdd0'),
+                                     ('&#65535;', '\uffff')):
+            with self.subTest(reference=reference):
+                raw_text = 'A' + reference + 'B'
+                text_caption = Caption(text=raw_text)
+                voice_caption = Caption(text=f'<v {raw_text}>Hi')
+                expected = 'A' + character + 'B'
+                for property_name, actual in (
+                        ('text', text_caption.text),
+                        ('voice', voice_caption.voice),
+                        ('voices', voice_caption.voices)):
+                    with self.subTest(property=property_name):
+                        self.assertEqual(actual, [expected]
+                                         if property_name == 'voices'
+                                         else expected)
+                self.assertEqual(text_caption.raw_text, raw_text)
+                self.assertEqual(voice_caption.raw_text, f'<v {raw_text}>Hi')
+
+    def test_decodes_long_numeric_references(self):
+        for prefix, digits, expected in (
+                ('', '0' * 5000 + '60', '<'),
+                ('', '9' * 5000, '\ufffd'),
+                ('', '0' * 5000, '\ufffd'),
+                ('x', '0' * 5000 + '3c', '<'),
+                ('x', 'f' * 5000, '\ufffd')):
             for ending in (';', ''):
                 with self.subTest(
+                        prefix=prefix,
                         significant_digits=len(digits.lstrip('0')),
                         ending=ending):
-                    reference = '&#' + digits + ending
+                    reference = '&#' + prefix + digits + ending
                     caption = Caption(text=f'<v {reference}>{reference}</v>')
                     self.assertEqual(caption.text, expected)
                     self.assertEqual(caption.voice, expected)
@@ -1118,6 +1145,8 @@ class TestCaption(unittest.TestCase):
                 ('&#32;&#9;&#10;&#12;&#13;', None),
                 ('&nbsp;Bob&nbsp;Smith&nbsp;', '\xa0Bob\xa0Smith\xa0'),
                 ('Bob &amp; Alice', 'Bob & Alice'),
+                ('&#38;amp;', '&amp;'),
+                ('&am&#112;;', '&amp;'),
                 ('&amp;lt;', '&lt;'),
                 ('&lt;b&gt;Bob&lt;/b&gt;', '<b>Bob</b>')):
             with self.subTest(annotation=annotation):

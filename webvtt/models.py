@@ -576,21 +576,40 @@ def _cue_tag(content: str) -> _CueTag:
     return _CueTag(content, 'start', name, tuple(classes), annotation)
 
 
-_LONG_DECIMAL_REFERENCE = re.compile(r'&#([0-9]{8,});?')
+_NUMERIC_REFERENCE = re.compile(r'&#([xX][0-9a-fA-F]+|[0-9]+);?')
 
 
-def _short_decimal_reference(match: re.Match[str]) -> str:
-    """Reduce a long decimal reference to a value that can be parsed."""
-    digits = match[1].lstrip('0')
-    return f'&#{digits or "0"};' if len(digits) <= 7 else '\ufffd'
+def _unescape_numeric_reference(match: re.Match[str]) -> str:
+    """Resolve a numeric reference without discarding valid code points."""
+    digits = match[1]
+    base, max_digits = 10, 7
+    if digits[0] in 'xX':
+        digits = digits[1:]
+        base, max_digits = 16, 6
+    digits = digits.lstrip('0')
+    # Bound int() conversion, keeping the value of long leading zeroes.
+    if len(digits) > max_digits:
+        return '\ufffd'
+    value = int(digits or '0', base)
+    resolved = html.unescape(f'&#{value};')
+    # HTML reports controls and noncharacters as parse errors but keeps
+    # them. html.unescape drops some instead; keep their code points.
+    if resolved == '':
+        return chr(value)
+    return resolved
 
 
 def _unescape_cue_text(text: str) -> str:
     """Decode character references in a text token or a tag annotation."""
-    # Python limits the number of decimal digits that int() can read.
-    if '&#' in text:
-        text = _LONG_DECIMAL_REFERENCE.sub(_short_decimal_reference, text)
-    return html.unescape(text)
+    output = []
+    pos = 0
+    for match in _NUMERIC_REFERENCE.finditer(text):
+        output.append(html.unescape(text[pos:match.start()]))
+        output.append(_unescape_numeric_reference(match))
+        pos = match.end()
+    output.append(html.unescape(text[pos:]))
+    # Do not decode the joined result: a numeric reference can yield '&'.
+    return ''.join(output)
 
 
 def _voice(token: str | _CueTag) -> str | None:

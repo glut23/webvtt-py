@@ -44,9 +44,11 @@ ASCII whitespace removed and runs of ASCII whitespace collapsed to a single
 space, and the classes of a voice span can have any character, as in
 ``<v.lo-ud Bob>``.
 
-``text``, ``voice`` and ``voices`` resolve character references once, using
-Python's :func:`html.unescape`. In ``text``, each piece between cue tags is
-resolved separately, so removing tags does not form a new reference, and
+``text``, ``voice`` and ``voices`` resolve character references once.
+Numeric references follow the HTML parsing rules, including retaining
+control and noncharacter code points that are not replaced by those rules.
+In ``text``, each piece between cue tags is resolved separately, so removing
+tags does not form a new reference, and
 an escaped tag such as ``&lt;b&gt;`` stays literal text. Voice names normalize
 ASCII whitespace after resolving references. ``raw_text``, ``lines`` and
 WebVTT output keep the original cue text.
