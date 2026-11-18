@@ -6,6 +6,7 @@ Unreleased
 
 Changes that may need updates to the code using the library:
 
+* Reading SRT keeps the cue index as the identifier, without the surrounding whitespace and with leading zeros, so WebVTT made from SRT (``from_srt(...).save()``, ``webvtt convert`` and HLS segments) has a numeric identifier before each cue, which ``for caption in vtt: caption.identifier = None`` removes. A caption read from SRT is no longer equal to the same caption created without an identifier. Writing SRT still numbers the cues from 1 (#190)
 * Voice names have leading and trailing ASCII whitespace stripped and runs of ASCII whitespace collapsed to a single space, only ASCII whitespace ends the name of a cue tag, so a no-break space after ``<v`` does not start a voice name, and voice spans can have classes with any character, as in ``<v.lo-ud Bob>``. Cue tags are read across line breaks in ``text``, ``voice``, ``voices`` and when reading and writing SRT, joining the lines that a tag spans in ``text`` and in SRT and SBV output, also with ``keep_formatting``, and a ``<`` on one line with a ``>`` on a later one is read as a tag, leaving out the text between them (#221, #223, #241)
 
 Changes:

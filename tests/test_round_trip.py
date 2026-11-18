@@ -55,5 +55,11 @@ class TestRoundTrip(unittest.TestCase):
                 else:
                     vtt.save_as_sbv(output)
                 saved = _read(output, format)
+                if format == 'srt':
+                    # writing SRT numbers from 1, which reading keeps as
+                    # the identifier, so a gap in the original indexes is
+                    # not kept
+                    for index, caption in enumerate(vtt.captions, 1):
+                        caption.identifier = str(index)
                 self.assertEqual(saved, vtt)
                 self.assertEqual(saved.encoding, vtt.encoding)

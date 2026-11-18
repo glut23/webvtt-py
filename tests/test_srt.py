@@ -495,6 +495,73 @@ class TestSRTModule(unittest.TestCase):
             [['Caption #1'], ['Caption #2'], ['Caption #3']]
             )
         self.assertEqual(captions[1].start, '00:00:07.000')
+        self.assertEqual(
+            [caption.identifier for caption in captions],
+            ['1', None, '3']
+            )
+
+    def test_parse_keeps_index_as_identifier(self):
+        captions = srt.parse(textwrap.dedent('''
+            5
+            00:00:00,500 --> 00:00:07,000
+            Caption #5
+
+            9
+            00:00:07,000 --> 00:00:11,890
+            Caption #9
+            ''').strip().split('\n')
+            )
+        self.assertEqual(
+            [caption.identifier for caption in captions],
+            ['5', '9']
+            )
+
+        out = io.StringIO()
+        srt.write(out, captions)
+        written = out.getvalue()
+        self.assertEqual(
+            written,
+            textwrap.dedent('''
+                1
+                00:00:00,500 --> 00:00:07,000
+                Caption #5
+
+                2
+                00:00:07,000 --> 00:00:11,890
+                Caption #9
+            ''').strip() + '\n'
+            )
+        self.assertEqual(
+            [caption.identifier
+             for caption in srt.parse(written.splitlines())],
+            ['1', '2']
+            )
+
+    def test_parse_keeps_leading_zeros_in_identifier(self):
+        for index in ('007', '  007  '):
+            with self.subTest(index=index):
+                captions = srt.parse(
+                    [index, '00:00:01,000 --> 00:00:02,000', 'Caption']
+                    )
+                self.assertEqual(captions[0].identifier, '007')
+
+    def test_parse_index_followed_by_empty_line(self):
+        captions = srt.parse(textwrap.dedent('''
+            1
+            00:00:00,500 --> 00:00:07,000
+            Caption #1
+
+            007
+
+            00:00:07,000 --> 00:00:11,890
+            Caption #2
+            ''').strip().split('\n')
+            )
+        self.assertEqual(
+            [caption.identifier for caption in captions],
+            ['1', '007']
+            )
+        self.assertEqual(captions[1].text, 'Caption #2')
 
     def test_parse_ignores_text_attached_to_end_timestamp(self):
         captions = srt.parse(

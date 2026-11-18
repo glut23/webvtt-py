@@ -629,7 +629,8 @@ way, so ``0:61:00.000`` is read as ``01:01:00.000``.
 Blank lines at the start of SRT and SBV files are skipped, and cues without
 text are skipped, so a file whose first cue has no text is read. SRT cues
 without an index are read, as most SRT players do, but the first cue of the
-file needs one for the content to be read as SRT.
+file needs one for the content to be read as SRT. The cue index is kept as
+the identifier, with leading zeros and without the surrounding whitespace.
 
 The colours and positions of SRT are read into WebVTT. A ``font`` tag with a
 ``color``, also one that spans lines, becomes a ``c`` tag with a class named
@@ -658,6 +659,7 @@ removed from the text:
     #   color: #ff0000;
     # }
     #
+    # 1
     # 00:00:00.500 --> 00:00:07.000 line:0
     # <c.color-ff0000>Hello</c> world
 

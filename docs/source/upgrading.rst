@@ -1,6 +1,34 @@
 Upgrading
 =========
 
+Upgrading to 0.9.0
+------------------
+
+0.9.0 has changes that may need updates to the code using the library. These
+are the ones most likely to need them, with what to change. The
+:doc:`history` lists all of them.
+
+
+SRT cue indexes
+~~~~~~~~~~~~~~~
+
+Reading SRT keeps the cue index as the identifier. WebVTT made from SRT,
+with ``from_srt(...).save()``, ``webvtt convert`` or HLS segments, now has
+a numeric identifier before each cue. Remove them with
+``for caption in vtt: caption.identifier = None``:
+
+.. code-block:: python
+
+    import webvtt
+
+    vtt = webvtt.from_srt('captions.srt')
+    for caption in vtt:
+        caption.identifier = None
+
+A caption read from SRT may no longer compare equal to the same caption
+created without an identifier.
+
+
 Upgrading to 0.8.0
 ------------------
 

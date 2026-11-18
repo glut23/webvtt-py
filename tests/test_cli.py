@@ -1425,9 +1425,11 @@ class CLIFormatsTestCase(CLICommandTestCase):
               color: red;
             }
 
+            1
             00:00:00.500 --> 00:00:01.000 line:0
             <i>Credits</i>
 
+            2
             00:00:01.500 --> 00:00:04.000
             <c.color-red>Café</c>
             '''))

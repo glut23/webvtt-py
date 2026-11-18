@@ -304,7 +304,9 @@ def parse_captions(
     rule for each class in a style. Other ``font`` tags and attributes
     are removed, keeping their text. The first ``{\anN}`` tag of a cue
     becomes its ``line`` and ``align`` cue settings, and all of them are
-    removed from the text, as are the lines that they leave empty.
+    removed from the text, as are the lines that they leave empty. The cue
+    index is kept as the identifier, without the surrounding whitespace and
+    with leading zeros, and a cue without an index has none.
 
     :param lines: lines of text
     :param issues: a list to add the blocks that are skipped to
@@ -364,6 +366,9 @@ def _parse_cue(lines: Sequence[str]) -> Caption | None:
     """
     Parse a cue from the lines of a block that starts a cue.
 
+    The cue index is kept as the identifier, without the surrounding
+    whitespace and with leading zeros. A cue without an index has none.
+
     :param lines: the lines of the block
     :returns: a `Caption`, or None if the cue is not valid
     """
@@ -371,10 +376,13 @@ def _parse_cue(lines: Sequence[str]) -> Caption | None:
         return None
 
     cue_block = SRTCueBlock.from_lines(lines)
-    return _caption_from_timings(cue_block.start,
-                                 cue_block.end,
-                                 cue_block.payload
-                                 )
+    caption = _caption_from_timings(cue_block.start,
+                                    cue_block.end,
+                                    cue_block.payload
+                                    )
+    if caption is not None and cue_block.index is not None:
+        caption.identifier = cue_block.index.strip()
+    return caption
 
 
 def _convert_captions(

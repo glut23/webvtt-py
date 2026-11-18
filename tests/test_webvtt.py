@@ -197,6 +197,7 @@ class TestWebVTT(unittest.TestCase):
                 textwrap.dedent('''
                     WEBVTT
 
+                    1
                     00:00:00.500 --> 00:00:07.000
                     Caption text #1
                     ''').strip() + '\n'
@@ -3781,11 +3782,19 @@ class TestFormats(unittest.TestCase):
             '</b>', ''))
         for format in ('vtt', 'srt', 'sbv'):
             with self.subTest(format=format):
-                self.assertEqual(
-                    webvtt.from_string(vtt.to_string(format),
-                                       format=format).captions,
-                    vtt.captions
-                    )
+                captions = webvtt.from_string(
+                    vtt.to_string(format), format=format
+                    ).captions
+                if format == 'srt':
+                    # reading SRT keeps the index, which writing numbers
+                    # from 1
+                    self.assertEqual(
+                        [caption.identifier for caption in captions],
+                        ['1', '2']
+                        )
+                    for caption in captions:
+                        caption.identifier = None
+                self.assertEqual(captions, vtt.captions)
 
     def test_write_sbv(self):
         out = io.StringIO()
@@ -4000,9 +4009,11 @@ class TestSRTMarkup(unittest.TestCase):
               color: #ff0000;
             }
 
+            1
             00:00:01.000 --> 00:00:02.000 line:0
             <c.color-ff0000>red</c> <i>text</i>
 
+            2
             00:00:02.000 --> 00:00:03.000 align:left
             plain
             '''))
