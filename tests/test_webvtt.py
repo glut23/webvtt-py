@@ -1189,6 +1189,34 @@ class TestWebVTT(unittest.TestCase):
                 with self.subTest(expected=expected):
                     self.assertEqual(vtt.file, expected)
 
+    def test_reading_and_writing_do_not_set_text(self):
+        # setting Caption.text to cue text warns, which the library itself
+        # must not do
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            for name in ('cue_tags.vtt', 'styles_colours.vtt',
+                         'styles_colours.srt', 'sample.sbv'):
+                with self.subTest(sample=name):
+                    vtt = webvtt.WebVTT.from_string(
+                        (PATH_TO_SAMPLES / name).read_text(encoding='utf-8'),
+                        format=name.rsplit('.', 1)[1]
+                        )
+                    vtt.sort()
+                    vtt.shift(1)
+                    vtt.to_string('vtt')
+                    vtt.to_string('srt', keep_formatting=True)
+                    vtt.to_string('srt')
+                    vtt.to_string('sbv')
+                    vtt.validate()
+                    list(vtt.iter_slice('00:00:01.000', '00:00:05.000',
+                                        overlapping=True, clip=True))
+                    with tempfile.TemporaryDirectory() as folder:
+                        webvtt.segment(vtt, folder, seconds=2)
+
+    def test_escape_is_exported(self):
+        self.assertIs(webvtt.escape, webvtt.models.escape)
+        self.assertIn('escape', webvtt.__all__)
+
     def test_save_to_file_attribute(self):
         with tempfile.TemporaryDirectory() as td:
             vtt = webvtt.WebVTT(
