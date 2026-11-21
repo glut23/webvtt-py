@@ -309,12 +309,36 @@ Manipulating captions
     # or set its lines
     vtt[0].text = ['New caption text', 'on two lines']
 
+    # set the text with cue tags
+    vtt[0].raw_text = 'New <i>caption</i> text'
+
     # delete a caption
     del vtt.captions[2]
 
 The text of a caption is a string, split on its line breaks, or a sequence
 of lines, as when creating a ``Caption``. Any other value raises
 ``TypeError``.
+
+``raw_text`` takes cue text, with cue tags such as ``<i>`` and character
+references such as ``&amp;``, as ``Caption()`` does. Until 1.0, ``text``
+takes cue text too, and a value with ``&``, ``<`` or ``>`` raises a
+``DeprecationWarning``, as from 1.0 ``text`` takes plain text and escapes
+them, so ``vtt[0].text = 'a < b'`` shows ``a < b``. Set cue tags with
+``raw_text``, and escape plain text for cue text with ``webvtt.escape()``,
+which writes ``&``, ``<`` and ``>`` as ``&amp;``, ``&lt;`` and ``&gt;``:
+
+.. code-block:: python
+
+    name = 'Tom & Jerry <3'
+    vtt[0].raw_text = f'<b>{webvtt.escape(name)}</b>'
+    vtt[0].raw_text  # '<b>Tom &amp; Jerry &lt;3</b>'
+
+Until 1.0, ``caption.text = caption.text`` is not safe for text with cue
+tags or character references. ``text`` has the tags removed and the
+references resolved, and setting it takes the result as cue text, so the
+tags are lost and ``&lt;b&gt;`` becomes a real ``<b>`` tag. To copy the
+text of a caption, use ``raw_text``, as in
+``caption.raw_text = other.raw_text``.
 
 
 Comparing and copying captions

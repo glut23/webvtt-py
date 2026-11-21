@@ -1,6 +1,41 @@
 Upgrading
 =========
 
+Upgrading to 0.9.0
+------------------
+
+0.9.0 has changes that may need updates to the code using the library. The
+:doc:`history` lists all of them.
+
+
+Preparing for 1.0
+~~~~~~~~~~~~~~~~~
+
+0.9.0 raises a ``DeprecationWarning`` for what changes in 1.0. Python only
+shows it for code in ``__main__`` and when running tests, so run the tests
+of your code with warnings shown, as in ``python -W error::DeprecationWarning
+-m unittest``, to find it.
+
+Setting ``Caption.text`` to a value with ``&``, ``<`` or ``>`` raises it, as
+from 1.0 ``text`` takes plain text and escapes them, so cue tags set through
+it are shown as text. Set cue text with ``raw_text``, which ``Caption()``
+also takes, and escape plain text that goes into cue text with
+``webvtt.escape()``:
+
+.. code-block:: python
+
+    import webvtt
+
+    caption = webvtt.Caption(text='Hello')
+
+    # before: caption.text = '<i>Hello</i>'
+    caption.raw_text = '<i>Hello</i>'
+
+    name = 'Tom & Jerry'
+    caption.raw_text = f'<b>{webvtt.escape(name)}</b>'
+    caption.raw_text  # '<b>Tom &amp; Jerry</b>'
+
+
 Upgrading to 0.8.0
 ------------------
 

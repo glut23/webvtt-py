@@ -1,13 +1,15 @@
 import copy
 import datetime
+import os
 import re
 import time
 import unittest
 import unittest.mock
+import warnings
 
 from webvtt.models import (
     Timestamp, Caption, CueSettings, ParseIssue, Region, Style,
-    _CueTag, _iter_cue_text_tokens
+    _CueTag, _iter_cue_text_tokens, escape
     )
 from webvtt.errors import MalformedCaptionError, MalformedRegionError
 
@@ -942,6 +944,65 @@ class TestCaption(unittest.TestCase):
             'Caption line #1 updated'
             )
 
+    def test_set_raw_text(self):
+        caption = Caption(text='Caption line #1')
+        caption.raw_text = '<b>bold</b> &amp; more\n<i>line 2</i>'
+        self.assertListEqual(caption.lines,
+                             ['<b>bold</b> &amp; more', '<i>line 2</i>'])
+        self.assertEqual(caption.raw_text,
+                         '<b>bold</b> &amp; more\n<i>line 2</i>')
+        self.assertEqual(caption.text.split('\n')[1], 'line 2')
+
+        lines = ['<i>line 1</i>']
+        caption.raw_text = lines
+        lines.append('line 2')
+        self.assertListEqual(caption.lines, ['<i>line 1</i>'])
+
+        caption.raw_text = ''
+        self.assertListEqual(caption.lines, [])
+
+    def test_set_raw_text_wrong_type(self):
+        caption = Caption(text='Caption line #1')
+        for value in (123, None, b'text', ['line 1', 2]):
+            with self.subTest(value=value):
+                with self.assertRaises(TypeError) as cm:
+                    caption.raw_text = value
+
+                self.assertIn(repr(value), str(cm.exception))
+                self.assertListEqual(caption.lines, ['Caption line #1'])
+
+    def test_set_text_with_cue_text_warns(self):
+        for value in ('a < b', 'a > b', 'Tom & Jerry', '<b>bold</b>',
+                      ['plain', '<i>tag</i>']):
+            with self.subTest(value=value):
+                caption = Caption()
+                with warnings.catch_warnings(record=True) as warns:
+                    warnings.simplefilter('always')
+                    caption.text = value
+
+                self.assertEqual(len(warns), 1)
+                self.assertIs(warns[0].category, DeprecationWarning)
+                self.assertIn('from 1.0 the value is taken as plain text',
+                              str(warns[0].message))
+                self.assertIn('raw_text', str(warns[0].message))
+                # the warning points to the code setting the text
+                self.assertEqual(os.path.basename(warns[0].filename),
+                                 os.path.basename(__file__))
+                # until 1.0, the value is still cue text
+                self.assertListEqual(
+                    caption.lines,
+                    [value] if isinstance(value, str) else value
+                    )
+
+    def test_set_plain_text_does_not_warn(self):
+        caption = Caption()
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            for value in ('plain text', ['line 1', 'line 2'], '', ()):
+                caption.text = value
+            caption.raw_text = '<b>Tom &amp; Jerry</b>'
+            Caption(text='<v Bob>Tom &amp; Jerry &lt;3</v>')
+
     def test_malformed_start_timestamp(self):
         self.assertRaises(
             MalformedCaptionError,
@@ -978,7 +1039,7 @@ class TestCaption(unittest.TestCase):
         self.assertEqual(caption.text, 'This is a test')
         self.assertEqual(caption.raw_text, 'This is a test')
         self.assertIsNone(caption.voice)
-        caption.text = '<v Homer Simpson>I like tests</v>'
+        caption.raw_text = '<v Homer Simpson>I like tests</v>'
         self.assertEqual(caption.text, 'I like tests')
         self.assertEqual(caption.raw_text, '<v Homer Simpson>I like tests</v>')
         self.assertEqual(caption.voice, 'Homer Simpson')
@@ -1067,7 +1128,7 @@ class TestCaption(unittest.TestCase):
     def test_voices_follow_the_text(self):
         caption = Caption(text='This is a test')
         self.assertEqual(caption.voices, [])
-        caption.text = ['<v Bob>One</v>', '<v Alice>Two</v>']
+        caption.raw_text = ['<v Bob>One</v>', '<v Alice>Two</v>']
         self.assertEqual(caption.voices, ['Bob', 'Alice'])
         caption.lines.append('<v Carol>Three</v>')
         self.assertEqual(caption.voices, ['Bob', 'Alice', 'Carol'])
@@ -1086,6 +1147,39 @@ class TestCaption(unittest.TestCase):
                 caption.text,
                 re.sub('<.*?>', '', raw_text, flags=re.DOTALL)
             )
+
+
+class TestEscape(unittest.TestCase):
+
+    def test_escape(self):
+        for text, expected in (
+                ('plain text', 'plain text'),
+                ('', ''),
+                ('Tom & Jerry <3', 'Tom &amp; Jerry &lt;3'),
+                ('<b>not a tag</b>', '&lt;b&gt;not a tag&lt;/b&gt;'),
+                ('a --> b', 'a --&gt; b'),
+                ('&amp; &#60;', '&amp;amp; &amp;#60;'),
+                ('line 1\nline 2 & more', 'line 1\nline 2 &amp; more')):
+            with self.subTest(text=text):
+                self.assertEqual(escape(text), expected)
+
+    def test_escaped_text_has_no_tags(self):
+        caption = Caption(text=f'<b>{escape("<i>x</i> --> y")}</b>')
+        self.assertEqual(caption.raw_text,
+                         '<b>&lt;i&gt;x&lt;/i&gt; --&gt; y</b>')
+        self.assertEqual(
+            [token for token in _iter_cue_text_tokens(caption.raw_text)
+             if isinstance(token, _CueTag)],
+            [_CueTag('b', 'start', 'b'), _CueTag('/b', 'end', 'b')]
+            )
+
+    def test_escape_wrong_type(self):
+        for value in (None, 123, b'text', ['line']):
+            with self.subTest(value=value):
+                with self.assertRaises(TypeError) as cm:
+                    escape(value)
+
+                self.assertIn(repr(value), str(cm.exception))
 
 
 class TestCueTextTokens(unittest.TestCase):

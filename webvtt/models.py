@@ -9,6 +9,7 @@ import functools
 import math
 import re
 import typing
+import warnings
 from collections.abc import Callable, Generator, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 
@@ -934,6 +935,32 @@ def _to_cue_settings(
     return CueSettings.from_string(value)
 
 
+def escape(text: str) -> str:
+    """
+    Escape plain text as cue text.
+
+    ``&``, ``<`` and ``>`` become the character references ``&amp;``,
+    ``&lt;`` and ``&gt;``, so the text is shown as it is instead of being
+    read as cue tags or character references. Use it for plain text given
+    to `Caption` or `Caption.raw_text`, which take cue text, as in
+    ``Caption(text=f'<b>{webvtt.escape(name)}</b>')``.
+
+    :param text: the plain text
+    :returns: the text as cue text
+
+    :raises TypeError: if the text is not a string
+    """
+    if not isinstance(text, str):
+        raise TypeError(f'Expected the text as a string, got {text!r}')
+    return (text.replace('&', '&amp;')
+            .replace('<', '&lt;')
+            .replace('>', '&gt;'))
+
+
+# the characters that the text setter will escape from 1.0
+_CUE_TEXT_SPECIAL = re.compile('[&<>]')
+
+
 class Caption:
     """Representation of a caption."""
 
@@ -1139,6 +1166,20 @@ class Caption:
         """Return the text of the caption (including cue tags)."""
         return '\n'.join(self.lines)
 
+    @raw_text.setter
+    def raw_text(self, value: str | Sequence[str]) -> None:
+        """
+        Set the text of the caption as cue text, with its cue tags.
+
+        Plain text can be escaped with `escape` first.
+
+        :param value: the cue text, or a sequence of its lines
+
+        :raises TypeError: if the value is not a string or a sequence of
+            strings
+        """
+        self.lines = _caption_lines(value)
+
     @property
     def text(self) -> str:
         """Return the text of the caption (without cue tags)."""
@@ -1149,12 +1190,27 @@ class Caption:
         """
         Set the text of the caption.
 
+        The value is taken as cue text, as `raw_text` takes it. From 1.0 it
+        is taken as plain text, and its ``&``, ``<`` and ``>`` are escaped,
+        so a value with any of them raises a ``DeprecationWarning``: set cue
+        tags with `raw_text`, and escape plain text with `escape`.
+
         :param value: the text, or a sequence of its lines
 
         :raises TypeError: if the value is not a string or a sequence of
             strings
         """
-        self.lines = _caption_lines(value)
+        lines = _caption_lines(value)
+        if any(_CUE_TEXT_SPECIAL.search(line) for line in lines):
+            warnings.warn(
+                'Setting Caption.text to a value with "&", "<" or ">" is '
+                'deprecated, as from 1.0 the value is taken as plain text '
+                'and escaped: set cue tags with raw_text, and escape plain '
+                'text with webvtt.escape()',
+                DeprecationWarning,
+                stacklevel=2
+                )
+        self.lines = lines
 
     @property
     def voice(self) -> str | None:

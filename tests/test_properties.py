@@ -1,6 +1,7 @@
 """Property-based tests of reading, writing and editing the captions."""
 
 import datetime
+import html
 import re
 import unittest
 
@@ -8,7 +9,7 @@ from hypothesis import given, settings, strategies as st
 
 import webvtt
 from webvtt.errors import MalformedFileError
-from webvtt.models import Caption, Style
+from webvtt.models import Caption, Style, _CueTag, _iter_cue_text_tokens
 
 # the examples are not timed, as their time varies by platform
 untimed = settings(deadline=None)
@@ -152,6 +153,17 @@ class TestText(unittest.TestCase):
             caption.text,
             re.sub('<.*?>', '', caption.raw_text, flags=re.DOTALL)
             )
+
+    @untimed
+    @given(st.text())
+    def test_escaped_text_is_read_as_written(self, text):
+        escaped = webvtt.escape(text)
+        self.assertEqual(html.unescape(escaped), text)
+        # nothing is read as a cue tag
+        self.assertFalse(any(isinstance(token, _CueTag)
+                             for token in _iter_cue_text_tokens(escaped)))
+        self.assertNotIn('<', escaped)
+        self.assertNotIn('>', escaped)
 
     @untimed
     @given(st.lists(st.text(st.sampled_from('<>/ab v.\t')),

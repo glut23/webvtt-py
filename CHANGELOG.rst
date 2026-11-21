@@ -10,6 +10,7 @@ Changes that may need updates to the code using the library:
 
 Changes:
 
+* Added a setter for ``Caption.raw_text``, which takes cue text, and ``webvtt.escape()``, which escapes ``&``, ``<`` and ``>`` in plain text for cue text. Setting ``Caption.text`` to a value with ``&``, ``<`` or ``>`` raises a ``DeprecationWarning``, as from 1.0 it takes plain text and escapes them: set cue tags with ``raw_text`` (#189)
 * Encode all HLS segments before writing any, so an encoding error in a later segment does not create or overwrite earlier segment files (#240)
 
 0.8.0 (08-11-2026)
