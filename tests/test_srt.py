@@ -135,6 +135,30 @@ class TestSRTModule(unittest.TestCase):
                                      ['start\n1\n' + arrow_text])
                     self.assertEqual(issues, [])
 
+    def test_timings_without_hours_are_not_caption_text(self):
+        for payload, line in ((['', '2', '00:03,000 --> 00:04,000', 'b'], 5),
+                              (['2', '00:03,000 --> 00:04,000', 'b'], 4),
+                              (['', '00:03,000 --> 00:04,000', 'b'], 5)):
+            with self.subTest(payload=payload):
+                issues = []
+                captions = srt.parse(
+                    ['1', '00:00:01,000 --> 00:00:02,000', 'a', *payload],
+                    issues)
+                self.assertEqual([c.text for c in captions], ['a'])
+                self.assertEqual([(i.line, i.lines) for i in issues],
+                                 [(line, [p for p in payload if p])])
+                self.assertTrue(
+                    issues[0].message.startswith('Invalid cue block'))
+
+    def test_content_needs_timings_after_the_first_index(self):
+        self.assertTrue(srt.is_valid_content(
+            ['1', '00:01,000 --> 00:02,000', 'a']))
+        self.assertTrue(srt.is_valid_content(
+            ['', '1', '00:00:01,000 --> 00:00:02,000', 'a']))
+        self.assertFalse(srt.is_valid_content(['1', 'a --> b']))
+        with self.assertRaises(MalformedFileError):
+            srt.parse(['1', 'a --> b'])
+
     def test_parse_timestamps(self):
         for value, expected in (('00:00:07,500', '00:00:07.500'),
                                 ('00:00:07.500', '00:00:07.500'),
@@ -668,6 +692,33 @@ class TestSRTModule(unittest.TestCase):
                 Caption #1
             ''').strip() + '\n'
             )
+
+    def test_write_splits_lines_on_carriage_returns(self):
+        for raw_text in ('a&#13;&#13;b', 'a&#13;b', 'a&#13;&#10;b'):
+            for styles in (None, []):
+                with self.subTest(raw_text=raw_text, styles=styles):
+                    out = io.StringIO()
+
+                    srt.write(out, [Caption('00:00:01.000', '00:00:02.000',
+                                            raw_text)], styles)
+
+                    self.assertEqual(
+                        out.getvalue(),
+                        '1\n00:00:01,000 --> 00:00:02,000\na\nb\n'
+                        )
+                    issues = []
+                    captions = srt.parse(out.getvalue().split('\n'), issues)
+                    self.assertEqual([c.text for c in captions], ['a\nb'])
+                    self.assertEqual(issues, [])
+
+    def test_write_leaves_out_captions_of_only_carriage_returns(self):
+        out = io.StringIO()
+
+        srt.write(out, [Caption('00:00:01.000', '00:00:02.000', '&#13;'),
+                        Caption('00:00:02.000', '00:00:03.000', 'b')])
+
+        self.assertEqual(out.getvalue(),
+                         '1\n00:00:02,000 --> 00:00:03,000\nb\n')
 
     def test_write_leaves_out_captions_without_text(self):
         captions = [

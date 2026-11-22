@@ -181,6 +181,8 @@ def write(f: typing.IO[str], captions: Iterable[Caption]) -> None:
     out, as a cue without text cannot be read back from SBV. The blank
     lines of the text are removed, as a blank line ends the cue. Only
     ASCII whitespace makes a blank line; nonbreaking spaces are kept.
+    The text is split into lines on CR, LF and CRLF, as it is read, so a
+    carriage return, as from ``&#13;``, is a line break.
 
     :param f: file or file-like object
     :param captions: Iterable of `Caption` objects
@@ -193,7 +195,7 @@ def write(f: typing.IO[str], captions: Iterable[Caption]) -> None:
         output.extend([
             f'{_timestamp(caption.start_time)},'
             f'{_timestamp(caption.end_time)}',
-            *(line for line in text.split('\n')
+            *(line for line in utils._split_lines(text)
               if line.strip(_ASCII_WHITESPACE)),
             ''
             ])

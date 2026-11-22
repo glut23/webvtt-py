@@ -316,6 +316,27 @@ class TestWriteSBV(unittest.TestCase):
             '0:00:00.500,0:00:07.000\nLine 1\nLine 2\n'
             )
 
+    def test_write_splits_lines_on_carriage_returns(self):
+        for raw_text in ('a&#13;&#13;b', 'a&#13;b', 'a&#13;&#10;b'):
+            with self.subTest(raw_text=raw_text):
+                content = self.write([Caption('00:00:00.500', '00:00:07.000',
+                                              raw_text)])
+
+                self.assertEqual(content, '0:00:00.500,0:00:07.000\na\nb\n')
+                issues = []
+                captions = sbv.parse(content.split('\n'), issues)
+                self.assertEqual([c.text for c in captions], ['a\nb'])
+                self.assertEqual(issues, [])
+
+    def test_write_leaves_out_captions_of_only_carriage_returns(self):
+        self.assertEqual(
+            self.write([
+                Caption('00:00:00.500', '00:00:01.000', '&#13;&#13;'),
+                Caption('00:00:01.000', '00:00:02.000', 'Text'),
+                ]),
+            '0:00:01.000,0:00:02.000\nText\n'
+            )
+
     def test_write_reads_back(self):
         captions = [
             Caption('00:00:00.500', '00:00:07.000', 'Line 1\nLine 2'),

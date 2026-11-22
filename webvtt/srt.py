@@ -24,9 +24,11 @@ from . import utils
 
 _TIMESTAMP = r'[0-9]+:[0-9]{1,2}:[0-9]{1,2}[,.][0-9]+'
 
-# Keep malformed minute/second fields for the invalid-cue diagnostics,
-# while an ordinary arrow in caption text does not start a new cue.
-_TIMINGS_START = re.compile(r'\s*[0-9]+:[^:\s]+:\S+\s*-->')
+# A line that starts with digits and a colon followed by the arrow is taken
+# as cue timings, so malformed timings, such as those without the hours,
+# are reported as invalid cue blocks, while an ordinary arrow in caption
+# text, as in ``a --> b``, does not start a new cue.
+_TIMINGS_START = re.compile(r'\s*[0-9]+:\S*\s*-->')
 
 # a character of a CSS identifier, or an escape, as in ``c\+1`` or ``\31 a``.
 # Each character matches one alternative only, and a hex escape takes all
@@ -209,7 +211,7 @@ def is_valid_content(lines: Sequence[str]) -> bool:
     return bool(
         len(lines) >= start + 2 and
         _is_index(lines[start]) and
-        '-->' in lines[start + 1]
+        _TIMINGS_START.match(lines[start + 1])
     )
 
 
@@ -849,6 +851,8 @@ def write(
     Nonbreaking spaces are text, not blank lines. Literal text shaped
     like SRT markup cannot be distinguished from formatting on reading;
     use WebVTT to keep both that text and its formatting.
+    The text is split into lines on CR, LF and CRLF, as it is read, so a
+    carriage return, as from ``&#13;``, is a line break.
 
     :param f: file or file-like object
     :param captions: Iterable of `Caption` objects
@@ -866,7 +870,7 @@ def write(
             continue
         text = (plain_text if colours is None
                 else _format_cue_text(caption.raw_text, colours))
-        lines = [line for line in text.split('\n')
+        lines = [line for line in utils._split_lines(text)
                  if line.strip(_ASCII_WHITESPACE)]
         # a text with a position tag, as written by earlier versions, keeps
         # it

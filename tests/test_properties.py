@@ -120,6 +120,8 @@ class TestRoundTrip(unittest.TestCase):
              expected_format='srt')
     @example(caption_list=[Caption(text='&lt;b&gt;literal&lt;/b&gt;')],
              expected_format='vtt')
+    @example(caption_list=[Caption(text='1\n0:--&gt; b')],
+             expected_format='vtt')
     def test_lossless_round_trip_uses_representable_format(
             self, caption_list, expected_format
             ):
@@ -128,10 +130,17 @@ class TestRoundTrip(unittest.TestCase):
             r'<(?:(?:b|i|u|font)(?=[ \t\n\f\r>])[^>]*|'
             r'/[ \t\n\f\r]*(?:b|i|u|font)[ \t\n\f\r]*)>',
             re.IGNORECASE | re.ASCII)
+        # a line of digits followed by one that starts like cue timings
+        # starts a new cue in SRT; whitespace in a line is any but a line
+        # break, as in the SRT reader
+        cue_start = re.compile(
+            r'^[^\S\n]*[0-9]+[^\S\n]*\n[^\S\n]*[0-9]+:\S*[^\S\n]*-->',
+            re.MULTILINE)
         requires_vtt = any(
             literal_markup.search(caption.text)
             or re.search(r'{\\an[1-9]}', caption.text)
             or '\r' in caption.text
+            or cue_start.search(caption.text)
             or any(not line.strip(' \t\n\f\r')
                    for line in caption.text.split('\n'))
             for caption in vtt)
