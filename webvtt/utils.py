@@ -188,19 +188,23 @@ def iter_blocks_of_lines(
 
 
 def _iter_numbered_blocks(
-        lines: Iterable[str]
+        lines: Iterable[str],
+        *,
+        whitespace: str | None = None
         ) -> Generator[_NumberedBlock, None, None]:
     """
     Iterate blocks of text with the line number where each one starts.
 
     :param lines: lines of text.
+    :param whitespace: characters that make a blank line, or None for
+        Unicode whitespace
     :returns: the line number where each block starts, from 1, and its lines
     """
     current_text_block: list[str] = []
     number = 0
 
     for number, line in enumerate(lines, 1):
-        if line.strip():
+        if line.strip(whitespace):
             current_text_block.append(line)
         elif current_text_block:
             yield number - len(current_text_block), current_text_block

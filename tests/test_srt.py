@@ -121,6 +121,44 @@ class TestSRTCueBlock(unittest.TestCase):
 
 class TestSRTModule(unittest.TestCase):
 
+    def test_numeric_text_before_arrow_is_not_cue_timing(self):
+        for arrow_text in ('a --> b', 'namespace:topic:key --> value'):
+            for payload in (['start', '1', arrow_text],
+                            ['start', '', '1', arrow_text],
+                            ['start', '', '1', '', arrow_text]):
+                with self.subTest(payload=payload):
+                    issues = []
+                    captions = srt.parse(
+                        ['1', '00:00:01,000 --> 00:00:02,000', *payload],
+                        issues)
+                    self.assertEqual([c.text for c in captions],
+                                     ['start\n1\n' + arrow_text])
+                    self.assertEqual(issues, [])
+
+    def test_timings_without_hours_are_not_caption_text(self):
+        for payload, line in ((['', '2', '00:03,000 --> 00:04,000', 'b'], 5),
+                              (['2', '00:03,000 --> 00:04,000', 'b'], 4),
+                              (['', '00:03,000 --> 00:04,000', 'b'], 5)):
+            with self.subTest(payload=payload):
+                issues = []
+                captions = srt.parse(
+                    ['1', '00:00:01,000 --> 00:00:02,000', 'a', *payload],
+                    issues)
+                self.assertEqual([c.text for c in captions], ['a'])
+                self.assertEqual([(i.line, i.lines) for i in issues],
+                                 [(line, [p for p in payload if p])])
+                self.assertTrue(
+                    issues[0].message.startswith('Invalid cue block'))
+
+    def test_content_needs_timings_after_the_first_index(self):
+        self.assertTrue(srt.is_valid_content(
+            ['1', '00:01,000 --> 00:02,000', 'a']))
+        self.assertTrue(srt.is_valid_content(
+            ['', '1', '00:00:01,000 --> 00:00:02,000', 'a']))
+        self.assertFalse(srt.is_valid_content(['1', 'a --> b']))
+        with self.assertRaises(MalformedFileError):
+            srt.parse(['1', 'a --> b'])
+
     def test_parse_timestamps(self):
         for value, expected in (('00:00:07,500', '00:00:07.500'),
                                 ('00:00:07.500', '00:00:07.500'),
@@ -655,6 +693,33 @@ class TestSRTModule(unittest.TestCase):
             ''').strip() + '\n'
             )
 
+    def test_write_splits_lines_on_carriage_returns(self):
+        for raw_text in ('a&#13;&#13;b', 'a&#13;b', 'a&#13;&#10;b'):
+            for styles in (None, []):
+                with self.subTest(raw_text=raw_text, styles=styles):
+                    out = io.StringIO()
+
+                    srt.write(out, [Caption('00:00:01.000', '00:00:02.000',
+                                            raw_text)], styles)
+
+                    self.assertEqual(
+                        out.getvalue(),
+                        '1\n00:00:01,000 --> 00:00:02,000\na\nb\n'
+                        )
+                    issues = []
+                    captions = srt.parse(out.getvalue().split('\n'), issues)
+                    self.assertEqual([c.text for c in captions], ['a\nb'])
+                    self.assertEqual(issues, [])
+
+    def test_write_leaves_out_captions_of_only_carriage_returns(self):
+        out = io.StringIO()
+
+        srt.write(out, [Caption('00:00:01.000', '00:00:02.000', '&#13;'),
+                        Caption('00:00:02.000', '00:00:03.000', 'b')])
+
+        self.assertEqual(out.getvalue(),
+                         '1\n00:00:02,000 --> 00:00:03,000\nb\n')
+
     def test_write_leaves_out_captions_without_text(self):
         captions = [
             Caption('00:00:00.000', '00:00:01.000', ' '),
@@ -865,7 +930,7 @@ class TestFormatCueText(unittest.TestCase):
     def test_text_without_tags(self):
         self.assertEqual(
             srt._format_cue_text('2 &lt; 3', self.COLOURS),
-            '2 &lt; 3'
+            '2 < 3'
             )
 
     def test_nested_tags_with_colours(self):
@@ -987,6 +1052,23 @@ class TestReadMarkup(unittest.TestCase):
         captions = srt.parse(lines, issues, styles)
         return captions, styles, issues
 
+    def test_literal_less_than_does_not_swallow_supported_tags(self):
+        for text, raw_text, plain_text, coloured in (
+                ('2 < 3 <b>bold</b>', '2 &lt; 3 <b>bold</b>',
+                 '2 < 3 bold', False),
+                ('<font color=red>2 < 3</font>',
+                 '<c.color-red>2 &lt; 3</c>', '2 < 3', True),
+                ('2 < 3\n<b>bold</b>', '2 &lt; 3\n<b>bold</b>',
+                 '2 < 3\nbold', False)):
+            with self.subTest(text=text):
+                captions, styles, _ = self.parse(text)
+                self.assertEqual(captions[0].raw_text, raw_text)
+                self.assertEqual(captions[0].text, plain_text)
+                self.assertEqual(styles,
+                                 [Style('::cue(.color-red) {\n'
+                                        '  color: red;\n}')]
+                                 if coloured else [])
+
     def test_font_colour_to_class(self):
         captions, styles, _ = self.parse(
             '<font color="#FF0000">red</font> <font color=\'blue\'>blue</font>',
@@ -1053,14 +1135,17 @@ class TestReadMarkup(unittest.TestCase):
     def test_font_tag_with_class_kept_as_written(self):
         captions, styles, _ = self.parse('<font.x color=red>a</font.x>')
 
-        self.assertEqual(captions[0].raw_text, '<font.x color=red>a</font.x>')
+        self.assertEqual(captions[0].raw_text,
+                         '&lt;font.x color=red&gt;a&lt;/font.x&gt;')
+        self.assertEqual(captions[0].text, '<font.x color=red>a</font.x>')
         self.assertEqual(styles, [])
 
     def test_other_tags_across_lines_kept_as_written(self):
         captions, _, _ = self.parse('if a < b\nthen b > a <i\n>c</i>')
 
         self.assertEqual(captions[0].lines,
-                         ['if a < b', 'then b > a <i', '>c</i>'])
+                         ['if a &lt; b', 'then b &gt; a <i>c</i>'])
+        self.assertEqual(captions[0].text, 'if a < b\nthen b > a c')
 
     def test_colours_not_written_in_style(self):
         captions, styles, _ = self.parse(
@@ -1095,6 +1180,8 @@ class TestReadMarkup(unittest.TestCase):
         captions, _, _ = self.parse('<fontx>a</fontx> font color=red 2 < 3')
 
         self.assertEqual(captions[0].raw_text,
+                         '&lt;fontx&gt;a&lt;/fontx&gt; font color=red 2 &lt; 3')
+        self.assertEqual(captions[0].text,
                          '<fontx>a</fontx> font color=red 2 < 3')
 
     def test_bgcolor_is_not_color(self):
@@ -1374,7 +1461,7 @@ class TestLinearTime(unittest.TestCase):
              '<c.color-red>a' * n + '</c>' * n),
             ('end tags not open', 'a' + '</font>' * n, 'a'),
             ('unclosed tags', 'a' + '<' * self.LENGTH,
-             'a' + '<' * self.LENGTH),
+             'a' + '&lt;' * self.LENGTH),
             ('tags across lines',
              '\n'.join(['<font\ncolor=red>a</font>'] * n),
              '\n'.join(['<c.color-red>a</c>'] * n)),

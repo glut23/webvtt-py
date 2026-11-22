@@ -44,6 +44,23 @@ ASCII whitespace removed and runs of ASCII whitespace collapsed to a single
 space, and the classes of a voice span can have any character, as in
 ``<v.lo-ud Bob>``.
 
+``text``, ``voice`` and ``voices`` resolve character references once.
+Numeric references follow the HTML parsing rules, including retaining
+control and noncharacter code points that are not replaced by those rules.
+In ``text``, each piece between cue tags is resolved separately, so removing
+tags does not form a new reference, and
+an escaped tag such as ``&lt;b&gt;`` stays literal text. Voice names normalize
+ASCII whitespace after resolving references. ``raw_text``, ``lines`` and
+WebVTT output keep the original cue text.
+
+.. code-block:: python
+
+    caption = webvtt.Caption(text='<v Tom &amp; Jerry>&lt;b&gt; &amp;lt;</v>')
+    caption.text    # '<b> &lt;'
+    caption.voice   # 'Tom & Jerry'
+    caption.voices  # ['Tom & Jerry']
+    caption.raw_text  # '<v Tom &amp; Jerry>&lt;b&gt; &amp;lt;</v>'
+
 
 Reading WebVTT caption files from a file-like object
 ----------------------------------------------------
@@ -253,6 +270,11 @@ The lists given to ``WebVTT``, such as ``WebVTT(captions=captions)``, are
 kept as its attributes, not copied, so changes to them show in the
 instance. The list of lines given to a ``Caption`` or a ``Style`` is
 copied.
+
+The ``text`` argument of ``Caption()`` and the ``text`` setter take cue text,
+including tags and character references. Assigning ``caption.text`` back
+to itself can therefore interpret literal tags or resolve references again;
+use ``caption.raw_text`` when copying the cue text.
 
 As in WebVTT, only CR, LF and CRLF break text into lines. Other characters
 such as U+2028 or a form feed stay in the line.
@@ -613,6 +635,20 @@ Captions can be read from the following formats:
     # the same for SBV format
     vtt = webvtt.from_sbv('captions.sbv')
 
+SRT and SBV treat ``&`` as literal text, so ``&amp;`` in either input
+stays ``&amp;`` in ``text`` and when written back to that format. This also
+applies to character references written by older versions of the library.
+On reading, non-markup ``&``, ``<`` and ``>`` are escaped in ``raw_text``
+and ``lines`` to keep them valid WebVTT cue text, including text such as
+``a --> b``.
+
+SRT recognizes ``b``, ``i``, ``u`` and ``font`` tags without WebVTT classes,
+case-insensitively, and position tags such as ``{\an8}``. Attributes of
+``b``, ``i`` and ``u`` are ignored; the colour of ``font`` is read as below.
+Other tags, such as ``<font.x>`` or ``<foo>``, are literal text. A comparison
+such as ``2 < 3`` also stays text when followed by a formatting tag. SBV
+has no markup, so all its text is literal.
+
 Some SRT files have empty lines in the caption text. When reading SRT, a new
 caption starts at a cue index followed by the cue timings, even without an
 empty line before it. Any other text after an empty line stays in the
@@ -689,7 +725,10 @@ others are numbered consecutively in SRT. The blank lines of the text are
 also left out, as a blank line ends the cue. The cue tags are removed when
 converting to SBV, which has no formatting, and when converting to SRT without
 ``keep_formatting``. A tag that spans lines joins them, also with
-``keep_formatting``.
+``keep_formatting``. SRT and SBV blank lines contain only ASCII whitespace;
+nonbreaking spaces are content. A cue containing only ``&nbsp;`` is written
+as a nonbreaking space and can be read back, and ``validate()`` does not
+report it as empty.
 
 The cue tags are removed when converting to SRT. To keep the formatting
 instead, use ``keep_formatting``. Bold, italic, underline and ``font`` tags are
@@ -725,7 +764,17 @@ as in ``::cue(.c\+1)`` for ``<c.c+1>``. Other selectors, such as ``::cue``,
 When more than one rule matches a cue tag, the rule with the most classes
 applies, then one with a tag name, and then the one that comes last in the
 styles, as in CSS.
-Character references such as ``&lt;`` are written as they are.
+SRT and SBV output write resolved text. With ``keep_formatting``, the text
+between the retained tags is resolved once as well: ``&amp;lt;`` becomes
+literal ``&lt;``, while ``&lt;`` becomes ``<``.
+
+SRT cannot distinguish a literal ``<b>text</b>`` from bold text, or a literal
+``{\an8}`` from a position tag. To preserve such text together with its
+formatting, keep WebVTT with ``save('captions.vtt')`` or ``to_string('vtt')``.
+Use WebVTT also when exact blank lines or carriage returns must be kept.
+Choosing SRT still writes the resolved text as requested; it does not
+automatically select another format. SBV can preserve literal angle-bracket
+tags, but does not preserve formatting.
 
 The ``line`` and ``align`` cue settings are written to SRT as a ``{\anN}``
 tag, with or without ``keep_formatting``, so captions read from SRT keep
@@ -1254,7 +1303,7 @@ mistake:
 
 * ``overlap``: the caption starts before an earlier one ends, so both are
   shown at the same time
-* ``empty``: the caption has no text
+* ``empty``: the resolved caption text is empty or only ASCII whitespace
 
 In the messages, captions are numbered from 1, as in a file, while
 ``index`` is the index in ``captions``, from 0. The blocks skipped when

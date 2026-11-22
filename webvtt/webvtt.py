@@ -19,6 +19,7 @@ from .models import (
     Style,
     Timestamp,
     ValidationIssue,
+    _ASCII_WHITESPACE,
     _FrameRate,
     _Position,
     _offset_in_milliseconds,
@@ -953,7 +954,7 @@ class WebVTT:
                     f'is in the region {region!r}, which is not defined'
                     ))
 
-            if not caption.text.strip():
+            if not caption.text.strip(_ASCII_WHITESPACE):
                 issues.append(ValidationIssue(
                     index, 'empty', 'warning', 'has no text'
                     ))

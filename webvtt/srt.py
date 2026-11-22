@@ -1,5 +1,6 @@
 """SRT format module."""
 
+import html
 import operator
 import typing
 import re
@@ -10,18 +11,24 @@ from .models import (
     CueSettings,
     ParseIssue,
     Style,
+    _ASCII_WHITESPACE,
     _CueTag,
     _caption_from_timings,
-    _cue_tag,
     _iter_cue_text_tokens,
-    _scan_cue_text,
-    _skipped_block
+    _skipped_block,
+    _unescape_cue_text
     )
 from .errors import MalformedFileError
 from . import utils
 
 
 _TIMESTAMP = r'[0-9]+:[0-9]{1,2}:[0-9]{1,2}[,.][0-9]+'
+
+# A line that starts with digits and a colon followed by the arrow is taken
+# as cue timings, so malformed timings, such as those without the hours,
+# are reported as invalid cue blocks, while an ordinary arrow in caption
+# text, as in ``a --> b``, does not start a new cue.
+_TIMINGS_START = re.compile(r'\s*[0-9]+:\S*\s*-->')
 
 # a character of a CSS identifier, or an escape, as in ``c\+1`` or ``\31 a``.
 # Each character matches one alternative only, and a hex escape takes all
@@ -63,6 +70,14 @@ class _ColourRule(typing.NamedTuple):
 # the cue tags that SRT players support
 _SRT_TAGS = {'b', 'i', 'u'}
 
+# Only supported SRT markup starts a tag. A literal '<' before a real
+# tag must not consume that tag's closing '>'.
+_SRT_TAG_START = re.compile(
+    rf'<(?:(?:b|i|u|font)(?=[{_ASCII_WHITESPACE}>])|'
+    rf'/[{_ASCII_WHITESPACE}]*(?:b|i|u|font)[{_ASCII_WHITESPACE}]*(?=>))',
+    re.IGNORECASE | re.ASCII
+    )
+
 # the color of a font tag, quoted or not
 _FONT_COLOUR = re.compile(
     r'''\bcolor\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"']+))''',
@@ -73,10 +88,6 @@ _FONT_COLOUR = re.compile(
 # function such as rgb(255, 0, 0), with its parentheses balanced so that
 # the rest of the style is read
 _COLOUR_VALUE = re.compile(r'#?[\w-]+(?:\([\w\s,.%/+-]*\))?')
-
-# the start of the content of a font start or end tag, as in ``font color``
-# or ``/ FONT``
-_FONT_TAG_START = re.compile(r'(?:/[ \t\n\f\r]*)?font', re.IGNORECASE)
 
 # a {\anN} tag, which places the cue as the keys of a numeric keypad
 _POSITION_TAG = re.compile(r'\{\\an([1-9])\}')
@@ -168,7 +179,8 @@ def parse(
     Parse SRT captions from lines of text.
 
     The colours of ``font`` tags become cue classes, and ``{\anN}`` tags
-    become cue settings, see `parse_captions`.
+    become cue settings, see `parse_captions`. Text outside supported tags
+    is literal and escaped to valid WebVTT cue text.
 
     :param lines: lines of text
     :param issues: a list to add the blocks that are skipped to
@@ -194,12 +206,12 @@ def is_valid_content(lines: Sequence[str]) -> bool:
     :param lines: lines of text
     :returns: true for a valid SRT content
     """
-    start = next((i for i, line in enumerate(lines) if line.strip()),
-                 len(lines))
+    start = next((i for i, line in enumerate(lines)
+                  if line.strip(_ASCII_WHITESPACE)), len(lines))
     return bool(
         len(lines) >= start + 2 and
         _is_index(lines[start]) and
-        '-->' in lines[start + 1]
+        _TIMINGS_START.match(lines[start + 1])
     )
 
 
@@ -213,7 +225,7 @@ def _is_cue_start(lines: Sequence[str]) -> bool:
     :param lines: the lines to be validated
     :returns: true if the lines start a cue
     """
-    return '-->' in lines[0] or (
+    return bool(_TIMINGS_START.match(lines[0])) or (
         len(lines) > 1 and _is_index_and_timings(lines[0], lines[1])
         )
 
@@ -231,7 +243,7 @@ def _timings_line(lines: Sequence[str]) -> int:
 
 def _is_index_and_timings(line: str, next_line: str) -> bool:
     """Return whether a line is a cue index followed by the cue timings."""
-    return _is_index(line) and '-->' in next_line
+    return _is_index(line) and bool(_TIMINGS_START.match(next_line))
 
 
 def _iter_cue_blocks(
@@ -252,7 +264,7 @@ def _iter_cue_blocks(
 
     for number, block_lines in _iter_split_blocks(lines):
         if index_block is not None:
-            if '-->' in block_lines[0]:
+            if _TIMINGS_START.match(block_lines[0]):
                 number = index_block[0]
                 block_lines = index_block[1] + block_lines
             else:
@@ -277,7 +289,8 @@ def _iter_split_blocks(
     :param lines: lines of text
     :returns: the line number where each block starts, from 1, and its lines
     """
-    for number, block_lines in utils._iter_numbered_blocks(lines):
+    for number, block_lines in utils._iter_numbered_blocks(
+            lines, whitespace=_ASCII_WHITESPACE):
         start = 0
         for i in range(1, len(block_lines) - 1):
             if _is_index_and_timings(block_lines[i], block_lines[i + 1]):
@@ -409,7 +422,8 @@ def _convert_markup(caption: Caption, classes: dict[str, str]) -> None:
     converted = _convert_fonts(_POSITION_TAG.sub('', text), classes)
     # a line left with only tags that are removed would end the cue, and the
     # lines read from SRT are not blank
-    caption.lines = [line for line in converted.split('\n') if line.strip()]
+    caption.lines = [line for line in converted.split('\n')
+                     if line.strip(_ASCII_WHITESPACE)]
 
     if position is not None:
         line_setting, align = _POSITIONS[int(position.group(1))]
@@ -421,46 +435,29 @@ def _convert_fonts(
         classes: dict[str, str]
         ) -> str:
     """
-    Convert the font tags of a text to c tags with a class.
+    Convert supported SRT tags and escape literal text as cue text.
 
-    The other tags are kept as written.
+    Font colours become cue classes, and bold, italic and underline tags
+    keep their meaning. Other tags and character references are literal
+    text, so their ampersands and angle brackets are escaped.
 
     :param text: the text, with tags read across line breaks
     :param classes: the classes of the colours, which new colours are
         added to
-    :returns: the text with the font tags converted or removed
+    :returns: the text in WebVTT cue syntax
     """
     output = []
     # whether each open font tag became a c tag
     open_fonts: list[bool] = []
-    for token, is_tag in _scan_cue_text(text):
-        tag = _font_tag(token) if is_tag else None
-        if tag is not None:
-            output.append(_convert_font(tag, open_fonts, classes))
-        elif is_tag:
-            output.append(f'<{token}>')
+    for token in _iter_cue_text_tokens(text, tag_start=_SRT_TAG_START):
+        if isinstance(token, str):
+            output.append(html.escape(token, quote=False))
+        elif token.name.lower() == 'font':
+            output.append(_convert_font(token, open_fonts, classes))
         else:
-            output.append(token)
+            slash = '/' if token.kind == 'end' else ''
+            output.append(f'<{slash}{token.name.lower()}>')
     return ''.join(output)
-
-
-def _font_tag(content: str) -> _CueTag | None:
-    """
-    Read a font start or end tag.
-
-    Only a tag that can be one is read, as reading every tag would slow
-    down reading SRT. A ``font`` tag with a class, as in ``<font.x>``, is
-    not one, as its end tag would not match it.
-
-    :param content: the text between ``<`` and ``>``
-    :returns: the tag, or None for any other tag
-    """
-    if not _FONT_TAG_START.match(content):
-        return None
-    tag = _cue_tag(content)
-    if tag.name.lower() != 'font' or tag.classes:
-        return None
-    return tag
 
 
 def _convert_font(
@@ -815,7 +812,8 @@ def _format_cue_text(
     colour adds a ``font`` tag with that colour. Other tags are removed,
     keeping their text, and the tags left open at the end of the text are
     closed. Tags are read across line breaks, as when the tags are removed
-    from the text, so a tag that spans lines joins them.
+    from the text, so a tag that spans lines joins them. Character
+    references in each text token are resolved once.
 
     :param text: the cue text
     :param colours: the colour rules of the styles
@@ -825,7 +823,7 @@ def _format_cue_text(
     open_tags = _OpenTags()
     for token in _iter_cue_text_tokens(text):
         if isinstance(token, str):
-            output.append(token)
+            output.append(_unescape_cue_text(token))
         elif token.kind == 'end':
             output.extend(open_tags.close(token.name))
         elif token.kind == 'start':
@@ -850,6 +848,11 @@ def write(
     are left out, as a cue without text cannot be read back from SRT, and
     the others are numbered consecutively. The ``line`` and ``align`` cue
     settings are written as a ``{\anN}`` tag, see `_position_tag`.
+    Nonbreaking spaces are text, not blank lines. Literal text shaped
+    like SRT markup cannot be distinguished from formatting on reading;
+    use WebVTT to keep both that text and its formatting.
+    The text is split into lines on CR, LF and CRLF, as it is read, so a
+    carriage return, as from ``&#13;``, is a line break.
 
     :param f: file or file-like object
     :param captions: Iterable of `Caption` objects
@@ -862,11 +865,13 @@ def write(
     for caption in captions:
         # the text without cue tags, so tags with no text are left out also
         # when keeping the formatting
-        if not caption.text.strip():
+        plain_text = caption.text
+        if not plain_text.strip(_ASCII_WHITESPACE):
             continue
-        text = (caption.text if colours is None
+        text = (plain_text if colours is None
                 else _format_cue_text(caption.raw_text, colours))
-        lines = [line for line in text.split('\n') if line.strip()]
+        lines = [line for line in utils._split_lines(text)
+                 if line.strip(_ASCII_WHITESPACE)]
         # a text with a position tag, as written by earlier versions, keeps
         # it
         if not _POSITION_TAG.search(text):

@@ -96,6 +96,17 @@ class TestUtils(unittest.TestCase):
                     blocks
                     )
 
+    def test_iter_numbered_blocks_accepts_ascii_whitespace(self):
+        lines = ['first', '\xa0', 'second', ' \t', 'last']
+        unicode_blocks = [(1, ['first']), (3, ['second']), (5, ['last'])]
+        self.assertEqual(list(_iter_numbered_blocks(lines)), unicode_blocks)
+        self.assertEqual(list(_iter_numbered_blocks(lines, whitespace=None)),
+                         unicode_blocks)
+        self.assertEqual(
+            list(_iter_numbered_blocks(lines, whitespace=' \t\n\f\r')),
+            [(1, ['first', '\xa0', 'second']), (5, ['last'])]
+            )
+
     def test_split_lines(self):
         for text in ('',
                      '\n',

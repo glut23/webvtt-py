@@ -1,12 +1,14 @@
 """SBV format module."""
 
+import html
 import typing
 import re
 from collections.abc import Iterable, Sequence
 
 from . import utils
 from .models import (
-    Caption, ParseIssue, Timestamp, _caption_from_timings, _skipped_block
+    Caption, ParseIssue, Timestamp, _ASCII_WHITESPACE,
+    _caption_from_timings, _skipped_block
     )
 from .errors import MalformedFileError
 
@@ -50,7 +52,7 @@ class SBVCueBlock:
         return bool(
           len(lines) >= 2 and
           cls.CUE_TIMINGS_PATTERN.match(lines[0]) and
-          lines[1].strip()
+          lines[1].strip(_ASCII_WHITESPACE)
           )
 
     @classmethod
@@ -79,6 +81,9 @@ def parse(
     """
     Parse SBV captions from lines of text.
 
+    All text is literal, including tags and character references, and is
+    escaped to valid WebVTT cue text.
+
     :param lines: lines of text
     :param issues: a list to add the blocks that are skipped to
     :returns: list of `Caption` objects
@@ -101,10 +106,11 @@ def _is_valid_content(lines: Sequence[str]) -> bool:
     :param lines: lines of text
     :returns: true for a valid SBV content
     """
-    first_block = next(utils.iter_blocks_of_lines(lines), None)
+    first_block = next(utils._iter_numbered_blocks(
+        lines, whitespace=_ASCII_WHITESPACE), None)
     return bool(
         first_block and
-        SBVCueBlock.CUE_TIMINGS_PATTERN.match(first_block[0])
+        SBVCueBlock.CUE_TIMINGS_PATTERN.match(first_block[1][0])
         )
 
 
@@ -124,7 +130,8 @@ def _parse_captions(
     """
     captions = []
 
-    for number, block_lines in utils._iter_numbered_blocks(lines):
+    for number, block_lines in utils._iter_numbered_blocks(
+            lines, whitespace=_ASCII_WHITESPACE):
         caption = _parse_cue(block_lines)
         if caption is None:
             kind = _skipped_block_kind(block_lines)
@@ -148,7 +155,8 @@ def _parse_cue(lines: Sequence[str]) -> Caption | None:
     cue_block = SBVCueBlock.from_lines(lines)
     return _caption_from_timings(cue_block.start,
                                  cue_block.end,
-                                 cue_block.payload
+                                 [html.escape(line, quote=False)
+                                  for line in cue_block.payload]
                                  )
 
 
@@ -171,19 +179,24 @@ def write(f: typing.IO[str], captions: Iterable[Caption]) -> None:
     The cue tags are removed, as SBV has no formatting, and captions
     without text, such as text of blank lines or only of cue tags, are left
     out, as a cue without text cannot be read back from SBV. The blank
-    lines of the text are removed, as a blank line ends the cue.
+    lines of the text are removed, as a blank line ends the cue. Only
+    ASCII whitespace makes a blank line; nonbreaking spaces are kept.
+    The text is split into lines on CR, LF and CRLF, as it is read, so a
+    carriage return, as from ``&#13;``, is a line break.
 
     :param f: file or file-like object
     :param captions: Iterable of `Caption` objects
     """
     output = []
     for caption in captions:
-        if not caption.text.strip():
+        text = caption.text
+        if not text.strip(_ASCII_WHITESPACE):
             continue
         output.extend([
             f'{_timestamp(caption.start_time)},'
             f'{_timestamp(caption.end_time)}',
-            *(line for line in caption.text.split('\n') if line.strip()),
+            *(line for line in utils._split_lines(text)
+              if line.strip(_ASCII_WHITESPACE)),
             ''
             ])
     f.write('\n'.join(output))
