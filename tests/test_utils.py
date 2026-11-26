@@ -109,10 +109,18 @@ class TestUtils(unittest.TestCase):
                 _write_text_file(folder, 'captions')
             self.assertTrue(pathlib.Path(folder).is_dir())
 
-    @unittest.skipUnless(os.name == 'posix', 'requires a character device')
-    def test_write_to_device(self):
-        _write_text_file(os.devnull, 'captions')
-        self.assertTrue(stat.S_ISCHR(os.stat(os.devnull).st_mode))
+    @unittest.skipUnless(hasattr(os, 'mkfifo'), 'requires a FIFO')
+    def test_write_to_fifo(self):
+        with tempfile.TemporaryDirectory() as folder:
+            fifo = pathlib.Path(folder) / 'captions.vtt'
+            os.mkfifo(fifo)
+            reader = os.open(fifo, os.O_RDONLY | os.O_NONBLOCK)
+            try:
+                _write_text_file(fifo, 'captions', 'utf-8')
+                self.assertTrue(stat.S_ISFIFO(fifo.stat().st_mode))
+                self.assertEqual(os.read(reader, 8), b'captions')
+            finally:
+                os.close(reader)
 
     def test_write_text_file_encoding_error_keeps_file(self):
         for encoding, error in (('ascii', UnicodeEncodeError),
