@@ -1,5 +1,6 @@
 import os
 import pathlib
+import stat
 import unittest
 import tempfile
 from unittest import mock
@@ -58,6 +59,60 @@ class TestUtils(unittest.TestCase):
                 _write_text_file(str(path), 'Café')
 
             self.assertEqual(path.read_bytes(), 'Café'.encode('utf-16-le'))
+
+    def test_interrupted_write_keeps_previous_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = pathlib.Path(folder) / 'captions.vtt'
+            path.write_bytes(b'previous captions')
+            write_bytes = pathlib.Path.write_bytes
+
+            def partial_write(destination, data):
+                write_bytes(destination, data[:3])
+                raise OSError('out of space')
+
+            with mock.patch.object(pathlib.Path, 'write_bytes', partial_write):
+                with self.assertRaisesRegex(OSError, 'out of space'):
+                    _write_text_file(path, 'new captions')
+            self.assertEqual(path.read_bytes(), b'previous captions')
+            self.assertEqual(list(path.parent.iterdir()), [path])
+
+    def test_write_through_symbolic_link(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = pathlib.Path(folder)
+            target = root / 'target.vtt'
+            link = root / 'link.vtt'
+            try:
+                link.symlink_to(target.name)
+            except OSError as exc:
+                self.skipTest(f'cannot create symbolic link: {exc}')
+            for text in ('first', 'second'):
+                _write_text_file(link, text)
+                self.assertTrue(link.is_symlink())
+                self.assertEqual(target.read_text(), text)
+
+    @unittest.skipUnless(os.name == 'posix', 'requires POSIX file modes')
+    def test_write_permissions(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = pathlib.Path(folder) / 'captions.vtt'
+            ordinary = pathlib.Path(folder) / 'ordinary'
+            ordinary.write_bytes(b'')
+            _write_text_file(path, 'first')
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode),
+                             stat.S_IMODE(ordinary.stat().st_mode))
+            path.chmod(0o640)
+            _write_text_file(path, 'second')
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o640)
+
+    def test_write_to_directory(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaises(OSError):
+                _write_text_file(folder, 'captions')
+            self.assertTrue(pathlib.Path(folder).is_dir())
+
+    @unittest.skipUnless(os.name == 'posix', 'requires a character device')
+    def test_write_to_device(self):
+        _write_text_file(os.devnull, 'captions')
+        self.assertTrue(stat.S_ISCHR(os.stat(os.devnull).st_mode))
 
     def test_write_text_file_encoding_error_keeps_file(self):
         for encoding, error in (('ascii', UnicodeEncodeError),

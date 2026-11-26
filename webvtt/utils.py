@@ -4,6 +4,9 @@ import locale
 import os
 import re
 import codecs
+import pathlib
+import stat
+import tempfile
 from collections.abc import Generator, Iterable
 
 CODEC_BOMS = {
@@ -171,8 +174,31 @@ def _write_text_file(
         encoding = locale.getpreferredencoding(False)
 
     data = text.replace('\n', os.linesep).encode(encoding)
-    with open(file_path, 'wb') as f:
-        f.write(data)
+    _write_bytes(file_path, data)
+
+
+def _write_bytes(file_path: _Path, data: bytes) -> None:
+    """Replace a regular file after its entire contents have been written."""
+    target = pathlib.Path(file_path).resolve()
+    try:
+        mode = target.stat().st_mode
+    except FileNotFoundError:
+        mode = None
+
+    if mode is not None and not stat.S_ISREG(mode):
+        target.write_bytes(data)
+        return
+
+    # A private directory on the same filesystem lets open() apply the
+    # usual creation permissions without exposing an unfinished file.
+    with tempfile.TemporaryDirectory(dir=target.parent) as temp_dir:
+        staging = pathlib.Path(temp_dir) / 'output'
+        staging.write_bytes(data)
+        if mode is not None:
+            # Check write access to the existing file before replacing it.
+            os.close(os.open(target, os.O_WRONLY))
+            staging.chmod(stat.S_IMODE(mode))
+        os.replace(staging, target)
 
 
 def iter_blocks_of_lines(
