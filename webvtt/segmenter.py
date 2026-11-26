@@ -281,8 +281,7 @@ def write_segments(
         ]
     for index, content in enumerate(encoded_contents):
         segment_file = output_folder / f'fileSequence{index}.webvtt'
-        with open(segment_file, 'wb') as f:
-            f.write(content)
+        utils._write_bytes(segment_file, content)
 
 
 def write_manifest(
@@ -324,14 +323,10 @@ def write_manifest(
         durations[-1] = duration_milliseconds - last_start
 
     manifest_file = output_folder / _MANIFEST_NAME
-    with open(manifest_file, 'w', encoding='utf-8') as f:
-        f.write('#EXTM3U\n')
-        f.write(f'#EXT-X-TARGETDURATION:{seconds}\n')
-        f.write('#EXT-X-VERSION:3\n')
-        f.write('#EXT-X-PLAYLIST-TYPE:VOD\n')
-
-        for index, milliseconds in enumerate(durations):
-            f.write(f'#EXTINF:{milliseconds / 1000:.5f},\n')
-            f.write(f'fileSequence{index}.webvtt\n')
-
-        f.write('#EXT-X-ENDLIST\n')
+    lines = ['#EXTM3U', f'#EXT-X-TARGETDURATION:{seconds}', '#EXT-X-VERSION:3',
+             '#EXT-X-PLAYLIST-TYPE:VOD']
+    for index, milliseconds in enumerate(durations):
+        lines.extend([f'#EXTINF:{milliseconds / 1000:.5f},',
+                      f'fileSequence{index}.webvtt'])
+    lines.append('#EXT-X-ENDLIST\n')
+    utils._write_text_file(manifest_file, '\n'.join(lines), 'utf-8')

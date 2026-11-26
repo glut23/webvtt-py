@@ -5,6 +5,7 @@ import pathlib
 import textwrap
 import datetime
 import math
+from unittest import mock
 
 import webvtt
 from webvtt import segmenter
@@ -24,6 +25,25 @@ class TestSegmenter(unittest.TestCase):
     def read_folder(self, folder):
         return {path.name: path.read_text()
                 for path in pathlib.Path(folder).iterdir()}
+
+    def test_overwrite_keeps_file_if_replace_fails(self):
+        folder = pathlib.Path(self.temp_dir.name)
+        source = PATH_TO_SAMPLES / 'sample.vtt'
+        real_replace = os.replace
+        for name in ('fileSequence0.webvtt', 'prog_index.m3u8'):
+            with self.subTest(name=name):
+                path = folder / name
+                path.write_bytes(b'previous file')
+
+                def fail_for_target(src, dst):
+                    if pathlib.Path(dst) == path:
+                        raise OSError('disk error')
+                    real_replace(src, dst)
+
+                with mock.patch('os.replace', side_effect=fail_for_target):
+                    with self.assertRaisesRegex(OSError, 'disk error'):
+                        segmenter.segment(source, folder, overwrite=True)
+                self.assertEqual(path.read_bytes(), b'previous file')
 
     def test_segmentation_with_defaults(self):
         segmenter.segment(PATH_TO_SAMPLES / 'sample.vtt', self.temp_dir.name)

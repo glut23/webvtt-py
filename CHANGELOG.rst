@@ -10,6 +10,7 @@ Changes that may need updates to the code using the library:
 
 Changes:
 
+* Replace each subtitle file, HLS segment and playlist after it has been written, so a failed write preserves the previous contents of that file. Reopen the path to read the new contents. On Windows, close handles that prevent replacement before saving (#246)
 * Encode all HLS segments before writing any, so an encoding error in a later segment does not create or overwrite earlier segment files (#240)
 
 0.8.0 (08-11-2026)
